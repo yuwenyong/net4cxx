@@ -1,0 +1,8 @@
+//
+// Created by yuwenyong on 17-9-12.
+//
+
+#ifndef NET4CXX_COMMON_UTILITIES_ERRORS_H
+#define NET4CXX_COMMON_UTILITIES_ERRORS_H
+
+#endif //NET4CXX_COMMON_UTILITIES_ERRORS_H
