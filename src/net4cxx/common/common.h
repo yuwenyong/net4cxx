@@ -50,7 +50,9 @@
 #  include <netdb.h>
 #endif
 
+#define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
 #include <boost/config.hpp>
+#include <boost/assert.hpp>
 #include <boost/date_time.hpp>
 
 
@@ -124,13 +126,12 @@ typedef std::set<std::string> StringSet;
 #define CLR_MASK(lhs, rhs)  lhs &= (~(rhs))
 #define TST_MASK(lhs, rhs)  (((lhs) & (rhs)) == (rhs))
 
-template<typename T, typename ...Args>
-std::unique_ptr<T> make_unique(Args&& ...args) {
-    return std::unique_ptr<T>(new T(std::forward<Args>(args)...));
-}
 
 #define BOOST_LOG_DYN_LINK
 #define BOOST_REGEX_DYN_LINK
+#define BOOST_STACKTRACE_DYN_LINK
+
+#define DEFAULT_STACKTRACE_MAX_DEPTH 20
 
 
 using DateTime = boost::posix_time::ptime;

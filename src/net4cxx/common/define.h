@@ -105,5 +105,9 @@ NS_END
 #   endif
 #endif
 
+#ifdef _DEBUG
+#   define NET4CXX_DEBUG
+#endif
+
 
 #endif //NET4CXX_COMMON_DEFINE_H

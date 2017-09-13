@@ -1,13 +1,12 @@
 //
-// Created by yuwenyong on 17-9-12.
+// Created by yuwenyong on 17-9-13.
 //
 
-#include "net4cxx/common/utilities/errors.h"
-
+#include "net4cxx/common/debugging/assert.h"
 
 NS_BEGIN
 
-const char* Exception::what() const noexcept {
+const char* AssertionError::what() const noexcept {
     if (_what.empty()) {
         _what += _file;
         _what += ':';
@@ -18,6 +17,10 @@ const char* Exception::what() const noexcept {
         _what += getTypeName();
         _what += "\n\t";
         _what += std::runtime_error::what();
+        if (!_extra.empty()) {
+            _what += "\n\t";
+            _what += _extra;
+        }
         if (!_backtrace.empty()) {
             _what += "\nBacktrace:\n";
             _what += _backtrace;
@@ -25,6 +28,5 @@ const char* Exception::what() const noexcept {
     }
     return _what.c_str();
 }
-
 
 NS_END
