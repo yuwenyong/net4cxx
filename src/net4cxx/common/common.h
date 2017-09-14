@@ -55,6 +55,14 @@
 #include <boost/assert.hpp>
 #include <boost/date_time.hpp>
 
+#if !defined(NET4CXX_ENDIAN)
+#  if defined (BOOST_BIG_ENDIAN)
+#    define NET4CXX_ENDIAN NET4CXX_BIGENDIAN
+#  else
+#    define NET4CXX_ENDIAN NET4CXX_LITTLEENDIAN
+#  endif
+#endif
+
 
 #if COMPILER == COMPILER_MICROSOFT
 
