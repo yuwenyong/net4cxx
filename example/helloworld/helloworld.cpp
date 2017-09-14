@@ -9,14 +9,46 @@ void test2();
 
 void test();
 
-int main () {
-    try {
-        net4cxx::CrashReport::printCrashInfo();
-        BOOST_ASSERT(false);
-        test();
-    } catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
+class MyCls {
+public:
+    MyCls() {
+        std::cout << "Construct" << std::endl;
     }
+
+    ~MyCls() {
+        std::cout << "Destruct" << std::endl;
+    }
+
+    void disp() {
+        std::cout << "disp" << std::endl;
+    }
+};
+
+class MyCls2 {
+public:
+    MyCls2() {
+        std::cout << "Construct2" << std::endl;
+    }
+
+    ~MyCls2() {
+        std::cout << "Destruct2" << std::endl;
+    }
+
+    void disp() {
+        std::cout << "disp2" << std::endl;
+    }
+};
+
+int main () {
+    net4cxx::Singleton<MyCls>::instance()->disp();
+    net4cxx::Singleton<MyCls2>::instance()->disp();
+//    try {
+//        net4cxx::CrashReport::printCrashInfo();
+//        BOOST_ASSERT(false);
+//        test();
+//    } catch (std::exception &e) {
+//        std::cerr << e.what() << std::endl;
+//    }
     return 0;
 }
 

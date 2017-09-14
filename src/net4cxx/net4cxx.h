@@ -8,6 +8,7 @@
 #include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/debugging/crashreport.h"
 #include "net4cxx/common/utilities/messagebuffer.h"
+#include "net4cxx/common/utilities/objectmanager.h"
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/common/utilities/util.h"
 
