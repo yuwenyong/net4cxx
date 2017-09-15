@@ -100,4 +100,5 @@ NS_END
 #endif
 
 
+
 #endif //NET4CXX_COMMON_DEFINE_H
