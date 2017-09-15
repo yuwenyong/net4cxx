@@ -21,7 +21,7 @@ class NET4CXX_COMMON_API Exception: public std::runtime_error {
 public:
     Exception(const char *file, int line, const char *func, const std::string &message={})
             : Exception(file, line, func, message, {}) {
-#ifdef NET4CXX_DEBUG
+#ifndef NET4CXX_NDEBUG
         _backtrace = boost::lexical_cast<std::string>(boost::stacktrace::stacktrace(1, DEFAULT_STACKTRACE_MAX_DEPTH));
 #endif
     }

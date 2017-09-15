@@ -17,7 +17,7 @@ public:
     AssertionError(const char *file, int line, const char *func, const std::string &message={}, std::string extra={})
             : Exception(file, line, func, message, {})
             , _extra(std::move(extra)) {
-#ifdef NET4CXX_DEBUG
+#ifndef NET4CXX_NDEBUG
         _backtrace = boost::lexical_cast<std::string>(boost::stacktrace::stacktrace(2, DEFAULT_STACKTRACE_MAX_DEPTH));
 #endif
     }

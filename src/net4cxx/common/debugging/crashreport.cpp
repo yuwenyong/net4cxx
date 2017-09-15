@@ -17,7 +17,7 @@ void CrashReport::crashHandler(int signum) {
 
 class CrashReportInstaller {
 public:
-    CrashReportInstaller() {
+    CrashReportInstaller() noexcept {
 #ifdef SIGSEGV
         ::signal(SIGSEGV, &CrashReport::crashHandler);
 #endif

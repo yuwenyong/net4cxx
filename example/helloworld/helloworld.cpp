@@ -73,6 +73,8 @@ protected:
 };
 
 int main () {
+//    net4cxx::Logging::init();
+//    NET4CXX_INFO("abc");
     Cls1 obj1{"Hehe", 10, 1, {"sz", "sh"}}, obj2;
     obj1.print("obj1");
     net4cxx::OArchive oar;
@@ -80,6 +82,7 @@ int main () {
     net4cxx::IArchive iar(oar.contents(), oar.size());
     iar >> obj2;
     obj2.print("obj2");
+    net4cxx::Logging::close();
 //    net4cxx::Singleton<MyCls>::instance()->disp();
 //    net4cxx::Singleton<MyCls2>::instance()->disp();
 //    try {

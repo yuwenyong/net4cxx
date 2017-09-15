@@ -1,6 +1,6 @@
 
-find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem thread program_options iostreams regex log date_time
-        stacktrace_basic)
+find_package(Boost 1.65 REQUIRED COMPONENTS system filesystem thread program_options iostreams regex log_setup log
+        date_time stacktrace_basic)
 
 add_library(boost INTERFACE)
 

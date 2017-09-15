@@ -26,7 +26,8 @@ NS_BEGIN
 
 class NET4CXX_COMMON_API EVPContext {
 public:
-    EVPContext(const char *name);
+    explicit EVPContext(const char *name);
+
     ~EVPContext();
 
     const EVP_MD_CTX* native() const {
@@ -51,15 +52,15 @@ public:
         update(d, cnt);
     }
 
-    EVPObject(const ByteArray &data): EVPObject() {
+    explicit EVPObject(const ByteArray &data): EVPObject() {
         update(data);
     }
 
-    EVPObject(const char *s): EVPObject() {
+    explicit EVPObject(const char *s): EVPObject() {
         update(s);
     }
 
-    EVPObject(const std::string &data): EVPObject() {
+    explicit EVPObject(const std::string &data): EVPObject() {
         update(data);
     }
 

@@ -95,10 +95,8 @@ NS_END
 #   ifndef _GLIBCXX_DEBUG
 #       define _GLIBCXX_DEBUG
 #   endif
-#endif
-
-#ifdef _DEBUG
-#   define NET4CXX_DEBUG
+#else
+#   define NET4CXX_NDEBUG
 #endif
 
 

@@ -10,14 +10,12 @@ NS_BEGIN
 
 class OpenSSLInit {
 public:
-    OpenSSLInit() {
+    OpenSSLInit() noexcept {
         OpenSSL_add_all_digests();
         ERR_load_crypto_strings();
     }
 
-    ~OpenSSLInit() {
-
-    }
+    ~OpenSSLInit() = default;
 };
 
 
