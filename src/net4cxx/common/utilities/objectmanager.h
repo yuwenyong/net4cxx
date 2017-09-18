@@ -87,6 +87,6 @@ ObjectT * Singleton<ObjectT>::instance() {
 
 NS_END
 
-#define NET4CXX_OBJECT_MGR  net4cxx::ObjectManager::instance()
+#define NET4CXX_ObjectManager  net4cxx::ObjectManager::instance()
 
 #endif //NET4CXX_COMMON_UTILITIES_OBJECTMANAGER_H
