@@ -6,6 +6,7 @@
 #include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/core/network/error.h"
+#include "net4cxx/core/network/tcp.h"
 
 
 NS_BEGIN
@@ -43,6 +44,13 @@ void Reactor::stop() {
         _stopCallbacks.disconnect_all_slots();
     }
     _ioService.stop();
+}
+
+std::shared_ptr<Port> Reactor::listenTCP(unsigned short port, std::unique_ptr<Factory> &&factory,
+                                         const std::string &interface) {
+    auto p = std::make_shared<TCPPort>(port, std::move(factory), interface, this);
+    p->startListening();
+    return p;
 }
 
 void Reactor::startRunning(bool installSignalHandlers) {

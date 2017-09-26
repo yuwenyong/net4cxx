@@ -22,4 +22,12 @@ void DelayedCall::cancel() {
     timeout->cancel();
 }
 
+const char* Port::logPrefix() const {
+    return "Port";
+}
+
+const char* Connection::logPrefix() const {
+    return "Connection";
+}
+
 NS_END

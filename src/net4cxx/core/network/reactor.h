@@ -13,10 +13,15 @@
 
 NS_BEGIN
 
+class Port;
+class Factory;
+
 class NET4CXX_COMMON_API Reactor {
 public:
     using ServiceType = boost::asio::io_service;
     using WorkType = ServiceType::work;
+    using AcceptorType = boost::asio::ip::tcp::acceptor;
+    using SocketType = boost::asio::ip::tcp::socket;
     using SignalSet = boost::asio::signal_set;
     using StopCallbacks = boost::signals2::signal<void ()>;
 
@@ -70,6 +75,17 @@ public:
     void addStopCallback(CallbackT &&callback) {
         _stopCallbacks.connect(std::forward<CallbackT>(callback));
     }
+
+    AcceptorType&& createAcceptor() {
+        return {_ioService};
+    }
+
+    SocketType&& createSocket() {
+        return {_ioService};
+    }
+
+    std::shared_ptr<Port> listenTCP(unsigned short port, std::unique_ptr<Factory> &&factory,
+                                    const std::string &interface);
 
     bool running() const {
         return !_running;

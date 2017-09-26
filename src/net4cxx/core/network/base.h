@@ -11,6 +11,7 @@
 NS_BEGIN
 
 class Reactor;
+class Protocol;
 
 class NET4CXX_COMMON_API Timeout: public std::enable_shared_from_this<Timeout> {
 public:
@@ -75,6 +76,57 @@ public:
     void cancel();
 protected:
     TimeoutHandle _timeout;
+};
+
+
+class NET4CXX_COMMON_API Port {
+public:
+    explicit Port(Reactor *reactor)
+            : _reactor(reactor) {
+
+    }
+
+    virtual ~Port() = default;
+
+    virtual const char* logPrefix() const;
+
+    virtual void startListening() = 0;
+
+    virtual void stopListening() = 0;
+protected:
+    Reactor *_reactor{nullptr};
+};
+
+
+class NET4CXX_COMMON_API Connection {
+public:
+    explicit Connection(Reactor *reactor)
+            : _reactor(reactor) {
+
+    }
+
+    Connection(const std::weak_ptr<Protocol> &protocol, Reactor *reactor)
+            : _protocol(_protocol)
+            , _reactor(reactor) {
+
+    }
+
+    virtual ~Connection() = default;
+
+    virtual const char* logPrefix() const;
+
+    virtual void write(const Byte *data, size_t length) = 0;
+
+    virtual void loseConnection(std::exception_ptr reason) = 0;
+
+    virtual void startReading() = 0;
+
+    void setProtocol(const std::weak_ptr<Protocol> &protocol) {
+        _protocol = protocol;
+    }
+protected:
+    std::weak_ptr<Protocol> _protocol;
+    Reactor *_reactor{nullptr};
 };
 
 NS_END

@@ -74,7 +74,7 @@ enum class HTTPStatusCode {
     NOT_EXTENDED = 510,
 };
 
-extern const std::map<int, std::string> HTTP_RESPONSES;
+extern const std::map<int, std::string> gHTTPResponses;
 
 NS_END
 
