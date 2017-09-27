@@ -13,6 +13,7 @@ NS_BEGIN
 
 class Connection;
 class Protocol;
+class Connector;
 
 class NET4CXX_COMMON_API Factory {
 public:
@@ -31,6 +32,16 @@ public:
     virtual std::shared_ptr<Protocol> buildProtocol(const std::string &address, unsigned short port) = 0;
 protected:
     int _numPorts{0};
+};
+
+
+class NET4CXX_COMMON_API ClientFactory: public Factory {
+public:
+    virtual void startedConnecting(Connector *connector) = 0;
+
+    virtual void clientConnectionFailed(Connector *connector, std::exception_ptr reason) = 0;
+
+    virtual void clientConnectionLost(Connector *connector, std::exception_ptr reason) = 0;
 };
 
 

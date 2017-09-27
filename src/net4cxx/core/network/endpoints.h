@@ -18,7 +18,7 @@ class Port;
 
 class NET4CXX_COMMON_API ServerEndpoint {
 public:
-    virtual ~ServerEndpoint() = 0;
+    virtual ~ServerEndpoint() = default;
     virtual std::shared_ptr<Port> listen(std::unique_ptr<Factory> &&protocolFactory) = 0;
 };
 

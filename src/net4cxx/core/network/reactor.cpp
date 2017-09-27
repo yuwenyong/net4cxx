@@ -6,6 +6,7 @@
 #include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/core/network/error.h"
+#include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/tcp.h"
 
 

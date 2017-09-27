@@ -40,7 +40,7 @@ std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::st
     }
     const std::string &endpointType = args[0];
     if (endpointType == "tcp") {
-        return _parseTCP(reactor, args)
+        return _parseTCP(reactor, args);
     } else {
         NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unknown endpoint type: '%s'", endpointType.c_str()));
     }

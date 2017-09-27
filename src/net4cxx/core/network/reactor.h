@@ -76,12 +76,12 @@ public:
         _stopCallbacks.connect(std::forward<CallbackT>(callback));
     }
 
-    AcceptorType&& createAcceptor() {
-        return {_ioService};
+    AcceptorType createAcceptor() {
+        return AcceptorType{_ioService};
     }
 
-    SocketType&& createSocket() {
-        return {_ioService};
+    SocketType createSocket() {
+        return SocketType{_ioService};
     }
 
     std::shared_ptr<Port> listenTCP(unsigned short port, std::unique_ptr<Factory> &&factory,

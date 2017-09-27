@@ -94,31 +94,6 @@ public:
             writeCompleted(size);
         }
     }
-
-    ByteArray&& move() {
-        _wpos = 0;
-        _rpos = 0;
-        return std::move(_storage);
-    }
-
-    MessageBuffer& operator=(MessageBuffer const& right) {
-        if (this != &right) {
-            _wpos = right._wpos;
-            _rpos = right._rpos;
-            _storage = right._storage;
-        }
-        return *this;
-    }
-
-    MessageBuffer& operator=(MessageBuffer&& right) noexcept {
-        if (this != &right) {
-            _wpos = right._wpos;
-            _rpos = right._rpos;
-            _storage = right.move();
-        }
-        return *this;
-    }
-
 protected:
     size_t _wpos;
     size_t _rpos;

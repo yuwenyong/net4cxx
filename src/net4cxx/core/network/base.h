@@ -7,6 +7,7 @@
 
 #include "net4cxx/common/common.h"
 #include <boost/asio/steady_timer.hpp>
+#include "net4cxx/common/utilities/messagebuffer.h"
 
 NS_BEGIN
 
@@ -100,13 +101,8 @@ protected:
 
 class NET4CXX_COMMON_API Connection {
 public:
-    explicit Connection(Reactor *reactor)
-            : _reactor(reactor) {
-
-    }
-
     Connection(const std::weak_ptr<Protocol> &protocol, Reactor *reactor)
-            : _protocol(_protocol)
+            : _protocol(protocol)
             , _reactor(reactor) {
 
     }
@@ -117,16 +113,23 @@ public:
 
     virtual void write(const Byte *data, size_t length) = 0;
 
-    virtual void loseConnection(std::exception_ptr reason) = 0;
+    virtual void loseConnection() = 0;
 
-    virtual void startReading() = 0;
-
-    void setProtocol(const std::weak_ptr<Protocol> &protocol) {
-        _protocol = protocol;
-    }
+    virtual void abortConnection() = 0;
 protected:
+    void dataReceived(Byte *data, size_t length);
+
+    void connectionLost(std::exception_ptr reason);
+
     std::weak_ptr<Protocol> _protocol;
     Reactor *_reactor{nullptr};
+    MessageBuffer _readBuffer;
+    std::deque<MessageBuffer> _writeQueue;
+    bool _reading{false};
+    bool _writing{false};
+    bool _connected{false};
+    bool _disconnected{false};
+    bool _disconnecting{false};
 };
 
 NS_END

@@ -13,11 +13,9 @@ NS_BEGIN
 
 class Factory;
 
-class NET4CXX_COMMON_API TCPConnection: public Connection, public std::enable_shared_from_this<TCPConnection> {
+class NET4CXX_COMMON_API TCPConnection: public Connection {
 public:
     using SocketType = boost::asio::ip::tcp::socket;
-
-    explicit TCPConnection(Reactor *reactor);
 
     TCPConnection(const std::weak_ptr<Protocol> &protocol, Reactor *reactor);
 
@@ -27,22 +25,33 @@ public:
         return _socket;
     }
 
-    template <typename ResultT>
-    std::shared_ptr<ResultT> getSelf() {
-        return std::static_pointer_cast<ResultT>(shared_from_this());
+    void write(const Byte *data, size_t length) override;
+
+    void loseConnection() override;
+
+    void abortConnection() override;
+
+    bool getTcpNoDely() const {
+        boost::asio::ip::tcp::no_delay option;
+        _socket.get_option(option);
+        return option.value();
     }
-protected:
-    SocketType _socket;
-};
 
+    void setTcpNoDelay(bool enabled) {
+        boost::asio::ip::tcp::no_delay option(enabled);
+        _socket.set_option(option);
+    }
 
-class NET4CXX_COMMON_API TCPServerConnection: public TCPConnection {
-public:
-    TCPServerConnection(unsigned int sessionno, Reactor *reactor);
+    bool getTcpKeepAlive() const {
+        boost::asio::socket_base::keep_alive option;
+        _socket.get_option(option);
+        return option.value();
+    }
 
-    TCPServerConnection(const std::weak_ptr<Protocol> &protocol, unsigned int sessionno, Reactor *reactor);
-
-    const char* logPrefix() const override;
+    void setTcpKeepAlive(bool enabled) {
+        boost::asio::socket_base::keep_alive option(enabled);
+        _socket.set_option(option);
+    }
 
     std::string getLocalAddress() const {
         auto endpoint = _socket.local_endpoint();
@@ -63,11 +72,60 @@ public:
         auto endpoint = _socket.remote_endpoint();
         return endpoint.port();
     }
+protected:
+    void startReading() {
+        if (!_reading) {
+            doRead();
+        }
+    }
 
+    void doRead();
+
+    void cbRead(const boost::system::error_code &ec, size_t transferredBytes) {
+        _reading = false;
+        handleRead(ec, transferredBytes);
+        if (!_disconnecting && !_disconnected) {
+            doRead();
+        }
+    }
+
+    void handleRead(const boost::system::error_code &ec, size_t transferredBytes);
+
+    void startWriting() {
+        if (!_writing) {
+            doWrite();
+        }
+    }
+
+    void doWrite();
+
+    void cbWrite(const boost::system::error_code &ec, size_t transferredBytes) {
+        _writing = false;
+        handleWrite(ec, transferredBytes);
+        if (!_disconnecting && !_disconnected && !_writeQueue.empty()) {
+            doWrite();
+        }
+    }
+
+    void handleWrite(const boost::system::error_code &ec, size_t transferredBytes);
+
+    SocketType _socket;
+    std::exception_ptr _error;
+};
+
+
+class NET4CXX_COMMON_API TCPServerConnection: public TCPConnection {
+public:
+    TCPServerConnection(unsigned int sessionno, Reactor *reactor);
+
+    const char* logPrefix() const override;
+
+    void cbAccept(const std::weak_ptr<Protocol> &protocol);
 protected:
     unsigned int _sessionno;
     std::string _logstr;
 };
+
 
 class NET4CXX_COMMON_API TCPPort: public Port, public std::enable_shared_from_this<TCPPort> {
 public:
@@ -102,7 +160,7 @@ protected:
     void doAccept() {
         _connection = std::make_shared<TCPServerConnection>(_sessionno, _reactor);
         _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPPort::cbAccept, shared_from_this(),
-                                                                   std::placeholders::_1))
+                                                                   std::placeholders::_1));
     }
 
     unsigned short _port{0};
