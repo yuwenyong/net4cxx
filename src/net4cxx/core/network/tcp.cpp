@@ -49,6 +49,16 @@ void TCPConnection::abortConnection() {
     _socket.close();
 }
 
+void TCPConnection::closeSocket() {
+    _connected = false;
+    _disconnected = true;
+    _disconnecting = false;
+    if (_socket.is_open()) {
+        _socket.close();
+    }
+    connectionLost(_error);
+}
+
 void TCPConnection::doRead() {
     auto protocol = _protocol.lock();
     BOOST_ASSERT(protocol);
@@ -67,16 +77,10 @@ void TCPConnection::handleRead(const boost::system::error_code &ec, size_t trans
 
         }
         if (!_disconnected) {
-            _connected = false;
-            _disconnected = true;
-            _disconnecting = false;
-            if (_socket.is_open()) {
-                _socket.close();
-            }
             if (ec != boost::asio::error::operation_aborted) {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             }
-            connectionLost(_error);
+            closeSocket();
         }
     } else {
         if (_disconnecting) {
@@ -151,24 +155,14 @@ void TCPConnection::handleWrite(const boost::system::error_code &ec, size_t tran
 
         }
         if (!_disconnected) {
-            _connected = false;
-            _disconnected = true;
-            _disconnecting = false;
-            if (_socket.is_open()) {
-                _socket.close();
-            }
             if (ec != boost::asio::error::operation_aborted) {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             }
-            connectionLost(_error);
+            closeSocket();
         }
     } else {
         if (_disconnecting) {
-            _connected = false;
-            _disconnected = true;
-            _disconnecting = false;
-            _socket.close();
-            connectionLost(_error);
+            closeSocket();
             return;
         }
         if (transferredBytes > 0) {
@@ -199,9 +193,23 @@ void TCPServerConnection::cbAccept(const std::weak_ptr<Protocol> &protocol) {
 }
 
 
-TCPPort::TCPPort(unsigned short port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor)
+void TCPClientConnection::cbConnect(const std::weak_ptr<Protocol> &protocol, std::shared_ptr<TCPConnector> connector) {
+    _protocol = protocol;
+    _connector = std::move(connector);
+    _connected = true;
+    _socket.non_blocking(true);
+    startReading();
+}
+
+void TCPClientConnection::closeSocket() {
+    TCPConnection::closeSocket();
+    _connector->connectionLost(_error);
+}
+
+
+TCPPort::TCPPort(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor)
         : Port(reactor)
-        , _port(port)
+        , _port(std::move(port))
         , _factory(std::move(factory))
         , _interface(std::move(interface))
         , _acceptor(reactor->createAcceptor()) {
@@ -214,14 +222,19 @@ const char* TCPPort::logPrefix() const {
 
 
 void TCPPort::startListening() {
-    ResolverType resolver(_reactor->getService());
-    ResolverType::query query(_interface, std::to_string(_port));
-    EndpointType endpoint = *resolver.resolve(query);
+    EndpointType endpoint;
+    if (NetUtil::isValidIP(_interface) && NetUtil::isValidPort(_port)) {
+        endpoint = {AddressType::from_string(_interface), (unsigned short)std::stoul(_port)};
+    } else {
+        ResolverType resolver(_reactor->getService());
+        ResolverType::query query(_interface, _port);
+        endpoint = *resolver.resolve(query);
+    }
     _acceptor.open(endpoint.protocol());
     _acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     _acceptor.bind(endpoint);
     _acceptor.listen();
-    NET4CXX_INFO(gGenLog, "%s starting on %u", logPrefix(), _port);
+    NET4CXX_INFO(gGenLog, "%s starting on %s", logPrefix(), _port);
     _factory->doStart();
     _connected = true;
     doAccept();
@@ -249,15 +262,158 @@ void TCPPort::handleAccept(const boost::system::error_code &ec) {
         if (ec != boost::asio::error::operation_aborted) {
             NET4CXX_ERROR(gGenLog, "Could not accept new connection(%d:%s)", ec.value(), ec.message().c_str());
         }
-        std::string address = _connection->getRemoteAddress();
-        unsigned short port = _connection->getRemotePort();
-        auto protocol = _factory->buildProtocol(address, port);
+        Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
+        auto protocol = _factory->buildProtocol(address);
         if (protocol) {
             ++_sessionno;
             _connection->cbAccept(protocol);
             protocol->makeConnection(_connection);
         }
         _connection.reset();
+    }
+}
+
+
+TCPConnector::TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
+                           Address bindAddress, Reactor *reactor)
+        : Connector(reactor)
+        , _host(std::move(host))
+        , _port(std::move(port))
+        , _factory(std::move(factory))
+        , _timeout(timeout)
+        , _bindAddress(std::move(bindAddress))
+        , _resolver(reactor->getService()) {
+
+}
+
+void TCPConnector::startConnecting() {
+    if (_state != kDisconnected) {
+        NET4CXX_THROW_EXCEPTION(Exception, "can't connect in this state");
+    }
+    _state = kConnecting;
+    if (!_factoryStarted) {
+        _factory->doStart();
+        _factoryStarted = true;
+    }
+    if (NetUtil::isValidIP(_host) && NetUtil::isValidPort(_port)) {
+        doConnect();
+    } else {
+        doResolve();
+    }
+    if (_timeout != 0.0) {
+        _timeoutId = _reactor->callLater(_timeout, [self=shared_from_this()]() {
+            cbTimeout();
+        });
+    }
+    _factory->startedConnecting(this);
+}
+
+void TCPConnector::stopConnecting() {
+    if (_state != kConnecting) {
+        NET4CXX_THROW_EXCEPTION(NotConnectingError, "we're not trying to connect");
+    }
+    _error = NET4CXX_EXCEPTION_PTR(UserAbort, "");
+    if (_connection) {
+        _connection->getSocket().close();
+        _connection.reset();
+    } else {
+        _resolver.cancel();
+    }
+    _state = kDisconnected;
+}
+
+void TCPConnector::connectionFailed(std::exception_ptr reason) {
+    if (reason) {
+        _error = std::move(reason);
+    }
+    cancelTimeout();
+    _connection.reset();
+    _state = kDisconnected;
+    _factory->clientConnectionFailed(this, _error);
+    if (_state == kDisconnected) {
+        _factory->doStop();
+        _factoryStarted = false;
+    }
+}
+
+void TCPConnector::connectionLost(std::exception_ptr reason) {
+    if (reason) {
+        _error = std::move(reason);
+    }
+    _state = kDisconnected;
+    _factory->clientConnectionLost(this, _error);
+    if (_state == kDisconnected) {
+        _factory->doStop();
+        _factoryStarted = false;
+    }
+}
+
+std::shared_ptr<Protocol> TCPConnector::buildProtocol(const Address &address) {
+    _state = kConnected;
+    cancelTimeout();
+    return _factory->buildProtocol(address);
+}
+
+void TCPConnector::doResolve() {
+    ResolverType::query query(_host, _port);
+    _resolver.async_resolve(query, [this, self=shared_from_this()](
+            const boost::system::error_code &ec, ResolverIterator iterator) {
+        cbResolve(ec, std::move(iterator));
+    });
+}
+
+void TCPConnector::handleResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
+    if (ec) {
+        if (ec != boost::asio::error::operation_aborted) {
+            _error = std::make_exception_ptr(boost::system::system_error(ec));
+        }
+        connectionFailed();
+    }
+}
+
+void TCPConnector::doConnect() {
+    makeTransport();
+    EndpointType endpoint{AddressType::from_string(_host), (unsigned short)std::stoul(_port)};
+    _connection->getSocket().async_connect(endpoint, [this, self=shared_from_this(), connection=_connection](
+            const boost::system::error_code &ec) {
+        cbConnect(ec);
+    });
+}
+
+void TCPConnector::doConnect(ResolverIterator iterator) {
+    makeTransport();
+    boost::asio::async_connect(_connection->getSocket(), std::move(iterator), [this, self=shared_from_this(),
+            connection=_connection](const boost::system::error_code &ec) {
+        cbConnect(ec);
+    });
+}
+
+void TCPConnector::handleConnect(const boost::system::error_code &ec) {
+    if (ec) {
+        if (ec != boost::asio::error::operation_aborted) {
+            _error = std::make_exception_ptr(boost::system::system_error(ec));
+        }
+        connectionFailed();
+    } else {
+        Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
+        auto protocol = buildProtocol(address);
+        if (!protocol) {
+            _connection.reset();
+            connectionLost();
+        } else {
+            _connection->cbConnect(protocol, shared_from_this());
+            protocol->connectionMade();
+            _connection.reset();
+        }
+    }
+}
+
+void TCPConnector::makeTransport() {
+    _connection = std::make_shared<TCPClientConnection>();
+    if (!_bindAddress.getAddress().empty()) {
+        EndpointType endpoint{AddressType::from_string(_bindAddress.getAddress()), _bindAddress.getPort()};
+        _connection->getSocket().open(endpoint.protocol());
+        _connection->getSocket().bind(endpoint);
     }
 }
 

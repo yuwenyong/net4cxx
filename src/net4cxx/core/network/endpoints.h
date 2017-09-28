@@ -25,9 +25,9 @@ public:
 
 class NET4CXX_COMMON_API TCPServerEndpoint: public ServerEndpoint {
 public:
-    TCPServerEndpoint(Reactor *reactor, unsigned short port, std::string interface)
+    TCPServerEndpoint(Reactor *reactor, std::string port, std::string interface)
             : _reactor(reactor)
-            , _port(port)
+            , _port(std::move(port))
             , _interface(std::move(interface)) {
 
     }
@@ -35,7 +35,7 @@ public:
     std::shared_ptr<Port> listen(std::unique_ptr<Factory> &&protocolFactory) override;
 protected:
     Reactor *_reactor{nullptr};
-    unsigned short _port{0};
+    std::string _port;
     std::string _interface;
 };
 

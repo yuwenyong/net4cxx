@@ -6,13 +6,64 @@
 #define NET4CXX_CORE_NETWORK_BASE_H
 
 #include "net4cxx/common/common.h"
+#include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/messagebuffer.h"
 
 NS_BEGIN
 
 class Reactor;
 class Protocol;
+
+class NET4CXX_COMMON_API NetUtil {
+public:
+    static bool isValidIP(const std::string &ip) {
+        boost::system::error_code ec;
+        boost::asio::ip::address::from_string(ip, ec);
+        return !ec;
+    }
+
+    static bool isValidPort(const std::string &port) {
+        if (port.empty()) {
+            return false;
+        }
+        return boost::all(port, boost::is_digit());
+    }
+};
+
+class NET4CXX_COMMON_API Address {
+public:
+    explicit Address(std::string address="", unsigned short port=0)
+            : _address{std::move(address)}
+            , _port(port) {
+
+    }
+
+    void setAddress(std::string &&address) {
+        _address = std::move(address);
+    }
+
+    void setAddress(const std::string &address) {
+        _address = address;
+    }
+
+    const std::string& getAddress() const {
+        return _address;
+    }
+
+    void setPort(unsigned short port) {
+        _port;
+    }
+
+    unsigned short getPort() const {
+        return _port;
+    }
+protected:
+    std::string _address;
+    unsigned short _port{0};
+};
+
 
 class NET4CXX_COMMON_API Timeout: public std::enable_shared_from_this<Timeout> {
 public:
@@ -65,6 +116,8 @@ typedef std::weak_ptr<Timeout> TimeoutHandle;
 
 class NET4CXX_COMMON_API DelayedCall {
 public:
+    DelayedCall() = default;
+
     explicit DelayedCall(TimeoutHandle timeout)
             : _timeout(std::move(timeout)) {
 
@@ -77,25 +130,6 @@ public:
     void cancel();
 protected:
     TimeoutHandle _timeout;
-};
-
-
-class NET4CXX_COMMON_API Port {
-public:
-    explicit Port(Reactor *reactor)
-            : _reactor(reactor) {
-
-    }
-
-    virtual ~Port() = default;
-
-    virtual const char* logPrefix() const;
-
-    virtual void startListening() = 0;
-
-    virtual void stopListening() = 0;
-protected:
-    Reactor *_reactor{nullptr};
 };
 
 
@@ -130,6 +164,41 @@ protected:
     bool _connected{false};
     bool _disconnected{false};
     bool _disconnecting{false};
+};
+
+class NET4CXX_COMMON_API Port {
+public:
+    explicit Port(Reactor *reactor)
+            : _reactor(reactor) {
+
+    }
+
+    virtual ~Port() = default;
+
+    virtual const char* logPrefix() const;
+
+    virtual void startListening() = 0;
+
+    virtual void stopListening() = 0;
+protected:
+    Reactor *_reactor{nullptr};
+};
+
+
+class NET4CXX_COMMON_API Connector {
+public:
+    explicit Connector(Reactor *reactor)
+            : _reactor(reactor) {
+
+    }
+
+    virtual ~Connector() = default;
+
+    virtual void startConnecting() = 0;
+
+    virtual void stopConnecting() = 0;
+protected:
+    Reactor *_reactor{nullptr};
 };
 
 NS_END

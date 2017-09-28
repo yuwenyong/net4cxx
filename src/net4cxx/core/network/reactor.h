@@ -6,15 +6,18 @@
 #define NET4CXX_CORE_NETWORK_REACTOR_H
 
 #include "net4cxx/common/common.h"
-#include <boost/asio.hpp>
 #include <boost/signals2.hpp>
 #include "net4cxx/core/network/base.h"
 
 
 NS_BEGIN
 
+
 class Port;
 class Factory;
+class Connector;
+class ClientFactory;
+
 
 class NET4CXX_COMMON_API Reactor {
 public:
@@ -84,8 +87,12 @@ public:
         return SocketType{_ioService};
     }
 
-    std::shared_ptr<Port> listenTCP(unsigned short port, std::unique_ptr<Factory> &&factory,
+    std::shared_ptr<Port> listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
                                     const std::string &interface);
+
+    std::shared_ptr<Connector> connectTCP(const std::string &host, const std::string &port,
+                                          std::unique_ptr<ClientFactory> &&factory, double timeout=30.0,
+                                          const Address &bindAddress={});
 
     bool running() const {
         return !_running;

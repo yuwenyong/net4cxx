@@ -7,6 +7,7 @@
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/global/loggers.h"
+#include "net4cxx/core/network/base.h"
 
 
 NS_BEGIN
@@ -29,7 +30,7 @@ public:
 
     virtual void stopFactory();
 
-    virtual std::shared_ptr<Protocol> buildProtocol(const std::string &address, unsigned short port) = 0;
+    virtual std::shared_ptr<Protocol> buildProtocol(const Address &address) = 0;
 protected:
     int _numPorts{0};
 };

@@ -8,10 +8,13 @@
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/core/network/error.h"
 
 NS_BEGIN
 
 class Factory;
+class ClientFactory;
+class TCPConnector;
 
 class NET4CXX_COMMON_API TCPConnection: public Connection {
 public:
@@ -73,6 +76,8 @@ public:
         return endpoint.port();
     }
 protected:
+    virtual void closeSocket();
+
     void startReading() {
         if (!_reading) {
             doRead();
@@ -127,15 +132,30 @@ protected:
 };
 
 
+class NET4CXX_COMMON_API TCPClientConnection: public TCPConnection {
+public:
+    explicit TCPClientConnection(Reactor *reactor)
+            : TCPConnection({}, reactor) {
+
+    }
+
+    void cbConnect(const std::weak_ptr<Protocol> &protocol, std::shared_ptr<TCPConnector> connector);
+protected:
+    void closeSocket() override;
+
+    std::shared_ptr<TCPConnector> _connector;
+};
+
 class NET4CXX_COMMON_API TCPPort: public Port, public std::enable_shared_from_this<TCPPort> {
 public:
+    using AddressType = boost::asio::ip::address;
     using AcceptorType = boost::asio::ip::tcp::acceptor;
     using SocketType = boost::asio::ip::tcp::socket;
     using ResolverType = boost::asio::ip::tcp::resolver ;
     using EndpointType = boost::asio::ip::tcp::endpoint ;
     using ResolverIterator = ResolverType::iterator;
 
-    TCPPort(unsigned short port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
+    TCPPort(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
 
     const char* logPrefix() const override;
 
@@ -163,7 +183,7 @@ protected:
                                                                    std::placeholders::_1));
     }
 
-    unsigned short _port{0};
+    std::string _port;
     std::unique_ptr<Factory> _factory;
     std::string _interface;
     AcceptorType _acceptor;
@@ -171,6 +191,86 @@ protected:
     unsigned int _sessionno{0};
     std::shared_ptr<TCPServerConnection> _connection;
 };
+
+
+class NET4CXX_COMMON_API TCPConnector: public Connector, public std::enable_shared_from_this<TCPConnector> {
+public:
+    using AddressType = boost::asio::ip::address;
+    using SocketType = boost::asio::ip::tcp::socket;
+    using ResolverType = boost::asio::ip::tcp::resolver ;
+    using ResolverIterator = ResolverType::iterator;
+    using EndpointType = boost::asio::ip::tcp::endpoint ;
+
+    TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
+                 Address bindAddress, Reactor *reactor);
+
+    void startConnecting() override;
+
+    void stopConnecting() override;
+
+    void connectionFailed(std::exception_ptr reason={});
+
+    void connectionLost(std::exception_ptr reason={});
+protected:
+    std::shared_ptr<Protocol> buildProtocol(const Address &address);
+
+    void cancelTimeout() {
+        if (!_timeoutId.cancelled()) {
+            _timeoutId.cancel();
+        }
+    }
+
+    void doResolve();
+
+    void cbResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
+        handleResolve(ec, iterator);
+        if (_state == kConnecting) {
+            doConnect(std::move(iterator));
+        }
+    }
+
+    void handleResolve(const boost::system::error_code &ec, ResolverIterator iterator);
+
+    void doConnect();
+
+    void doConnect(ResolverIterator iterator);
+
+    void cbConnect(const boost::system::error_code &ec) {
+        handleConnect(ec);
+    }
+
+    void handleConnect(const boost::system::error_code &ec);
+
+    void cbTimeout() {
+        handleTimeout();
+    }
+
+    void handleTimeout() {
+        _error = NET4CXX_EXCEPTION_PTR(TimeoutError, "");
+        connectionFailed();
+    }
+
+    void makeTransport();
+
+    enum State {
+        kDisconnected,
+        kConnecting,
+        kConnected,
+    };
+
+    std::string _host;
+    std::string _port;
+    std::unique_ptr<ClientFactory> _factory;
+    double _timeout{0.0};
+    Address _bindAddress;
+    ResolverType _resolver;
+    std::shared_ptr<TCPClientConnection> _connection;
+    State _state{kDisconnected};
+    DelayedCall _timeoutId;
+    bool _factoryStarted{false};
+    std::exception_ptr _error;
+};
+
 
 NS_END
 

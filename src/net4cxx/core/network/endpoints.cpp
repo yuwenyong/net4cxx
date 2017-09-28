@@ -16,7 +16,7 @@ std::shared_ptr<Port> TCPServerEndpoint::listen(std::unique_ptr<Factory> &&proto
 }
 
 std::unique_ptr<ServerEndpoint> _parseTCP(Reactor *reactor, const StringVector &args) {
-    auto port = (unsigned short)std::stoul(args[1]);
+    std::string port = args[1];
     std::string interface = "::";
     for (size_t i = 2; i != args.size(); ++i) {
         auto fields = StrUtil::partition(args[i], "=");

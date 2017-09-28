@@ -26,11 +26,6 @@ void DelayedCall::cancel() {
 }
 
 
-const char* Port::logPrefix() const {
-    return "Port";
-}
-
-
 const char* Connection::logPrefix() const {
     return "Connection";
 }
@@ -45,6 +40,10 @@ void Connection::connectionLost(std::exception_ptr reason) {
     auto protocol = _protocol.lock();
     BOOST_ASSERT(protocol);
     protocol->connectionLost(std::move(reason));
+}
+
+const char* Port::logPrefix() const {
+    return "Port";
 }
 
 NS_END

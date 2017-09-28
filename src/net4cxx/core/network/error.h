@@ -13,6 +13,9 @@ NS_BEGIN
 NET4CXX_DECLARE_EXCEPTION(AlreadyCancelled, Exception);
 NET4CXX_DECLARE_EXCEPTION(ReactorNotRunning, Exception);
 NET4CXX_DECLARE_EXCEPTION(ReactorAlreadyRunning, Exception);
+NET4CXX_DECLARE_EXCEPTION(NotConnectingError, Exception);
+NET4CXX_DECLARE_EXCEPTION(ConnectionAbort, IOError);
+NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
 
 NS_END
 
