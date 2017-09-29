@@ -9,9 +9,20 @@
 #include <boost/asio.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/algorithm/string.hpp>
+#include "net4cxx/common/utilities/errors.h"
 #include "net4cxx/common/utilities/messagebuffer.h"
 
 NS_BEGIN
+
+
+NET4CXX_DECLARE_EXCEPTION(AlreadyCancelled, Exception);
+NET4CXX_DECLARE_EXCEPTION(ReactorNotRunning, Exception);
+NET4CXX_DECLARE_EXCEPTION(ReactorAlreadyRunning, Exception);
+NET4CXX_DECLARE_EXCEPTION(NotConnectingError, Exception);
+NET4CXX_DECLARE_EXCEPTION(ConnectionDone, IOError);
+NET4CXX_DECLARE_EXCEPTION(ConnectionAbort, IOError);
+NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
+
 
 class Reactor;
 class Protocol;
@@ -34,7 +45,9 @@ public:
 
 class NET4CXX_COMMON_API Address {
 public:
-    explicit Address(std::string address="", unsigned short port=0)
+    Address() = default;
+
+    Address(std::string address, unsigned short port)
             : _address{std::move(address)}
             , _port(port) {
 
@@ -53,7 +66,7 @@ public:
     }
 
     void setPort(unsigned short port) {
-        _port;
+        _port = port;
     }
 
     unsigned short getPort() const {
@@ -135,27 +148,29 @@ protected:
 
 class NET4CXX_COMMON_API Connection {
 public:
-    Connection(const std::weak_ptr<Protocol> &protocol, Reactor *reactor)
-            : _protocol(protocol)
+    Connection(std::shared_ptr<Protocol> protocol, Reactor *reactor)
+            : _protocol(std::move(protocol))
             , _reactor(reactor) {
 
     }
 
     virtual ~Connection() = default;
 
-    virtual const char* logPrefix() const;
-
     virtual void write(const Byte *data, size_t length) = 0;
 
     virtual void loseConnection() = 0;
 
     virtual void abortConnection() = 0;
+
+    Reactor* reactor() {
+        return _reactor;
+    }
 protected:
     void dataReceived(Byte *data, size_t length);
 
     void connectionLost(std::exception_ptr reason);
 
-    std::weak_ptr<Protocol> _protocol;
+    std::shared_ptr<Protocol> _protocol;
     Reactor *_reactor{nullptr};
     MessageBuffer _readBuffer;
     std::deque<MessageBuffer> _writeQueue;
@@ -166,20 +181,22 @@ protected:
     bool _disconnecting{false};
 };
 
-class NET4CXX_COMMON_API Port {
+class NET4CXX_COMMON_API Listener {
 public:
-    explicit Port(Reactor *reactor)
+    explicit Listener(Reactor *reactor)
             : _reactor(reactor) {
 
     }
 
-    virtual ~Port() = default;
-
-    virtual const char* logPrefix() const;
+    virtual ~Listener() = default;
 
     virtual void startListening() = 0;
 
     virtual void stopListening() = 0;
+
+    Reactor* reactor() {
+        return _reactor;
+    }
 protected:
     Reactor *_reactor{nullptr};
 };
@@ -197,6 +214,10 @@ public:
     virtual void startConnecting() = 0;
 
     virtual void stopConnecting() = 0;
+
+    Reactor* reactor() {
+        return _reactor;
+    }
 protected:
     Reactor *_reactor{nullptr};
 };

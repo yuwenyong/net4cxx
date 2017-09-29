@@ -4,7 +4,6 @@
 
 #include "net4cxx/core/network/base.h"
 #include "net4cxx/common/debugging/assert.h"
-#include "net4cxx/core/network/error.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -26,24 +25,15 @@ void DelayedCall::cancel() {
 }
 
 
-const char* Connection::logPrefix() const {
-    return "Connection";
-}
-
 void Connection::dataReceived(Byte *data, size_t length) {
-    auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
-    protocol->dataReceived(data, length);
+    BOOST_ASSERT(_protocol);
+    _protocol->dataReceived(data, length);
 }
 
 void Connection::connectionLost(std::exception_ptr reason) {
-    auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
-    protocol->connectionLost(std::move(reason));
+    BOOST_ASSERT(_protocol);
+    _protocol->connectionLost(std::move(reason));
 }
 
-const char* Port::logPrefix() const {
-    return "Port";
-}
 
 NS_END

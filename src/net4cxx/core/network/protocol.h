@@ -12,15 +12,13 @@
 
 NS_BEGIN
 
-class Connection;
+
 class Protocol;
-class Connector;
+
 
 class NET4CXX_COMMON_API Factory {
 public:
     virtual ~Factory() = default;
-
-    virtual const char* logPrefix() const;
 
     void doStart();
 
@@ -46,30 +44,44 @@ public:
 };
 
 
-class NET4CXX_COMMON_API BaseProtocol {
+class NET4CXX_COMMON_API Protocol {
 public:
-    virtual ~BaseProtocol() = default;
-
-    void makeConnection(std::shared_ptr<Connection> transport) {
-        _connected = true;
-        _transport = std::move(transport);
-        connectionMade();
-    }
+    virtual ~Protocol() = default;
 
     virtual void connectionMade() = 0;
-protected:
-    bool _connected{false};
-    std::shared_ptr<Connection> _transport;
-};
-
-
-class NET4CXX_COMMON_API Protocol: public BaseProtocol {
-public:
-    virtual const char* logPrefix() const;
 
     virtual void dataReceived(Byte *data, size_t length) = 0;
 
     virtual void connectionLost(std::exception_ptr reason) = 0;
+
+    void makeConnection(Connection *transport) {
+        _connected = true;
+        _transport = transport;
+        connectionMade();
+    }
+
+    Reactor* reactor() {
+        return _transport ? _transport->reactor() : nullptr;
+    }
+
+    Connection* connection() {
+        return _transport;
+    }
+
+    void write(const Byte *data, size_t length) {
+        _transport->write(data, length);
+    }
+
+    void loseConnection() {
+        _transport->loseConnection();
+    }
+
+    void abortConnection() {
+        _transport->abortConnection();
+    }
+protected:
+    bool _connected{false};
+    Connection *_transport{nullptr};
 };
 
 NS_END

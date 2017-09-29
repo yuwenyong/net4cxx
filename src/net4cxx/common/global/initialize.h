@@ -45,7 +45,7 @@ protected:
 NS_END
 
 
-#define NET4CXX_PARSE_COMMAND_LINE(argc, argv)      net4cxx::GloablInit _initializer(argc, argv)
-#define NET4CXX_PARSE_CONFIG_FILE(fileName)         net4cxx::GloablInit _initializer(fileName)
+#define NET4CXX_PARSE_COMMAND_LINE(argc, argv)      net4cxx::GlobalInit _initializer(argc, argv)
+#define NET4CXX_PARSE_CONFIG_FILE(fileName)         net4cxx::GlobalInit _initializer(fileName)
 
 #endif //NET4CXX_COMMON_GLOBAL_INITIALIZE_H

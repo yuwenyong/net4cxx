@@ -5,7 +5,6 @@
 #include "net4cxx/core/network/reactor.h"
 #include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/utilities/random.h"
-#include "net4cxx/core/network/error.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/tcp.h"
 
@@ -47,9 +46,9 @@ void Reactor::stop() {
     _ioService.stop();
 }
 
-std::shared_ptr<Port> Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
-                                         const std::string &interface) {
-    auto p = std::make_shared<TCPPort>(port, std::move(factory), interface, this);
+std::shared_ptr<Listener> Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
+                                             const std::string &interface) {
+    auto p = std::make_shared<TCPListener>(port, std::move(factory), interface, this);
     p->startListening();
     return p;
 }

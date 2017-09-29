@@ -7,19 +7,20 @@
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/global/loggers.h"
+#include "net4cxx/core/network/base.h"
 
 NS_BEGIN
 
 
 class Reactor;
 class Factory;
-class Port;
+class Listener;
 
 
 class NET4CXX_COMMON_API ServerEndpoint {
 public:
     virtual ~ServerEndpoint() = default;
-    virtual std::shared_ptr<Port> listen(std::unique_ptr<Factory> &&protocolFactory) = 0;
+    virtual std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) = 0;
 };
 
 
@@ -32,7 +33,7 @@ public:
 
     }
 
-    std::shared_ptr<Port> listen(std::unique_ptr<Factory> &&protocolFactory) override;
+    std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) override;
 protected:
     Reactor *_reactor{nullptr};
     std::string _port;

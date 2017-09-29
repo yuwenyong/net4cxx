@@ -4,14 +4,13 @@
 
 #include "net4cxx/core/network/endpoints.h"
 #include <boost/algorithm/string.hpp>
-#include "net4cxx/common/utilities/errors.h"
 #include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/core/network/reactor.h"
 
 
 NS_BEGIN
 
-std::shared_ptr<Port> TCPServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) {
+std::shared_ptr<Listener> TCPServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) {
     return _reactor->listenTCP(_port, std::move(protocolFactory), _interface);
 }
 

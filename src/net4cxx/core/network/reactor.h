@@ -13,10 +13,10 @@
 NS_BEGIN
 
 
-class Port;
 class Factory;
-class Connector;
 class ClientFactory;
+class Listener;
+class Connector;
 
 
 class NET4CXX_COMMON_API Reactor {
@@ -87,8 +87,8 @@ public:
         return SocketType{_ioService};
     }
 
-    std::shared_ptr<Port> listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
-                                    const std::string &interface);
+    std::shared_ptr<Listener> listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
+                                        const std::string &interface);
 
     std::shared_ptr<Connector> connectTCP(const std::string &host, const std::string &port,
                                           std::unique_ptr<ClientFactory> &&factory, double timeout=30.0,

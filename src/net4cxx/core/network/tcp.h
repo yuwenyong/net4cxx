@@ -8,7 +8,6 @@
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
 #include "net4cxx/core/network/base.h"
-#include "net4cxx/core/network/error.h"
 
 NS_BEGIN
 
@@ -16,13 +15,11 @@ class Factory;
 class ClientFactory;
 class TCPConnector;
 
-class NET4CXX_COMMON_API TCPConnection: public Connection {
+class NET4CXX_COMMON_API TCPConnection: public Connection, public std::enable_shared_from_this<TCPConnection> {
 public:
     using SocketType = boost::asio::ip::tcp::socket;
 
-    TCPConnection(const std::weak_ptr<Protocol> &protocol, Reactor *reactor);
-
-    const char* logPrefix() const override;
+    TCPConnection(std::shared_ptr<Protocol> protocol, Reactor *reactor);
 
     SocketType& getSocket() {
         return _socket;
@@ -121,14 +118,11 @@ protected:
 
 class NET4CXX_COMMON_API TCPServerConnection: public TCPConnection {
 public:
-    TCPServerConnection(unsigned int sessionno, Reactor *reactor);
+    explicit TCPServerConnection(Reactor *reactor)
+            : TCPConnection({}, reactor) {
+    }
 
-    const char* logPrefix() const override;
-
-    void cbAccept(const std::weak_ptr<Protocol> &protocol);
-protected:
-    unsigned int _sessionno;
-    std::string _logstr;
+    void cbAccept(std::shared_ptr<Protocol> protocol);
 };
 
 
@@ -139,14 +133,14 @@ public:
 
     }
 
-    void cbConnect(const std::weak_ptr<Protocol> &protocol, std::shared_ptr<TCPConnector> connector);
+    void cbConnect(std::shared_ptr<Protocol> protocol, std::shared_ptr<TCPConnector> connector);
 protected:
     void closeSocket() override;
 
     std::shared_ptr<TCPConnector> _connector;
 };
 
-class NET4CXX_COMMON_API TCPPort: public Port, public std::enable_shared_from_this<TCPPort> {
+class NET4CXX_COMMON_API TCPListener: public Listener, public std::enable_shared_from_this<TCPListener> {
 public:
     using AddressType = boost::asio::ip::address;
     using AcceptorType = boost::asio::ip::tcp::acceptor;
@@ -155,9 +149,7 @@ public:
     using EndpointType = boost::asio::ip::tcp::endpoint ;
     using ResolverIterator = ResolverType::iterator;
 
-    TCPPort(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
-
-    const char* logPrefix() const override;
+    TCPListener(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
 
     void startListening() override;
 
@@ -178,8 +170,8 @@ protected:
     void handleAccept(const boost::system::error_code &ec);
 
     void doAccept() {
-        _connection = std::make_shared<TCPServerConnection>(_sessionno, _reactor);
-        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPPort::cbAccept, shared_from_this(),
+        _connection = std::make_shared<TCPServerConnection>(_reactor);
+        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, shared_from_this(),
                                                                    std::placeholders::_1));
     }
 
@@ -188,7 +180,6 @@ protected:
     std::string _interface;
     AcceptorType _acceptor;
     bool _connected{false};
-    unsigned int _sessionno{0};
     std::shared_ptr<TCPServerConnection> _connection;
 };
 
@@ -245,10 +236,7 @@ protected:
         handleTimeout();
     }
 
-    void handleTimeout() {
-        _error = NET4CXX_EXCEPTION_PTR(TimeoutError, "");
-        connectionFailed();
-    }
+    void handleTimeout();
 
     void makeTransport();
 
