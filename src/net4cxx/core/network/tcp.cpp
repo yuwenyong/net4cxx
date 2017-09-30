@@ -4,7 +4,6 @@
 
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/common/debugging/assert.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -33,13 +32,7 @@ void TCPConnection::loseConnection() {
     }
     _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
     _disconnecting = true;
-    if (!_writing && !_reading) {
-        _reactor->addCallback([this, self=shared_from_this()]() {
-            closeSocket();
-        });
-    } else if (!_writing) {
-        _socket.close();
-    }
+    doClose();
 }
 
 void TCPConnection::abortConnection() {
@@ -48,9 +41,27 @@ void TCPConnection::abortConnection() {
     }
     _error = NET4CXX_EXCEPTION_PTR(ConnectionAbort, "");
     _disconnecting = true;
+    doAbort();
+}
+
+void TCPConnection::doClose() {
     if (!_writing && !_reading) {
         _reactor->addCallback([this, self=shared_from_this()]() {
-            closeSocket();
+            if (!_disconnected) {
+                closeSocket();
+            }
+        });
+    } else if (!_writing) {
+        _socket.close();
+    }
+}
+
+void TCPConnection::doAbort() {
+    if (!_writing && !_reading) {
+        _reactor->addCallback([this, self=shared_from_this()]() {
+            if (!_disconnected) {
+                closeSocket();
+            }
         });
     } else {
         _socket.close();
@@ -115,11 +126,11 @@ void TCPConnection::doWrite() {
             }
             _error = std::make_exception_ptr(boost::system::system_error(ec));
             _disconnecting = true;
-            _socket.close();
+            doClose();
             return;
         } else if (bytesSent == 0){
             _disconnecting = true;
-            _socket.close();
+            doClose();
             return;
         } else if (bytesSent < bytesToSend) {
             buffer.readCompleted(bytesSent);
@@ -216,6 +227,9 @@ TCPListener::TCPListener(std::string port, std::unique_ptr<Factory> &&factory, s
         , _factory(std::move(factory))
         , _interface(std::move(interface))
         , _acceptor(reactor->createAcceptor()) {
+#ifndef NET4CXX_NDEBUG
+    NET4CXX_Watcher->inc(NET4CXX_TCPLISTENER_COUNT);
+#endif
 
 }
 
@@ -280,7 +294,9 @@ TCPConnector::TCPConnector(std::string host, std::string port, std::unique_ptr<C
         , _timeout(timeout)
         , _bindAddress(std::move(bindAddress))
         , _resolver(reactor->getService()) {
-
+#ifndef NET4CXX_NDEBUG
+    NET4CXX_Watcher->inc(NET4CXX_TCPCONNECTOR_COUNT);
+#endif
 }
 
 void TCPConnector::startConnecting() {
@@ -400,7 +416,7 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
             _connection.reset();
             connectionLost();
         } else {
-            _connection->cbConnect(protocol, shared_from_this());
+            _connection->cbConnect(protocol, getSelf<TCPConnector>());
             _connection.reset();
         }
     }

@@ -27,4 +27,11 @@ public:
 
 NS_END
 
+
+#define NET4CXX_TCPLISTENER_COUNT           "net4cxx.TCPListener.count"
+#define NET4CXX_TCPSERVERCONNECTION_COUNT   "net4cxx.TCPServerConnection.count"
+#define NET4CXX_TCPCONNECTOR_COUNT          "net4cxx.TCPConnector.count"
+#define NET4CXX_TCPCLIENTCONNECTION_COUNT   "net4cxx.TCPClientConnection.count"
+
+
 #endif //NET4CXX_COMMON_GLOBAL_LOGGERS_H

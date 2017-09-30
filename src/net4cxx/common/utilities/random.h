@@ -80,6 +80,8 @@ public:
         return dist(_engine);
     }
 
+    static double normalvariate(double mu, double sigma);
+
     static void randBytes(Byte *buffer, size_t length) {
         std::random_device rd;
         std::uniform_int_distribution<Byte> dist;

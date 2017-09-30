@@ -7,6 +7,8 @@
 
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
+#include "net4cxx/common/debugging/watcher.h"
+#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
 
 NS_BEGIN
@@ -15,7 +17,7 @@ class Factory;
 class ClientFactory;
 class TCPConnector;
 
-class NET4CXX_COMMON_API TCPConnection: public Connection, public std::enable_shared_from_this<TCPConnection> {
+class NET4CXX_COMMON_API TCPConnection: public Connection {
 public:
     using SocketType = boost::asio::ip::tcp::socket;
 
@@ -73,6 +75,10 @@ public:
         return endpoint.port();
     }
 protected:
+    void doClose();
+
+    void doAbort();
+
     virtual void closeSocket();
 
     void startReading() {
@@ -120,7 +126,16 @@ class NET4CXX_COMMON_API TCPServerConnection: public TCPConnection {
 public:
     explicit TCPServerConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
+#ifndef NET4CXX_NDEBUG
+        NET4CXX_Watcher->inc(NET4CXX_TCPSERVERCONNECTION_COUNT);
+#endif
     }
+
+#ifndef NET4CXX_NDEBUG
+    ~TCPServerConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_TCPSERVERCONNECTION_COUNT);
+    }
+#endif
 
     void cbAccept(std::shared_ptr<Protocol> protocol);
 };
@@ -130,8 +145,16 @@ class NET4CXX_COMMON_API TCPClientConnection: public TCPConnection {
 public:
     explicit TCPClientConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
-
+#ifndef NET4CXX_NDEBUG
+        NET4CXX_Watcher->inc(NET4CXX_TCPCLIENTCONNECTION_COUNT);
+#endif
     }
+
+#ifndef NET4CXX_NDEBUG
+    ~TCPClientConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_TCPCLIENTCONNECTION_COUNT);
+    }
+#endif
 
     void cbConnect(std::shared_ptr<Protocol> protocol, std::shared_ptr<TCPConnector> connector);
 protected:
@@ -140,7 +163,7 @@ protected:
     std::shared_ptr<TCPConnector> _connector;
 };
 
-class NET4CXX_COMMON_API TCPListener: public Listener, public std::enable_shared_from_this<TCPListener> {
+class NET4CXX_COMMON_API TCPListener: public Listener {
 public:
     using AddressType = boost::asio::ip::address;
     using AcceptorType = boost::asio::ip::tcp::acceptor;
@@ -150,6 +173,12 @@ public:
     using ResolverIterator = ResolverType::iterator;
 
     TCPListener(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
+
+#ifndef NET4CXX_NDEBUG
+    ~TCPListener() override {
+        NET4CXX_Watcher->dec(NET4CXX_TCPLISTENER_COUNT);
+    }
+#endif
 
     void startListening() override;
 
@@ -171,7 +200,7 @@ protected:
 
     void doAccept() {
         _connection = std::make_shared<TCPServerConnection>(_reactor);
-        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, shared_from_this(),
+        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, getSelf<TCPListener>(),
                                                                    std::placeholders::_1));
     }
 
@@ -184,7 +213,7 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API TCPConnector: public Connector, public std::enable_shared_from_this<TCPConnector> {
+class NET4CXX_COMMON_API TCPConnector: public Connector {
 public:
     using AddressType = boost::asio::ip::address;
     using SocketType = boost::asio::ip::tcp::socket;
@@ -194,6 +223,12 @@ public:
 
     TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
                  Address bindAddress, Reactor *reactor);
+
+#ifndef NET4CXX_NDEBUG
+    ~TCPConnector() override {
+        NET4CXX_Watcher->dec(NET4CXX_TCPCONNECTOR_COUNT);
+    }
+#endif
 
     void startConnecting() override;
 

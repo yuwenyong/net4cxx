@@ -146,7 +146,7 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API Connection {
+class NET4CXX_COMMON_API Connection: public std::enable_shared_from_this<Connection> {
 public:
     Connection(std::shared_ptr<Protocol> protocol, Reactor *reactor)
             : _protocol(std::move(protocol))
@@ -165,6 +165,11 @@ public:
     Reactor* reactor() {
         return _reactor;
     }
+
+    template <typename ResultT>
+    std::shared_ptr<ResultT> getSelf() {
+        return std::static_pointer_cast<ResultT>(shared_from_this());
+    }
 protected:
     void dataReceived(Byte *data, size_t length);
 
@@ -181,7 +186,7 @@ protected:
     bool _disconnecting{false};
 };
 
-class NET4CXX_COMMON_API Listener {
+class NET4CXX_COMMON_API Listener: public std::enable_shared_from_this<Listener> {
 public:
     explicit Listener(Reactor *reactor)
             : _reactor(reactor) {
@@ -197,12 +202,17 @@ public:
     Reactor* reactor() {
         return _reactor;
     }
+
+    template <typename ResultT>
+    std::shared_ptr<ResultT> getSelf() {
+        return std::static_pointer_cast<ResultT>(shared_from_this());
+    }
 protected:
     Reactor *_reactor{nullptr};
 };
 
 
-class NET4CXX_COMMON_API Connector {
+class NET4CXX_COMMON_API Connector: public std::enable_shared_from_this<Connector> {
 public:
     explicit Connector(Reactor *reactor)
             : _reactor(reactor) {
@@ -217,6 +227,11 @@ public:
 
     Reactor* reactor() {
         return _reactor;
+    }
+
+    template <typename ResultT>
+    std::shared_ptr<ResultT> getSelf() {
+        return std::static_pointer_cast<ResultT>(shared_from_this());
     }
 protected:
     Reactor *_reactor{nullptr};

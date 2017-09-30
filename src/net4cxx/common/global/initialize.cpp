@@ -58,7 +58,33 @@ void GlobalInit::cleanup() {
 
 void GlobalInit::setupWatcherHook() {
 #ifndef NET4CXX_NDEBUG
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPSERVERCONNECTION_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create TCPServerConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPSERVERCONNECTION_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy TCPServerConnection, current count:%d", value);
+    });
 
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPLISTENER_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create TCPListener, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPLISTENER_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy TCPListener, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPCLIENTCONNECTION_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create TCPClientConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPCLIENTCONNECTION_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy TCPClientConnection, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPCONNECTOR_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create TCPConnector, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPCONNECTOR_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy TCPConnector, current count:%d", value);
+    });
 #endif
 }
 

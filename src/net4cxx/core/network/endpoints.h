@@ -14,28 +14,46 @@ NS_BEGIN
 
 class Reactor;
 class Factory;
-class Listener;
+class ClientFactory;
+class Protocol;
 
 
-class NET4CXX_COMMON_API ServerEndpoint {
+class NET4CXX_COMMON_API Endpoint {
 public:
-    virtual ~ServerEndpoint() = default;
-    virtual std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) = 0;
+    explicit Endpoint(Reactor *reactor)
+            : _reactor(reactor) {
+
+    }
+
+    virtual ~Endpoint() = default;
+
+    Reactor* reactor() {
+        return _reactor;
+    }
+protected:
+    Reactor *_reactor{nullptr};
+};
+
+
+class NET4CXX_COMMON_API ServerEndpoint: public Endpoint {
+public:
+    using Endpoint::Endpoint;
+
+    virtual std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) const = 0;
 };
 
 
 class NET4CXX_COMMON_API TCPServerEndpoint: public ServerEndpoint {
 public:
     TCPServerEndpoint(Reactor *reactor, std::string port, std::string interface)
-            : _reactor(reactor)
+            : ServerEndpoint(reactor)
             , _port(std::move(port))
             , _interface(std::move(interface)) {
 
     }
 
-    std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) override;
+    std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) const override;
 protected:
-    Reactor *_reactor{nullptr};
     std::string _port;
     std::string _interface;
 };
@@ -52,6 +70,37 @@ protected:
 /// \return
 NET4CXX_COMMON_API std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::string &description);
 
+
+class NET4CXX_COMMON_API ClientEndpoint: public Endpoint {
+public:
+    using Endpoint::Endpoint;
+
+    virtual std::shared_ptr<Connector> connect(std::unique_ptr<ClientFactory> &&protocolFactory) const = 0;
+};
+
+
+class NET4CXX_COMMON_API TCPClientEndpoint: public ClientEndpoint {
+public:
+    TCPClientEndpoint(Reactor *reactor, std::string host, std::string port, double timeout=30.0, Address bindAddress={})
+            : ClientEndpoint(reactor)
+            , _host(std::move(host))
+            , _port(std::move(port))
+            , _timeout(timeout)
+            , _bindAddress(std::move(bindAddress)) {
+
+    }
+
+    std::shared_ptr<Connector> connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+protected:
+    std::string _host;
+    std::string _port;
+    double _timeout;
+    Address _bindAddress;
+};
+
+
+NET4CXX_COMMON_API std::shared_ptr<Connector> connectProtocol(const ClientEndpoint &endpoint,
+                                                              std::shared_ptr<Protocol> protocol);
 
 NS_END
 

@@ -32,7 +32,7 @@ void Connection::dataReceived(Byte *data, size_t length) {
 
 void Connection::connectionLost(std::exception_ptr reason) {
     BOOST_ASSERT(_protocol);
-    _protocol->connectionLost(std::move(reason));
+    _protocol->cbConnectionLost(std::move(reason));
 }
 
 
