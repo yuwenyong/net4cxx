@@ -26,6 +26,7 @@ NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
 
 class Reactor;
 class Protocol;
+using ProtocolPtr = std::shared_ptr<Protocol>;
 
 class NET4CXX_COMMON_API NetUtil {
 public:
@@ -146,10 +147,10 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API Connection: public std::enable_shared_from_this<Connection> {
+class NET4CXX_COMMON_API Connection {
 public:
-    Connection(std::shared_ptr<Protocol> protocol, Reactor *reactor)
-            : _protocol(std::move(protocol))
+    Connection(const ProtocolPtr &protocol, Reactor *reactor)
+            : _protocol(protocol)
             , _reactor(reactor) {
 
     }
@@ -165,17 +166,12 @@ public:
     Reactor* reactor() {
         return _reactor;
     }
-
-    template <typename ResultT>
-    std::shared_ptr<ResultT> getSelf() {
-        return std::static_pointer_cast<ResultT>(shared_from_this());
-    }
 protected:
     void dataReceived(Byte *data, size_t length);
 
     void connectionLost(std::exception_ptr reason);
 
-    std::shared_ptr<Protocol> _protocol;
+    std::weak_ptr<Protocol> _protocol;
     Reactor *_reactor{nullptr};
     MessageBuffer _readBuffer;
     std::deque<MessageBuffer> _writeQueue;
@@ -186,7 +182,9 @@ protected:
     bool _disconnecting{false};
 };
 
-class NET4CXX_COMMON_API Listener: public std::enable_shared_from_this<Listener> {
+using ConnectionPtr = std::shared_ptr<Connection>;
+
+class NET4CXX_COMMON_API Listener {
 public:
     explicit Listener(Reactor *reactor)
             : _reactor(reactor) {
@@ -202,17 +200,13 @@ public:
     Reactor* reactor() {
         return _reactor;
     }
-
-    template <typename ResultT>
-    std::shared_ptr<ResultT> getSelf() {
-        return std::static_pointer_cast<ResultT>(shared_from_this());
-    }
 protected:
     Reactor *_reactor{nullptr};
 };
 
+using ListenerPtr = std::shared_ptr<Listener>;
 
-class NET4CXX_COMMON_API Connector: public std::enable_shared_from_this<Connector> {
+class NET4CXX_COMMON_API Connector {
 public:
     explicit Connector(Reactor *reactor)
             : _reactor(reactor) {
@@ -228,14 +222,11 @@ public:
     Reactor* reactor() {
         return _reactor;
     }
-
-    template <typename ResultT>
-    std::shared_ptr<ResultT> getSelf() {
-        return std::static_pointer_cast<ResultT>(shared_from_this());
-    }
 protected:
     Reactor *_reactor{nullptr};
 };
+
+using ConnectorPtr = std::shared_ptr<Connector>;
 
 NS_END
 

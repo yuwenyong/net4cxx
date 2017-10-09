@@ -11,7 +11,7 @@
 
 NS_BEGIN
 
-std::shared_ptr<Listener> TCPServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) const {
+ListenerPtr TCPServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) const {
     return _reactor->listenTCP(_port, std::move(protocolFactory), _interface);
 }
 
@@ -49,12 +49,12 @@ std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::st
 }
 
 
-std::shared_ptr<Connector> TCPClientEndpoint::connect(std::unique_ptr<ClientFactory> &&protocolFactory) const {
+ConnectorPtr TCPClientEndpoint::connect(std::unique_ptr<ClientFactory> &&protocolFactory) const {
     return _reactor->connectTCP(_host, _port, std::move(protocolFactory), _timeout, _bindAddress);
 }
 
 
-std::shared_ptr<Connector> connectProtocol(const ClientEndpoint &endpoint, std::shared_ptr<Protocol> protocol) {
+ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol) {
     return endpoint.connect(std::make_unique<OneShotFactory>(std::move(protocol)));
 }
 

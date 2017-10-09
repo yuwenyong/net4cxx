@@ -29,7 +29,7 @@ public:
 
 class MyFactory: public Factory {
 public:
-    std::shared_ptr<Protocol> buildProtocol(const Address &address) override {
+    ProtocolPtr buildProtocol(const Address &address) override {
         NET4CXX_INFO(gAppLog, "Build protocol");
         return std::make_shared<MyProtocol>();
     }

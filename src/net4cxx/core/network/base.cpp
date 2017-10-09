@@ -26,13 +26,15 @@ void DelayedCall::cancel() {
 
 
 void Connection::dataReceived(Byte *data, size_t length) {
-    BOOST_ASSERT(_protocol);
-    _protocol->dataReceived(data, length);
+    auto protocol = _protocol.lock();
+    BOOST_ASSERT(protocol);
+    protocol->dataReceived(data, length);
 }
 
 void Connection::connectionLost(std::exception_ptr reason) {
-    BOOST_ASSERT(_protocol);
-    _protocol->cbConnectionLost(std::move(reason));
+    auto protocol = _protocol.lock();
+    BOOST_ASSERT(protocol);
+    protocol->connectionLost(std::move(reason));
 }
 
 

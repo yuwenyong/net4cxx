@@ -12,10 +12,8 @@
 NS_BEGIN
 
 
-class Reactor;
 class Factory;
 class ClientFactory;
-class Protocol;
 
 
 class NET4CXX_COMMON_API Endpoint {
@@ -39,7 +37,7 @@ class NET4CXX_COMMON_API ServerEndpoint: public Endpoint {
 public:
     using Endpoint::Endpoint;
 
-    virtual std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) const = 0;
+    virtual ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const = 0;
 };
 
 
@@ -52,7 +50,7 @@ public:
 
     }
 
-    std::shared_ptr<Listener> listen(std::unique_ptr<Factory> &&protocolFactory) const override;
+    ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const override;
 protected:
     std::string _port;
     std::string _interface;
@@ -75,7 +73,7 @@ class NET4CXX_COMMON_API ClientEndpoint: public Endpoint {
 public:
     using Endpoint::Endpoint;
 
-    virtual std::shared_ptr<Connector> connect(std::unique_ptr<ClientFactory> &&protocolFactory) const = 0;
+    virtual ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const = 0;
 };
 
 
@@ -90,7 +88,7 @@ public:
 
     }
 
-    std::shared_ptr<Connector> connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+    ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
 protected:
     std::string _host;
     std::string _port;
@@ -99,8 +97,7 @@ protected:
 };
 
 
-NET4CXX_COMMON_API std::shared_ptr<Connector> connectProtocol(const ClientEndpoint &endpoint,
-                                                              std::shared_ptr<Protocol> protocol);
+NET4CXX_COMMON_API ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);
 
 NS_END
 

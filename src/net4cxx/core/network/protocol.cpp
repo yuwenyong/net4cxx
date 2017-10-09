@@ -36,49 +36,49 @@ void Factory::stopFactory() {
 }
 
 
-void ClientFactory::startedConnecting(Connector *connector) {
+void ClientFactory::startedConnecting(ConnectorPtr connector) {
 
 }
 
-void ClientFactory::clientConnectionFailed(Connector *connector, std::exception_ptr reason) {
+void ClientFactory::clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) {
 
 }
 
-void ClientFactory::clientConnectionLost(Connector *connector, std::exception_ptr reason) {
+void ClientFactory::clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) {
 
 }
 
 
-std::shared_ptr<Protocol> OneShotFactory::buildProtocol(const Address &address) {
+ProtocolPtr OneShotFactory::buildProtocol(const Address &address) {
     return _protocol;
 }
 
 
-void ReconnectingClientFactory::clientConnectionFailed(Connector *connector, std::exception_ptr reason) {
-    if (_continueTring) {
-        retry(connector);
+void ReconnectingClientFactory::clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) {
+    if (_continueTrying) {
+        retry(std::move(connector));
     } else {
-        _connector = nullptr;
+        _connector.reset();
     }
 }
 
-void ReconnectingClientFactory::clientConnectionLost(Connector *connector, std::exception_ptr reason) {
-    if (_continueTring) {
-        retry(connector);
+void ReconnectingClientFactory::clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) {
+    if (_continueTrying) {
+        retry(std::move(connector));
     } else {
-        _connector = nullptr;
+        _connector.reset();
     }
 }
 
 void ReconnectingClientFactory::stopTrying() {
     if (!_callId.cancelled()) {
         _callId.cancel();
-        _connector = nullptr;
+        _connector.reset();
     }
-    if (_connector) {
+    ConnectorPtr connector = _connector.lock();
+    if (connector) {
+        _connector.reset();
         try {
-            Connector *connector = _connector;
-            _connector = nullptr;
             connector->stopConnecting();
         } catch (NotConnectingError &e) {
 
@@ -86,8 +86,8 @@ void ReconnectingClientFactory::stopTrying() {
     }
 }
 
-void ReconnectingClientFactory::retry(Connector *connector) {
-    if (!_continueTring) {
+void ReconnectingClientFactory::retry(ConnectorPtr connector) {
+    if (!_continueTrying) {
         NET4CXX_INFO(gGenLog, "Abandoning reconnect on explicit request");
         return;
     }
@@ -96,12 +96,12 @@ void ReconnectingClientFactory::retry(Connector *connector) {
         NET4CXX_INFO(gGenLog, "Abandoning reconnect after %d retries", _retries);
         return;
     }
-    _delay = std::min(_delay * factor, maxDelay);
+    _delay = std::min(_delay * factor, _maxDelay);
     _delay = Random::normalvariate(_delay, _delay * jitter);
     NET4CXX_INFO(gGenLog, "Reconnect will retry in %f seconds", _delay);
     _connector = connector;
-    _callId = connector->reactor()->callLater(_delay, [self = connector->shared_from_this()]() {
-        self->startConnecting();
+    _callId = connector->reactor()->callLater(_delay, [connector]() {
+        connector->startConnecting();
     });
 }
 

@@ -17,11 +17,11 @@ class Factory;
 class ClientFactory;
 class TCPConnector;
 
-class NET4CXX_COMMON_API TCPConnection: public Connection {
+class NET4CXX_COMMON_API TCPConnection: public Connection, public std::enable_shared_from_this<TCPConnection> {
 public:
     using SocketType = boost::asio::ip::tcp::socket;
 
-    TCPConnection(std::shared_ptr<Protocol> protocol, Reactor *reactor);
+    TCPConnection(const ProtocolPtr &protocol, Reactor *reactor);
 
     SocketType& getSocket() {
         return _socket;
@@ -137,7 +137,7 @@ public:
     }
 #endif
 
-    void cbAccept(std::shared_ptr<Protocol> protocol);
+    void cbAccept(const ProtocolPtr &protocol);
 };
 
 
@@ -156,14 +156,14 @@ public:
     }
 #endif
 
-    void cbConnect(std::shared_ptr<Protocol> protocol, std::shared_ptr<TCPConnector> connector);
+    void cbConnect(const ProtocolPtr &protocol, std::shared_ptr<TCPConnector> connector);
 protected:
     void closeSocket() override;
 
     std::shared_ptr<TCPConnector> _connector;
 };
 
-class NET4CXX_COMMON_API TCPListener: public Listener {
+class NET4CXX_COMMON_API TCPListener: public Listener, public std::enable_shared_from_this<TCPListener> {
 public:
     using AddressType = boost::asio::ip::address;
     using AcceptorType = boost::asio::ip::tcp::acceptor;
@@ -200,7 +200,7 @@ protected:
 
     void doAccept() {
         _connection = std::make_shared<TCPServerConnection>(_reactor);
-        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, getSelf<TCPListener>(),
+        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, shared_from_this(),
                                                                    std::placeholders::_1));
     }
 
@@ -213,7 +213,7 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API TCPConnector: public Connector {
+class NET4CXX_COMMON_API TCPConnector: public Connector, public std::enable_shared_from_this<TCPConnector> {
 public:
     using AddressType = boost::asio::ip::address;
     using SocketType = boost::asio::ip::tcp::socket;
@@ -238,7 +238,7 @@ public:
 
     void connectionLost(std::exception_ptr reason={});
 protected:
-    std::shared_ptr<Protocol> buildProtocol(const Address &address);
+    ProtocolPtr buildProtocol(const Address &address);
 
     void cancelTimeout() {
         if (!_timeoutId.cancelled()) {

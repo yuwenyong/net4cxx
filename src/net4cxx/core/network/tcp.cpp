@@ -10,8 +10,8 @@
 NS_BEGIN
 
 
-TCPConnection::TCPConnection(std::shared_ptr<Protocol> protocol, Reactor *reactor)
-        : Connection(std::move(protocol), reactor)
+TCPConnection::TCPConnection(const ProtocolPtr &protocol, Reactor *reactor)
+        : Connection(protocol, reactor)
         , _socket(reactor->createSocket()) {
 
 }
@@ -79,13 +79,15 @@ void TCPConnection::closeSocket() {
 }
 
 void TCPConnection::doRead() {
+    auto protocol = _protocol.lock();
+    BOOST_ASSERT(protocol);
     _readBuffer.normalize();
     _readBuffer.ensureFreeSpace();
     _reading = true;
     _socket.async_read_some(boost::asio::buffer(_readBuffer.getWritePointer(), _readBuffer.getRemainingSpace()),
-                            [this, self = shared_from_this()](const boost::system::error_code &ec,
-                                                              size_t transferredBytes) {
-                                cbRead(ec, transferredBytes);
+                            [protocol, self = shared_from_this()](const boost::system::error_code &ec,
+                                                                  size_t transferredBytes) {
+                                self->cbRead(ec, transferredBytes);
                             });
 }
 
@@ -158,11 +160,13 @@ void TCPConnection::doWrite() {
         }
     }
 #endif
+    auto protocol = _protocol.lock();
+    BOOST_ASSERT(protocol);
     _writing = true;
     _socket.async_write_some(boost::asio::buffer(buffer.getReadPointer(), buffer.getActiveSize()),
-                             [this, self = shared_from_this()](const boost::system::error_code &ec,
-                                                               size_t transferredBytes) {
-                                 cbWrite(ec, transferredBytes);
+                             [protocol, self = shared_from_this()](const boost::system::error_code &ec,
+                                                                   size_t transferredBytes) {
+                                 self->cbWrite(ec, transferredBytes);
                              });
 }
 
@@ -192,23 +196,23 @@ void TCPConnection::handleWrite(const boost::system::error_code &ec, size_t tran
 }
 
 
-void TCPServerConnection::cbAccept(std::shared_ptr<Protocol> protocol) {
-    _protocol = std::move(protocol);
+void TCPServerConnection::cbAccept(const ProtocolPtr &protocol) {
+    _protocol = protocol;
     _connected = true;
     _socket.non_blocking(true);
-    _protocol->makeConnection(this);
+    protocol->makeConnection(shared_from_this());
     if (!_disconnecting) {
         startReading();
     }
 }
 
 
-void TCPClientConnection::cbConnect(std::shared_ptr<Protocol> protocol, std::shared_ptr<TCPConnector> connector) {
-    _protocol = std::move(protocol);
+void TCPClientConnection::cbConnect(const ProtocolPtr &protocol, std::shared_ptr<TCPConnector> connector) {
+    _protocol = protocol;
     _connector = std::move(connector);
     _connected = true;
     _socket.non_blocking(true);
-    _protocol->makeConnection(this);
+    protocol->makeConnection(shared_from_this());
     if (!_disconnecting) {
         startReading();
     }
@@ -278,7 +282,7 @@ void TCPListener::handleAccept(const boost::system::error_code &ec) {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
         auto protocol = _factory->buildProtocol(address);
         if (protocol) {
-            _connection->cbAccept(std::move(protocol));
+            _connection->cbAccept(protocol);
         }
     }
     _connection.reset();
@@ -318,7 +322,7 @@ void TCPConnector::startConnecting() {
             cbTimeout();
         });
     }
-    _factory->startedConnecting(this);
+    _factory->startedConnecting(shared_from_this());
 }
 
 void TCPConnector::stopConnecting() {
@@ -342,7 +346,7 @@ void TCPConnector::connectionFailed(std::exception_ptr reason) {
     cancelTimeout();
     _connection.reset();
     _state = kDisconnected;
-    _factory->clientConnectionFailed(this, _error);
+    _factory->clientConnectionFailed(shared_from_this(), _error);
     if (_state == kDisconnected) {
         _factory->doStop();
         _factoryStarted = false;
@@ -354,14 +358,14 @@ void TCPConnector::connectionLost(std::exception_ptr reason) {
         _error = std::move(reason);
     }
     _state = kDisconnected;
-    _factory->clientConnectionLost(this, _error);
+    _factory->clientConnectionLost(shared_from_this(), _error);
     if (_state == kDisconnected) {
         _factory->doStop();
         _factoryStarted = false;
     }
 }
 
-std::shared_ptr<Protocol> TCPConnector::buildProtocol(const Address &address) {
+ProtocolPtr TCPConnector::buildProtocol(const Address &address) {
     _state = kConnected;
     cancelTimeout();
     return _factory->buildProtocol(address);
@@ -416,8 +420,8 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
             _connection.reset();
             connectionLost();
         } else {
-            _connection->cbConnect(protocol, getSelf<TCPConnector>());
-            _connection.reset();
+            auto connection = std::move(_connection);
+            connection->cbConnect(protocol, shared_from_this());
         }
     }
 }

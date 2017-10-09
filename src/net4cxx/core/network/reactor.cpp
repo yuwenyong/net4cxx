@@ -46,16 +46,15 @@ void Reactor::stop() {
     _ioService.stop();
 }
 
-std::shared_ptr<Listener> Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
-                                             const std::string &interface) {
+ListenerPtr Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
+                               const std::string &interface) {
     auto p = std::make_shared<TCPListener>(port, std::move(factory), interface, this);
     p->startListening();
     return p;
 }
 
-std::shared_ptr<Connector> Reactor::connectTCP(const std::string &host, const std::string &port,
-                                               std::unique_ptr<ClientFactory> &&factory, double timeout,
-                                               const Address &bindAddress) {
+ConnectorPtr Reactor::connectTCP(const std::string &host, const std::string &port,
+                                 std::unique_ptr<ClientFactory> &&factory, double timeout, const Address &bindAddress) {
     auto c = std::make_shared<TCPConnector>(host, port, std::move(factory), timeout, bindAddress, this);
     c->startConnecting();
     return c;

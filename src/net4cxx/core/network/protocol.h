@@ -14,9 +14,6 @@
 NS_BEGIN
 
 
-class Protocol;
-
-
 class NET4CXX_COMMON_API Factory {
 public:
     virtual ~Factory() = default;
@@ -29,7 +26,7 @@ public:
 
     virtual void stopFactory();
 
-    virtual std::shared_ptr<Protocol> buildProtocol(const Address &address) = 0;
+    virtual ProtocolPtr buildProtocol(const Address &address) = 0;
 protected:
     int _numPorts{0};
 };
@@ -37,43 +34,59 @@ protected:
 
 class NET4CXX_COMMON_API ClientFactory: public Factory {
 public:
-    virtual void startedConnecting(Connector *connector);
+    virtual void startedConnecting(ConnectorPtr connector);
 
-    virtual void clientConnectionFailed(Connector *connector, std::exception_ptr reason);
+    virtual void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason);
 
-    virtual void clientConnectionLost(Connector *connector, std::exception_ptr reason);
+    virtual void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason);
 };
 
 
 class NET4CXX_COMMON_API OneShotFactory: public ClientFactory {
 public:
-    explicit OneShotFactory(std::shared_ptr<Protocol> protocol)
+    explicit OneShotFactory(ProtocolPtr protocol)
             : _protocol(std::move(protocol)) {
 
     }
 
-    std::shared_ptr<Protocol> buildProtocol(const Address &address) override;
+    ProtocolPtr buildProtocol(const Address &address) override;
 protected:
-    std::shared_ptr<Protocol> _protocol;
+    ProtocolPtr _protocol;
 };
 
 
 class NET4CXX_COMMON_API ReconnectingClientFactory: public ClientFactory {
 public:
-    void clientConnectionFailed(Connector *connector, std::exception_ptr reason) override;
+    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override;
 
-    void clientConnectionLost(Connector *connector, std::exception_ptr reason) override;
+    void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override;
 
     void stopTrying();
+
+    double getMaxDelay() const {
+        return _maxDelay;
+    }
+
+    void setMaxDelay(double maxDelay) {
+        _maxDelay = maxDelay;
+    }
+
+    int getMaxRetires() const {
+        return _maxRetries;
+    }
+
+    void setMaxRetries(int maxRetries) {
+        _maxRetries = maxRetries;
+    }
 protected:
-    void retry(Connector *connector);
+    void retry(ConnectorPtr connector);
 
     void resetDelay() {
         BOOST_ASSERT(_callId.cancelled());
         _delay = initialDelay;
         _retries = 0;
-        _continueTring = true;
-        _connector = nullptr;
+        _continueTrying = true;
+        _connector.reset();
     }
 
     static const double maxDelay;
@@ -82,11 +95,12 @@ protected:
     static const double jitter;
 
     double _delay{initialDelay};
+    double _maxDelay{maxDelay};
     int _retries{0};
     int _maxRetries{0};
-    bool _continueTring{true};
+    bool _continueTrying{true};
     DelayedCall _callId;
-    Connector *_connector{nullptr};
+    std::weak_ptr<Connector> _connector;
 };
 
 
@@ -102,22 +116,14 @@ public:
 
     virtual void connectionLost(std::exception_ptr reason);
 
-    void makeConnection(Connection *transport) {
+    void makeConnection(ConnectionPtr transport) {
         _connected = true;
-        _transport = transport;
+        _transport = std::move(transport);
         connectionMade();
     }
 
     Reactor* reactor() {
         return _transport ? _transport->reactor() : nullptr;
-    }
-
-    Connection* connection() {
-        return _transport;
-    }
-
-    bool connected() const {
-        return _connected;
     }
 
     void write(const Byte *data, size_t length) {
@@ -147,15 +153,8 @@ public:
         _transport->abortConnection();
     }
 protected:
-    void cbConnectionLost(std::exception_ptr reason) {
-        BOOST_ASSERT(_transport);
-        _transport = nullptr;
-        _connected = false;
-        connectionLost(std::move(reason));
-    }
-
     bool _connected{false};
-    Connection *_transport{nullptr};
+    ConnectionPtr _transport;
 };
 
 NS_END
