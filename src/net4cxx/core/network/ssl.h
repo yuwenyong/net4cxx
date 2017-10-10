@@ -105,7 +105,7 @@ protected:
     void handleHandshake(const boost::system::error_code &ec);
 
     void startReading() {
-        if (!_reading) {
+        if (!_reading && _sslAccepted) {
             doRead();
         }
     }
@@ -123,7 +123,7 @@ protected:
     void handleRead(const boost::system::error_code &ec, size_t transferredBytes);
 
     void startWriting() {
-        if (!_writing) {
+        if (!_writing && _sslAccepted) {
             doWrite();
         }
     }

@@ -81,6 +81,16 @@ void SSLConnection::doAbort() {
     }
 }
 
+void SSLConnection::closeSocket() {
+    _connected = false;
+    _disconnected = true;
+    _disconnecting = false;
+    if (_socket.lowest_layer().is_open()) {
+        _socket.lowest_layer().close();
+    }
+    connectionLost(_error);
+}
+
 void SSLConnection::doHandshake() {
     auto protocol = _protocol.lock();
     BOOST_ASSERT(protocol);
