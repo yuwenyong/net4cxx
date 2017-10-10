@@ -103,10 +103,10 @@ void TCPConnection::handleRead(const boost::system::error_code &ec, size_t trans
             closeSocket();
         }
     } else {
+        _readBuffer.writeCompleted(transferredBytes);
         if (_disconnecting) {
             return;
         }
-        _readBuffer.writeCompleted(transferredBytes);
         dataReceived(_readBuffer.getReadPointer(), _readBuffer.getActiveSize());
         _readBuffer.readCompleted(_readBuffer.getActiveSize());
     }
@@ -182,15 +182,14 @@ void TCPConnection::handleWrite(const boost::system::error_code &ec, size_t tran
             closeSocket();
         }
     } else {
-        if (_disconnecting) {
-            closeSocket();
-            return;
-        }
         if (transferredBytes > 0) {
             _writeQueue.front().readCompleted(transferredBytes);
             if (!_writeQueue.front().getActiveSize()) {
                 _writeQueue.pop_front();
             }
+        }
+        if (_disconnecting) {
+            closeSocket();
         }
     }
 }
