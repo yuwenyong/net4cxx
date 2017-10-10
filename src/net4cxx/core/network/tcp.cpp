@@ -12,7 +12,7 @@ NS_BEGIN
 
 TCPConnection::TCPConnection(const ProtocolPtr &protocol, Reactor *reactor)
         : Connection(protocol, reactor)
-        , _socket(reactor->createSocket()) {
+        , _socket(reactor->getService()) {
 
 }
 
@@ -230,11 +230,14 @@ TCPListener::TCPListener(std::string port, std::unique_ptr<Factory> &&factory, s
         , _port(std::move(port))
         , _factory(std::move(factory))
         , _interface(std::move(interface))
-        , _acceptor(reactor->createAcceptor()) {
+        , _acceptor(reactor->getService()) {
 #ifndef NET4CXX_NDEBUG
     NET4CXX_Watcher->inc(NET4CXX_TCPLISTENER_COUNT);
 #endif
-
+    if (_interface.empty()) {
+//        _interface = "::";
+        _interface = "0.0.0.0";
+    }
 }
 
 void TCPListener::startListening() {

@@ -43,7 +43,7 @@ public:
 
 class NET4CXX_COMMON_API TCPServerEndpoint: public ServerEndpoint {
 public:
-    TCPServerEndpoint(Reactor *reactor, std::string port, std::string interface)
+    TCPServerEndpoint(Reactor *reactor, std::string port, std::string interface={})
             : ServerEndpoint(reactor)
             , _port(std::move(port))
             , _interface(std::move(interface)) {
@@ -54,6 +54,24 @@ public:
 protected:
     std::string _port;
     std::string _interface;
+};
+
+
+class NET4CXX_COMMON_API SSLServerEndpoint: public ServerEndpoint {
+public:
+    SSLServerEndpoint(Reactor *reactor, std::string port, SSLOptionPtr sslOption, std::string interface={})
+            : ServerEndpoint(reactor)
+            , _port(std::move(port))
+            , _interface(std::move(interface))
+            , _sslOption(std::move(sslOption)) {
+
+    }
+
+    ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const override;
+protected:
+    std::string _port;
+    std::string _interface;
+    SSLOptionPtr _sslOption;
 };
 
 

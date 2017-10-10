@@ -7,6 +7,7 @@
 
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/errors.h"
@@ -27,6 +28,142 @@ NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
 class Reactor;
 class Protocol;
 using ProtocolPtr = std::shared_ptr<Protocol>;
+class SSLOption;
+using SSLOptionPtr = std::shared_ptr<SSLOption>;
+
+
+enum class SSLVerifyMode {
+    CERT_NONE,
+    CERT_OPTIONAL,
+    CERT_REQUIRED,
+};
+
+
+class SSLParams {
+public:
+    explicit SSLParams(bool serverSide= false)
+            : _serverSide(serverSide) {
+    }
+
+    void setCertFile(const std::string &certFile) {
+        _certFile = certFile;
+    }
+
+    const std::string& getCertFile() const {
+        return _certFile;
+    }
+
+    void setKeyFile(const std::string &keyFile) {
+        _keyFile = keyFile;
+    }
+
+    const std::string& getKeyFile() const {
+        return _keyFile;
+    }
+
+    void setPassword(const std::string &password) {
+        _password = password;
+    }
+
+    const std::string& getPassword() const {
+        return _password;
+    }
+
+    void setVerifyMode(SSLVerifyMode verifyMode) {
+        _verifyMode = verifyMode;
+    }
+
+    SSLVerifyMode getVerifyMode() const {
+        return _verifyMode;
+    }
+
+    void setVerifyFile(const std::string &verifyFile) {
+        _verifyFile = verifyFile;
+    }
+
+    const std::string& getVerifyFile() const {
+        return _verifyFile;
+    }
+
+    void setCheckHost(const std::string &hostName) {
+        _checkHost = hostName;
+    }
+
+    const std::string& getCheckHost() const {
+        return _checkHost;
+    }
+
+    bool isServerSide() const {
+        return _serverSide;
+    }
+
+protected:
+    bool _serverSide;
+    SSLVerifyMode _verifyMode{SSLVerifyMode::CERT_NONE};
+    std::string _certFile;
+    std::string _keyFile;
+    std::string _password;
+    std::string _verifyFile;
+    std::string _checkHost;
+};
+
+
+class NET4CXX_COMMON_API SSLOption: public boost::noncopyable {
+public:
+    typedef boost::asio::ssl::context SSLContextType;
+
+    bool isServerSide() const {
+        return _serverSide;
+    }
+
+    SSLContextType &context() {
+        return _context;
+    }
+
+    static SSLOptionPtr create(const SSLParams &sslParams);
+protected:
+    explicit SSLOption(const SSLParams &sslParams);
+
+    void setCertFile(const std::string &certFile) {
+        _context.use_certificate_chain_file(certFile);
+    }
+
+    void setKeyFile(const std::string &keyFile) {
+        _context.use_private_key_file(keyFile, boost::asio::ssl::context::pem);
+    }
+
+    void setPassword(const std::string &password) {
+        _context.set_password_callback([password](size_t, boost::asio::ssl::context::password_purpose) {
+            return password;
+        });
+    }
+
+    void setVerifyMode(SSLVerifyMode verifyMode) {
+        if (verifyMode == SSLVerifyMode::CERT_NONE) {
+            _context.set_verify_mode(boost::asio::ssl::verify_none);
+        } else if (verifyMode == SSLVerifyMode::CERT_OPTIONAL) {
+            _context.set_verify_mode(boost::asio::ssl::verify_peer);
+        } else {
+            _context.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
+        }
+    }
+
+    void setVerifyFile(const std::string &verifyFile) {
+        _context.load_verify_file(verifyFile);
+    }
+
+    void setDefaultVerifyPath() {
+        _context.set_default_verify_paths();
+    }
+
+    void setCheckHost(const std::string &hostName) {
+        _context.set_verify_callback(boost::asio::ssl::rfc2818_verification(hostName));
+    }
+
+    bool _serverSide;
+    SSLContextType _context;
+};
+
 
 class NET4CXX_COMMON_API NetUtil {
 public:

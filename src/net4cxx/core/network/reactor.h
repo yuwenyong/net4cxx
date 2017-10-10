@@ -21,8 +21,6 @@ class NET4CXX_COMMON_API Reactor {
 public:
     using ServiceType = boost::asio::io_service;
     using WorkType = ServiceType::work;
-    using AcceptorType = boost::asio::ip::tcp::acceptor;
-    using SocketType = boost::asio::ip::tcp::socket;
     using SignalSet = boost::asio::signal_set;
     using StopCallbacks = boost::signals2::signal<void ()>;
 
@@ -77,18 +75,11 @@ public:
         _stopCallbacks.connect(std::forward<CallbackT>(callback));
     }
 
-    AcceptorType createAcceptor() {
-        return AcceptorType{_ioService};
-    }
-
-    SocketType createSocket() {
-        return SocketType{_ioService};
-    }
-
-    ListenerPtr listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory, const std::string &interface);
+    ListenerPtr listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory, const std::string &interface={});
 
     ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
                             double timeout=30.0, const Address &bindAddress={});
+
 
     bool running() const {
         return !_running;

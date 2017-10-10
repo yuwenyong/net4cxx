@@ -16,9 +16,14 @@ ListenerPtr TCPServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory
 }
 
 
+ListenerPtr SSLServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) const {
+    return nullptr;
+}
+
+
 std::unique_ptr<ServerEndpoint> _parseTCP(Reactor *reactor, const StringVector &args) {
     std::string port = args[1];
-    std::string interface = "::";
+    std::string interface;
     for (size_t i = 2; i != args.size(); ++i) {
         auto fields = StrUtil::partition(args[i], "=");
         if (std::get<1>(fields).empty()) {
