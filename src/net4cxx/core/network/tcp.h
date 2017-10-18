@@ -127,13 +127,13 @@ public:
     explicit TCPServerConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
 #ifndef NET4CXX_NDEBUG
-        NET4CXX_Watcher->inc(NET4CXX_TCPSERVERCONNECTION_COUNT);
+        NET4CXX_Watcher->inc(NET4CXX_TCPServerConnection_COUNT);
 #endif
     }
 
 #ifndef NET4CXX_NDEBUG
     ~TCPServerConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPSERVERCONNECTION_COUNT);
+        NET4CXX_Watcher->dec(NET4CXX_TCPServerConnection_COUNT);
     }
 #endif
 
@@ -146,13 +146,13 @@ public:
     explicit TCPClientConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
 #ifndef NET4CXX_NDEBUG
-        NET4CXX_Watcher->inc(NET4CXX_TCPCLIENTCONNECTION_COUNT);
+        NET4CXX_Watcher->inc(NET4CXX_TCPClientConnection_COUNT);
 #endif
     }
 
 #ifndef NET4CXX_NDEBUG
     ~TCPClientConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPCLIENTCONNECTION_COUNT);
+        NET4CXX_Watcher->dec(NET4CXX_TCPClientConnection_COUNT);
     }
 #endif
 
@@ -176,7 +176,7 @@ public:
 
 #ifndef NET4CXX_NDEBUG
     ~TCPListener() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPLISTENER_COUNT);
+        NET4CXX_Watcher->dec(NET4CXX_TCPListener_COUNT);
     }
 #endif
 
@@ -226,7 +226,7 @@ public:
 
 #ifndef NET4CXX_NDEBUG
     ~TCPConnector() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPCONNECTOR_COUNT);
+        NET4CXX_Watcher->dec(NET4CXX_TCPConnector_COUNT);
     }
 #endif
 

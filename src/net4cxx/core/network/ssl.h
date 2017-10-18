@@ -163,6 +163,77 @@ protected:
     std::exception_ptr _error;
 };
 
+
+class NET4CXX_COMMON_API SSLServerConnection: public SSLConnection {
+public:
+    explicit SSLServerConnection(SSLOptionPtr sslOption, Reactor *reactor)
+            : SSLConnection({}, std::move(sslOption), reactor) {
+#ifndef NET4CXX_NDEBUG
+        NET4CXX_Watcher->inc(NET4CXX_SSLServerConnection_COUNT);
+#endif
+    }
+
+#ifndef NET4CXX_NDEBUG
+    ~TCPServerConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_SSLServerConnection_COUNT);
+    }
+#endif
+
+    void cbAccept(const ProtocolPtr &protocol);
+};
+
+
+class NET4CXX_COMMON_API SSLListener: public Listener, public std::enable_shared_from_this<SSLListener> {
+public:
+    using AddressType = boost::asio::ip::address;
+    using AcceptorType = boost::asio::ip::tcp::acceptor;
+    using SocketType = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+    using ResolverType = boost::asio::ip::tcp::resolver ;
+    using EndpointType = boost::asio::ip::tcp::endpoint ;
+    using ResolverIterator = ResolverType::iterator;
+
+    SSLListener(std::string port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption, std::string interface,
+                Reactor *reactor);
+
+#ifndef NET4CXX_NDEBUG
+    ~SSLListener() override {
+        NET4CXX_Watcher->dec(NET4CXX_SSLListener_COUNT);
+    }
+#endif
+
+    void startListening() override;
+
+    void stopListening() override;
+
+    std::string getLocalAddress() const {
+        auto endpoint = _acceptor.local_endpoint();
+        return endpoint.address().to_string();
+    }
+
+    unsigned short getLocalPort() const {
+        auto endpoint = _acceptor.local_endpoint();
+        return endpoint.port();
+    }
+protected:
+    void cbAccept(const boost::system::error_code &ec);
+
+    void handleAccept(const boost::system::error_code &ec);
+
+    void doAccept() {
+        _connection = std::make_shared<SSLServerConnection>(_reactor);
+        _acceptor.async_accept(_connection->getSocket().lowest_layer(),
+                               std::bind(&SSLListener::cbAccept, shared_from_this(), std::placeholders::_1));
+    }
+
+    std::string _port;
+    std::unique_ptr<Factory> _factory;
+    SSLOptionPtr _sslOption;
+    std::string _interface;
+    AcceptorType _acceptor;
+    bool _connected{false};
+    std::shared_ptr<SSLServerConnection> _connection;
+};
+
 NS_END
 
 #endif //NET4CXX_CORE_NETWORK_SSL_H

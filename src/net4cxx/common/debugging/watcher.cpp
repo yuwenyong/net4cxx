@@ -139,6 +139,9 @@ void Watcher::addDelCallback(const char *key, const DelCallback &callback) {
 
 void Watcher::dump(Filter filter, Logger *logger) const {
     std::lock_guard<std::mutex> lock(_lock);
+    if (_objs.empty()) {
+        return;
+    }
     dumpHeader(logger);
     for (const auto &object: _objs) {
         if (filter(object.first, object.second)) {
@@ -150,6 +153,9 @@ void Watcher::dump(Filter filter, Logger *logger) const {
 
 void Watcher::dumpAll(Logger *logger) const {
     std::lock_guard<std::mutex> lock(_lock);
+    if (_objs.empty()) {
+        return;
+    }
     dumpHeader(logger);
     for (const auto &object: _objs) {
         dumpObject(object.first,  object.second, logger);
@@ -159,6 +165,9 @@ void Watcher::dumpAll(Logger *logger) const {
 
 void Watcher::dumpNonZero(Logger *logger) const {
     std::lock_guard<std::mutex> lock(_lock);
+    if (_objs.empty()) {
+        return;
+    }
     dumpHeader(logger);
     for (const auto &object: _objs) {
         if (object.second) {

@@ -239,4 +239,14 @@ void SSLConnection::handleShutdown(const boost::system::error_code &ec) {
     closeSocket();
 }
 
+
+void SSLServerConnection::cbAccept(const ProtocolPtr &protocol) {
+    _protocol = protocol;
+    _connected = true;
+    protocol->makeConnection(shared_from_this());
+    if (!_disconnecting) {
+        startHandshake();
+    }
+}
+
 NS_END

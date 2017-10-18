@@ -58,32 +58,60 @@ void GlobalInit::cleanup() {
 
 void GlobalInit::setupWatcherHook() {
 #ifndef NET4CXX_NDEBUG
-    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPSERVERCONNECTION_COUNT, [](int oldValue, int increment, int value) {
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPServerConnection_COUNT, [](int oldValue, int increment, int value) {
         NET4CXX_TRACE(gGenLog, "Create TCPServerConnection, current count:%d", value);
     });
-    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPSERVERCONNECTION_COUNT, [](int oldValue, int decrement, int value) {
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPServerConnection_COUNT, [](int oldValue, int decrement, int value) {
         NET4CXX_TRACE(gGenLog, "Destroy TCPServerConnection, current count:%d", value);
     });
 
-    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPLISTENER_COUNT, [](int oldValue, int increment, int value) {
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPListener_COUNT, [](int oldValue, int increment, int value) {
         NET4CXX_TRACE(gGenLog, "Create TCPListener, current count:%d", value);
     });
-    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPLISTENER_COUNT, [](int oldValue, int decrement, int value) {
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPListener_COUNT, [](int oldValue, int decrement, int value) {
         NET4CXX_TRACE(gGenLog, "Destroy TCPListener, current count:%d", value);
     });
 
-    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPCLIENTCONNECTION_COUNT, [](int oldValue, int increment, int value) {
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPClientConnection_COUNT, [](int oldValue, int increment, int value) {
         NET4CXX_TRACE(gGenLog, "Create TCPClientConnection, current count:%d", value);
     });
-    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPCLIENTCONNECTION_COUNT, [](int oldValue, int decrement, int value) {
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPClientConnection_COUNT, [](int oldValue, int decrement, int value) {
         NET4CXX_TRACE(gGenLog, "Destroy TCPClientConnection, current count:%d", value);
     });
 
-    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPCONNECTOR_COUNT, [](int oldValue, int increment, int value) {
+    NET4CXX_Watcher->addIncCallback(NET4CXX_TCPConnector_COUNT, [](int oldValue, int increment, int value) {
         NET4CXX_TRACE(gGenLog, "Create TCPConnector, current count:%d", value);
     });
-    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPCONNECTOR_COUNT, [](int oldValue, int decrement, int value) {
+    NET4CXX_Watcher->addDecCallback(NET4CXX_TCPConnector_COUNT, [](int oldValue, int decrement, int value) {
         NET4CXX_TRACE(gGenLog, "Destroy TCPConnector, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_SSLServerConnection_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create SSLServerConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_SSLServerConnection_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy SSLServerConnection, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_SSLListener_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create SSLListener, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_SSLListener_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy SSLListener, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_SSLClientConnection_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create SSLClientConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_SSLClientConnection_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy SSLClientConnection, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_SSLConnector_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create SSLConnector, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_SSLConnector_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy SSLConnector, current count:%d", value);
     });
 #endif
 }
