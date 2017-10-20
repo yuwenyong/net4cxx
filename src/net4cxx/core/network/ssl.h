@@ -17,6 +17,7 @@ NS_BEGIN
 
 class Factory;
 class ClientFactory;
+class SSLConnector;
 
 
 class NET4CXX_COMMON_API SSLConnection: public Connection, public std::enable_shared_from_this<SSLConnection> {
@@ -174,12 +175,35 @@ public:
     }
 
 #ifndef NET4CXX_NDEBUG
-    ~TCPServerConnection() override {
+    ~SSLServerConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_SSLServerConnection_COUNT);
     }
 #endif
 
     void cbAccept(const ProtocolPtr &protocol);
+};
+
+
+class NET4CXX_COMMON_API SSLClientConnection: public SSLConnection {
+public:
+    explicit SSLClientConnection(SSLOptionPtr sslOption, Reactor *reactor)
+            : SSLConnection({}, std::move(sslOption), reactor) {
+#ifndef NET4CXX_NDEBUG
+        NET4CXX_Watcher->inc(NET4CXX_SSLClientConnection_COUNT);
+#endif
+    }
+
+#ifndef NET4CXX_NDEBUG
+    ~SSLClientConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_SSLClientConnection_COUNT);
+    }
+#endif
+
+    void cbConnect(const ProtocolPtr &protocol, std::shared_ptr<SSLConnector> connector);
+protected:
+    void closeSocket() override;
+
+    std::shared_ptr<SSLConnector> _connector;
 };
 
 
@@ -220,7 +244,7 @@ protected:
     void handleAccept(const boost::system::error_code &ec);
 
     void doAccept() {
-        _connection = std::make_shared<SSLServerConnection>(_reactor);
+        _connection = std::make_shared<SSLServerConnection>(_sslOption, _reactor);
         _acceptor.async_accept(_connection->getSocket().lowest_layer(),
                                std::bind(&SSLListener::cbAccept, shared_from_this(), std::placeholders::_1));
     }
@@ -232,6 +256,89 @@ protected:
     AcceptorType _acceptor;
     bool _connected{false};
     std::shared_ptr<SSLServerConnection> _connection;
+};
+
+
+class NET4CXX_COMMON_API SSLConnector: public Connector, public std::enable_shared_from_this<SSLConnector> {
+public:
+    using AddressType = boost::asio::ip::address;
+    using SocketType = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
+    using ResolverType = boost::asio::ip::tcp::resolver ;
+    using ResolverIterator = ResolverType::iterator;
+    using EndpointType = boost::asio::ip::tcp::endpoint ;
+
+    SSLConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, SSLOptionPtr sslOption,
+                 double timeout, Address bindAddress, Reactor *reactor);
+
+#ifndef NET4CXX_NDEBUG
+    ~SSLConnector() override {
+        NET4CXX_Watcher->dec(NET4CXX_SSLConnector_COUNT);
+    }
+#endif
+
+    void startConnecting() override;
+
+    void stopConnecting() override;
+
+    void connectionFailed(std::exception_ptr reason={});
+
+    void connectionLost(std::exception_ptr reason={});
+protected:
+    ProtocolPtr buildProtocol(const Address &address);
+
+    void cancelTimeout() {
+        if (!_timeoutId.cancelled()) {
+            _timeoutId.cancel();
+        }
+    }
+
+    void doResolve();
+
+    void cbResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
+        handleResolve(ec, iterator);
+        if (_state == kConnecting) {
+            doConnect(std::move(iterator));
+        }
+    }
+
+    void handleResolve(const boost::system::error_code &ec, ResolverIterator iterator);
+
+    void doConnect();
+
+    void doConnect(ResolverIterator iterator);
+
+    void cbConnect(const boost::system::error_code &ec) {
+        handleConnect(ec);
+    }
+
+    void handleConnect(const boost::system::error_code &ec);
+
+    void cbTimeout() {
+        handleTimeout();
+    }
+
+    void handleTimeout();
+
+    void makeTransport();
+
+    enum State {
+        kDisconnected,
+        kConnecting,
+        kConnected,
+    };
+
+    std::string _host;
+    std::string _port;
+    std::unique_ptr<ClientFactory> _factory;
+    SSLOptionPtr _sslOption;
+    double _timeout{0.0};
+    Address _bindAddress;
+    ResolverType _resolver;
+    std::shared_ptr<SSLClientConnection> _connection;
+    State _state{kDisconnected};
+    DelayedCall _timeoutId;
+    bool _factoryStarted{false};
+    std::exception_ptr _error;
 };
 
 NS_END

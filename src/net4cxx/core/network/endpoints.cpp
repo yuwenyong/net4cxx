@@ -17,7 +17,7 @@ ListenerPtr TCPServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory
 
 
 ListenerPtr SSLServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) const {
-    return nullptr;
+    return _reactor->listenSSL(_port, std::move(protocolFactory), _sslOption, _interface);
 }
 
 

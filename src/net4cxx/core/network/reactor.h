@@ -80,6 +80,11 @@ public:
     ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
                             double timeout=30.0, const Address &bindAddress={});
 
+    ListenerPtr listenSSL(const std::string &port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption,
+                          const std::string &interface={});
+
+    ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
+                            SSLOptionPtr sslOption, double timeout=30.0, const Address &bindAddress={});
 
     bool running() const {
         return !_running;

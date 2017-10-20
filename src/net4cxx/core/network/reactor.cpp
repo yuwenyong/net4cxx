@@ -6,6 +6,7 @@
 #include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/core/network/protocol.h"
+#include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
 
 
@@ -48,14 +49,30 @@ void Reactor::stop() {
 
 ListenerPtr Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
                                const std::string &interface) {
-    auto p = std::make_shared<TCPListener>(port, std::move(factory), interface, this);
-    p->startListening();
-    return p;
+    auto l = std::make_shared<TCPListener>(port, std::move(factory), interface, this);
+    l->startListening();
+    return l;
 }
 
 ConnectorPtr Reactor::connectTCP(const std::string &host, const std::string &port,
                                  std::unique_ptr<ClientFactory> &&factory, double timeout, const Address &bindAddress) {
     auto c = std::make_shared<TCPConnector>(host, port, std::move(factory), timeout, bindAddress, this);
+    c->startConnecting();
+    return c;
+}
+
+ListenerPtr Reactor::listenSSL(const std::string &port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption,
+                               const std::string &interface) {
+    auto l = std::make_shared<SSLListener>(port, std::move(factory), std::move(sslOption), interface, this);
+    l->startListening();
+    return l;
+}
+
+ConnectorPtr Reactor::connectSSL(const std::string &host, const std::string &port,
+                                 std::unique_ptr<ClientFactory> &&factory, SSLOptionPtr sslOption, double timeout,
+                                 const Address &bindAddress) {
+    auto c = std::make_shared<SSLConnector>(host, port, std::move(factory), std::move(sslOption), timeout, bindAddress,
+                                            this);
     c->startConnecting();
     return c;
 }
