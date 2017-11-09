@@ -96,6 +96,8 @@ int main () {
 }
 
 void test2() {
+    std::list<int> s;
+    s.sort();
     std::cout << boost::stacktrace::stacktrace() << std::endl;
     NET4CXX_ASSERT(false, "addw %s", "dd");
     NET4CXX_THROW_EXCEPTION(net4cxx::Exception, "wocaonima");

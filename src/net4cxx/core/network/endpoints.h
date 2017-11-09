@@ -114,7 +114,6 @@ protected:
     Address _bindAddress;
 };
 
-
 NET4CXX_COMMON_API ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);
 
 NS_END
