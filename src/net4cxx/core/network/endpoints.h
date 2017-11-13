@@ -114,6 +114,46 @@ protected:
     Address _bindAddress;
 };
 
+
+class NET4CXX_COMMON_API SSLClientEndpoint: public ClientEndpoint {
+public:
+    SSLClientEndpoint(Reactor *reactor, std::string host, std::string port, SSLOptionPtr sslOption, double timeout=30.0,
+                      Address bindAddress={})
+            : ClientEndpoint(reactor)
+            , _host(std::move(host))
+            , _port(std::move(port))
+            , _sslOption(std::move(sslOption))
+            , _timeout(timeout)
+            , _bindAddress(std::move(bindAddress)) {
+
+    }
+
+    ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+protected:
+    std::string _host;
+    std::string _port;
+    SSLOptionPtr _sslOption;
+    double _timeout;
+    Address _bindAddress;
+};
+
+///
+/// \param reactor
+/// \param description
+///     tcp:host=www.example.com:port=80
+///     tcp:www.example.com:80
+///     tcp:host=www.example.com:80
+///     tcp:www.example.com:port=80
+///     ssl:web.example.com:443:privateKey=foo.pem:certKey=foo.pem
+///     ssl:host=web.example.com:port=443:caCertsDir=/etc/ssl/certs
+///     tcp:www.example.com:80:bindAddress=192.0.2.100
+///     unix:path=/var/foo/bar:lockfile=1:timeout=9
+///     unix:/var/foo/bar
+///     unix:/var/foo/bar:lockfile=1:timeout=9
+/// \return
+NET4CXX_COMMON_API std::unique_ptr<ClientEndpoint> clientFromString(Reactor *reactor, const std::string &description);
+
+
 NET4CXX_COMMON_API ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);
 
 NS_END
