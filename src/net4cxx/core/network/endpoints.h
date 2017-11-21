@@ -75,6 +75,24 @@ protected:
 };
 
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+class NET4CXX_COMMON_API UNIXServerEndpoint: public ServerEndpoint {
+public:
+    UNIXServerEndpoint(Reactor *reactor, std::string path)
+            : ServerEndpoint(reactor)
+            , _path(std::move(path)) {
+
+    }
+
+    ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const override;
+protected:
+    std::string _path;
+};
+
+#endif
+
+
 ///
 /// \param reactor
 /// \param description
@@ -82,7 +100,6 @@ protected:
 ///     tcp:80:interface=127.0.0.1
 ///     ssl:443:privateKey=key.pem:certKey=crt.pem
 ///     unix:/var/run/finger
-///     unix:/var/run/finger:mode=660
 /// \return
 NET4CXX_COMMON_API std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::string &description);
 
@@ -137,6 +154,25 @@ protected:
     Address _bindAddress;
 };
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+class NET4CXX_COMMON_API UNIXClientEndpoint: public ClientEndpoint {
+public:
+    UNIXClientEndpoint(Reactor *reactor, std::string path, double timeout=30.0)
+            : ClientEndpoint(reactor)
+            , _path(std::move(path))
+            , _timeout(timeout) {
+
+    }
+
+    ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+protected:
+    std::string _path;
+    double _timeout;
+};
+
+#endif
+
 ///
 /// \param reactor
 /// \param description
@@ -147,9 +183,9 @@ protected:
 ///     ssl:web.example.com:443:privateKey=foo.pem:certKey=foo.pem
 ///     ssl:host=web.example.com:port=443:caCertsDir=/etc/ssl/certs
 ///     tcp:www.example.com:80:bindAddress=192.0.2.100
-///     unix:path=/var/foo/bar:lockfile=1:timeout=9
+///     unix:path=/var/foo/bar:timeout=9
 ///     unix:/var/foo/bar
-///     unix:/var/foo/bar:lockfile=1:timeout=9
+///     unix:/var/foo/bar:timeout=9
 /// \return
 NET4CXX_COMMON_API std::unique_ptr<ClientEndpoint> clientFromString(Reactor *reactor, const std::string &description);
 

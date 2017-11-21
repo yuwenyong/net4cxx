@@ -36,44 +36,44 @@ public:
 
     void abortConnection() override;
 
-    bool getTcpNoDely() const {
+    bool getNoDelay() const override {
         boost::asio::ip::tcp::no_delay option;
         _socket.lowest_layer().get_option(option);
         return option.value();
     }
 
-    void setTcpNoDelay(bool enabled) {
+    void setNoDelay(bool enabled) override {
         boost::asio::ip::tcp::no_delay option(enabled);
         _socket.lowest_layer().set_option(option);
     }
 
-    bool getTcpKeepAlive() const {
+    bool getKeepAlive() const override {
         boost::asio::socket_base::keep_alive option;
         _socket.lowest_layer().get_option(option);
         return option.value();
     }
 
-    void setTcpKeepAlive(bool enabled) {
+    void setKeepAlive(bool enabled) override {
         boost::asio::socket_base::keep_alive option(enabled);
         _socket.lowest_layer().set_option(option);
     }
 
-    std::string getLocalAddress() const {
+    std::string getLocalAddress() const override {
         auto endpoint = _socket.lowest_layer().local_endpoint();
         return endpoint.address().to_string();
     }
 
-    unsigned short getLocalPort() const {
+    unsigned short getLocalPort() const override {
         auto endpoint = _socket.lowest_layer().local_endpoint();
         return endpoint.port();
     }
 
-    std::string getRemoteAddress() const {
+    std::string getRemoteAddress() const override {
         auto endpoint = _socket.lowest_layer().remote_endpoint();
         return endpoint.address().to_string();
     }
 
-    unsigned short getRemotePort() const {
+    unsigned short getRemotePort() const override {
         auto endpoint = _socket.lowest_layer().remote_endpoint();
         return endpoint.port();
     }
@@ -212,8 +212,8 @@ public:
     using AddressType = boost::asio::ip::address;
     using AcceptorType = boost::asio::ip::tcp::acceptor;
     using SocketType = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
-    using ResolverType = boost::asio::ip::tcp::resolver ;
-    using EndpointType = boost::asio::ip::tcp::endpoint ;
+    using ResolverType = boost::asio::ip::tcp::resolver;
+    using EndpointType = boost::asio::ip::tcp::endpoint;
     using ResolverIterator = ResolverType::iterator;
 
     SSLListener(std::string port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption, std::string interface,
@@ -263,9 +263,9 @@ class NET4CXX_COMMON_API SSLConnector: public Connector, public std::enable_shar
 public:
     using AddressType = boost::asio::ip::address;
     using SocketType = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
-    using ResolverType = boost::asio::ip::tcp::resolver ;
+    using ResolverType = boost::asio::ip::tcp::resolver;
     using ResolverIterator = ResolverType::iterator;
-    using EndpointType = boost::asio::ip::tcp::endpoint ;
+    using EndpointType = boost::asio::ip::tcp::endpoint;
 
     SSLConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, SSLOptionPtr sslOption,
                  double timeout, Address bindAddress, Reactor *reactor);

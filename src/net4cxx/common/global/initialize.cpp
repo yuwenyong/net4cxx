@@ -113,6 +113,34 @@ void GlobalInit::setupWatcherHook() {
     NET4CXX_Watcher->addDecCallback(NET4CXX_SSLConnector_COUNT, [](int oldValue, int decrement, int value) {
         NET4CXX_TRACE(gGenLog, "Destroy SSLConnector, current count:%d", value);
     });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_UNIXServerConnection_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create UNIXServerConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_UNIXServerConnection_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy UNIXServerConnection, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_UNIXListener_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create UNIXListener, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_UNIXListener_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy UNIXListener, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_UNIXClientConnection_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create UNIXClientConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_UNIXClientConnection_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy UNIXClientConnection, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_UNIXConnector_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create UNIXConnector, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_UNIXConnector_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy UNIXConnector, current count:%d", value);
+    });
 #endif
 }
 

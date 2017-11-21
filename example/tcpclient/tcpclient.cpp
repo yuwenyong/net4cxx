@@ -41,15 +41,15 @@ protected:
 //        return std::make_shared<MyProtocol>();
 //    }
 //
-//    void startedConnecting(Connector *connector) override {
+//    void startedConnecting(ConnectorPtr connector) override {
 //        NET4CXX_INFO(gAppLog, "Start connecting");
 //    }
 //
-//    void clientConnectionFailed(Connector *connector, std::exception_ptr reason) override {
+//    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
 //        NET4CXX_INFO(gAppLog, "Client connection failed");
 //    }
 //
-//    void clientConnectionLost(Connector *connector, std::exception_ptr reason) override {
+//    void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
 //        NET4CXX_INFO(gAppLog, "Client connection lost");
 //    }
 //};
@@ -80,7 +80,10 @@ public:
 int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
-    reactor.connectTCP("localhost", "28001", std::make_unique<MyFactory>());
+//    reactor.connectTCP("localhost", "28001", std::make_unique<MyFactory>());
+//    clientFromString(&reactor, "tcp:host=localhost:port=28001")->connect(std::make_unique<MyFactory>());
+//    clientFromString(&reactor, "ssl:host=localhost:port=28001")->connect(std::make_unique<MyFactory>());
+    clientFromString(&reactor, "unix:/data/foo/bar")->connect(std::make_unique<MyFactory>());
 //    TCPClientEndpoint endpoint(&reactor, "localhost", "28001");
 //    connectProtocol(endpoint, std::make_shared<MyProtocol>());
     reactor.run();

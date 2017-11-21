@@ -86,6 +86,12 @@ public:
     ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
                             SSLOptionPtr sslOption, double timeout=30.0, const Address &bindAddress={});
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+    ListenerPtr listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory);
+
+    ConnectorPtr connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout=30.0);
+#endif
+
     bool running() const {
         return !_running;
     }

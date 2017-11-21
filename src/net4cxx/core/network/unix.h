@@ -1,9 +1,9 @@
 //
-// Created by yuwenyong on 17-9-26.
+// Created by yuwenyong on 17-11-21.
 //
 
-#ifndef NET4CXX_CORE_NETWORK_TCP_H
-#define NET4CXX_CORE_NETWORK_TCP_H
+#ifndef NET4CXX_CORE_NETWORK_UNIX_H
+#define NET4CXX_CORE_NETWORK_UNIX_H
 
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
@@ -11,17 +11,20 @@
 #include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
 NS_BEGIN
 
 class Factory;
 class ClientFactory;
-class TCPConnector;
+class UNIXConnector;
 
-class NET4CXX_COMMON_API TCPConnection: public Connection, public std::enable_shared_from_this<TCPConnection> {
+
+class NET4CXX_COMMON_API UNIXConnection: public Connection, public std::enable_shared_from_this<UNIXConnection> {
 public:
-    using SocketType = boost::asio::ip::tcp::socket;
+    using SocketType = boost::asio::local::stream_protocol::socket;
 
-    TCPConnection(const ProtocolPtr &protocol, Reactor *reactor);
+    UNIXConnection(const ProtocolPtr &protocol, Reactor *reactor);
 
     SocketType& getSocket() {
         return _socket;
@@ -34,14 +37,11 @@ public:
     void abortConnection() override;
 
     bool getNoDelay() const override {
-        boost::asio::ip::tcp::no_delay option;
-        _socket.get_option(option);
-        return option.value();
+        return true;
     }
 
     void setNoDelay(bool enabled) override {
-        boost::asio::ip::tcp::no_delay option(enabled);
-        _socket.set_option(option);
+
     }
 
     bool getKeepAlive() const override {
@@ -57,22 +57,20 @@ public:
 
     std::string getLocalAddress() const override {
         auto endpoint = _socket.local_endpoint();
-        return endpoint.address().to_string();
+        return endpoint.path();
     }
 
     unsigned short getLocalPort() const override {
-        auto endpoint = _socket.local_endpoint();
-        return endpoint.port();
+        return 0;
     }
 
     std::string getRemoteAddress() const override {
         auto endpoint = _socket.remote_endpoint();
-        return endpoint.address().to_string();
+        return endpoint.path();
     }
 
     unsigned short getRemotePort() const override {
-        auto endpoint = _socket.remote_endpoint();
-        return endpoint.port();
+        return 0;
     }
 protected:
     void doClose();
@@ -122,18 +120,18 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API TCPServerConnection: public TCPConnection {
+class NET4CXX_COMMON_API UNIXServerConnection: public UNIXConnection {
 public:
-    explicit TCPServerConnection(Reactor *reactor)
-            : TCPConnection({}, reactor) {
+    explicit UNIXServerConnection(Reactor *reactor)
+            : UNIXConnection({}, reactor) {
 #ifndef NET4CXX_NDEBUG
-        NET4CXX_Watcher->inc(NET4CXX_TCPServerConnection_COUNT);
+        NET4CXX_Watcher->inc(NET4CXX_UNIXServerConnection_COUNT);
 #endif
     }
 
 #ifndef NET4CXX_NDEBUG
-    ~TCPServerConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPServerConnection_COUNT);
+    ~UNIXServerConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_UNIXServerConnection_COUNT);
     }
 #endif
 
@@ -141,43 +139,40 @@ public:
 };
 
 
-class NET4CXX_COMMON_API TCPClientConnection: public TCPConnection {
+class NET4CXX_COMMON_API UNIXClientConnection: public UNIXConnection {
 public:
-    explicit TCPClientConnection(Reactor *reactor)
-            : TCPConnection({}, reactor) {
+    explicit UNIXClientConnection(Reactor *reactor)
+            : UNIXConnection({}, reactor) {
 #ifndef NET4CXX_NDEBUG
-        NET4CXX_Watcher->inc(NET4CXX_TCPClientConnection_COUNT);
+        NET4CXX_Watcher->inc(NET4CXX_UNIXClientConnection_COUNT);
 #endif
     }
 
 #ifndef NET4CXX_NDEBUG
-    ~TCPClientConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPClientConnection_COUNT);
+    ~UNIXClientConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_UNIXClientConnection_COUNT);
     }
 #endif
 
-    void cbConnect(const ProtocolPtr &protocol, std::shared_ptr<TCPConnector> connector);
+    void cbConnect(const ProtocolPtr &protocol, std::shared_ptr<UNIXConnector> connector);
 protected:
     void closeSocket() override;
 
-    std::shared_ptr<TCPConnector> _connector;
+    std::shared_ptr<UNIXConnector> _connector;
 };
 
 
-class NET4CXX_COMMON_API TCPListener: public Listener, public std::enable_shared_from_this<TCPListener> {
+class NET4CXX_COMMON_API UNIXListener: public Listener, public std::enable_shared_from_this<UNIXListener> {
 public:
-    using AddressType = boost::asio::ip::address;
-    using AcceptorType = boost::asio::ip::tcp::acceptor;
-    using SocketType = boost::asio::ip::tcp::socket;
-    using ResolverType = boost::asio::ip::tcp::resolver;
-    using EndpointType = boost::asio::ip::tcp::endpoint;
-    using ResolverIterator = ResolverType::iterator;
+    using AcceptorType = boost::asio::local::stream_protocol::acceptor;
+    using SocketType = boost::asio::local::stream_protocol::socket;
+    using EndpointType = boost::asio::local::stream_protocol::endpoint;
 
-    TCPListener(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
+    UNIXListener(std::string path, std::unique_ptr<Factory> &&factory, Reactor *reactor);
 
 #ifndef NET4CXX_NDEBUG
-    ~TCPListener() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPListener_COUNT);
+    ~UNIXListener() override {
+        NET4CXX_Watcher->dec(NET4CXX_UNIXListener_COUNT);
     }
 #endif
 
@@ -187,12 +182,11 @@ public:
 
     std::string getLocalAddress() const {
         auto endpoint = _acceptor.local_endpoint();
-        return endpoint.address().to_string();
+        return endpoint.path();
     }
 
     unsigned short getLocalPort() const {
-        auto endpoint = _acceptor.local_endpoint();
-        return endpoint.port();
+        return 0;
     }
 protected:
     void cbAccept(const boost::system::error_code &ec);
@@ -200,34 +194,29 @@ protected:
     void handleAccept(const boost::system::error_code &ec);
 
     void doAccept() {
-        _connection = std::make_shared<TCPServerConnection>(_reactor);
-        _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, shared_from_this(),
+        _connection = std::make_shared<UNIXServerConnection>(_reactor);
+        _acceptor.async_accept(_connection->getSocket(), std::bind(&UNIXListener::cbAccept, shared_from_this(),
                                                                    std::placeholders::_1));
     }
 
-    std::string _port;
+    std::string _path;
     std::unique_ptr<Factory> _factory;
-    std::string _interface;
     AcceptorType _acceptor;
     bool _connected{false};
-    std::shared_ptr<TCPServerConnection> _connection;
+    std::shared_ptr<UNIXServerConnection> _connection;
 };
 
 
-class NET4CXX_COMMON_API TCPConnector: public Connector, public std::enable_shared_from_this<TCPConnector> {
+class NET4CXX_COMMON_API UNIXConnector: public Connector, public std::enable_shared_from_this<UNIXConnector> {
 public:
-    using AddressType = boost::asio::ip::address;
-    using SocketType = boost::asio::ip::tcp::socket;
-    using ResolverType = boost::asio::ip::tcp::resolver;
-    using ResolverIterator = ResolverType::iterator;
-    using EndpointType = boost::asio::ip::tcp::endpoint;
+    using SocketType = boost::asio::local::stream_protocol::socket;
+    using EndpointType = boost::asio::local::stream_protocol::endpoint;
 
-    TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
-                 Address bindAddress, Reactor *reactor);
+    UNIXConnector(std::string path, std::unique_ptr<ClientFactory> &&factory, double timeout, Reactor *reactor);
 
 #ifndef NET4CXX_NDEBUG
-    ~TCPConnector() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPConnector_COUNT);
+    ~UNIXConnector() override {
+        NET4CXX_Watcher->dec(NET4CXX_UNIXConnector_COUNT);
     }
 #endif
 
@@ -247,20 +236,7 @@ protected:
         }
     }
 
-    void doResolve();
-
-    void cbResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
-        handleResolve(ec, iterator);
-        if (_state == kConnecting) {
-            doConnect(std::move(iterator));
-        }
-    }
-
-    void handleResolve(const boost::system::error_code &ec, ResolverIterator iterator);
-
     void doConnect();
-
-    void doConnect(ResolverIterator iterator);
 
     void cbConnect(const boost::system::error_code &ec) {
         handleConnect(ec);
@@ -282,20 +258,18 @@ protected:
         kConnected,
     };
 
-    std::string _host;
-    std::string _port;
+    std::string _path;
     std::unique_ptr<ClientFactory> _factory;
     double _timeout{0.0};
-    Address _bindAddress;
-    ResolverType _resolver;
-    std::shared_ptr<TCPClientConnection> _connection;
+    std::shared_ptr<UNIXClientConnection> _connection;
     State _state{kDisconnected};
     DelayedCall _timeoutId;
     bool _factoryStarted{false};
     std::exception_ptr _error;
 };
 
-
 NS_END
 
-#endif //NET4CXX_CORE_NETWORK_TCP_H
+#endif //BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+#endif //NET4CXX_CORE_NETWORK_UNIX_H

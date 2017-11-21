@@ -38,4 +38,9 @@ NS_END
 #define NET4CXX_SSLClientConnection_COUNT   "net4cxx.SSLClientConnection.count"
 #define NET4CXX_SSLConnector_COUNT          "net4cxx.SSLConnector.count"
 
+#define NET4CXX_UNIXServerConnection_COUNT   "net4cxx.UNIXServerConnection.count"
+#define NET4CXX_UNIXListener_COUNT           "net4cxx.UNIXListener.count"
+#define NET4CXX_UNIXClientConnection_COUNT   "net4cxx.UNIXClientConnection.count"
+#define NET4CXX_UNIXConnector_COUNT          "net4cxx.UNIXConnector.count"
+
 #endif //NET4CXX_COMMON_GLOBAL_LOGGERS_H

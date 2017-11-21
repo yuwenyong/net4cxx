@@ -300,6 +300,22 @@ public:
 
     virtual void abortConnection() = 0;
 
+    virtual bool getNoDelay() const = 0;
+
+    virtual void setNoDelay(bool enabled) = 0;
+
+    virtual bool getKeepAlive() const = 0;
+
+    virtual void setKeepAlive(bool enabled) = 0;
+
+    virtual std::string getLocalAddress() const = 0;
+
+    virtual unsigned short getLocalPort() const = 0;
+
+    virtual std::string getRemoteAddress() const = 0;
+
+    virtual unsigned short getRemotePort() const = 0;
+
     Reactor* reactor() {
         return _reactor;
     }

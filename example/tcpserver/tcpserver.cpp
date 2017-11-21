@@ -39,7 +39,9 @@ public:
 int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
-    serverFromString(&reactor, "tcp:28001")->listen(std::make_unique<MyFactory>());
+//    serverFromString(&reactor, "tcp:28001")->listen(std::make_unique<MyFactory>());
+//    serverFromString(&reactor, "ssl:28001:privateKey=test.key:certKey=test.crt")->listen(std::make_unique<MyFactory>());
+    serverFromString(&reactor, "unix:/data/foo/bar")->listen(std::make_unique<MyFactory>());
     reactor.run();
     return 0;
 }

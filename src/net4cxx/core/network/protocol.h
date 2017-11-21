@@ -152,6 +152,46 @@ public:
         BOOST_ASSERT(_transport);
         _transport->abortConnection();
     }
+
+    bool getNoDelay() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getNoDelay();
+    }
+
+    void setNoDelay(bool enabled) {
+        BOOST_ASSERT(_transport);
+        _transport->setNoDelay(enabled);
+    }
+
+    bool getKeepAlive() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getKeepAlive();
+    }
+
+    void setTcpKeepAlive(bool enabled) {
+        BOOST_ASSERT(_transport);
+        _transport->setKeepAlive(enabled);
+    }
+
+    std::string getLocalAddress() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getLocalAddress();
+    }
+
+    unsigned short getLocalPort() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getLocalPort();
+    }
+
+    std::string getRemoteAddress() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getRemoteAddress();
+    }
+
+    unsigned short getRemotePort() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getRemotePort();
+    }
 protected:
     bool _connected{false};
     ConnectionPtr _transport;

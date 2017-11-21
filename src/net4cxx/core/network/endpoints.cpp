@@ -20,6 +20,13 @@ ListenerPtr SSLServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory
     return _reactor->listenSSL(_port, std::move(protocolFactory), _sslOption, _interface);
 }
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+ListenerPtr UNIXServerEndpoint::listen(std::unique_ptr<Factory> &&protocolFactory) const {
+    return _reactor->listenUNIX(_path, std::move(protocolFactory));
+}
+
+#endif
 
 std::unique_ptr<ServerEndpoint> _parseTCP(Reactor *reactor, const StringVector &args, const StringMap &params) {
     std::string port = args[0];
@@ -48,6 +55,15 @@ std::unique_ptr<ServerEndpoint> _parseSSL(Reactor *reactor, const StringVector &
     return std::make_unique<SSLServerEndpoint>(reactor, port, SSLOption::create(sslParams), std::move(interface));
 }
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+std::unique_ptr<ServerEndpoint> _parseUNIX(Reactor *reactor, const StringVector &args, const StringMap &params) {
+    std::string path = args[0];
+    return std::make_unique<UNIXServerEndpoint>(reactor, std::move(path));
+}
+
+#endif
+
 void _parse(const std::string &description, StringVector &args, StringMap &params) {
     StringVector parsedArgs;
     StringMap parsedParams;
@@ -75,6 +91,9 @@ void _parse(const std::string &description, StringVector &args, StringMap &param
         } else {
             current.push_back(description[pos]);
         }
+    }
+    if (!current.empty()) {
+        sofar.push_back(boost::trim_copy(current));
     }
     if (!sofar.empty()) {
         if (sofar.size() == 1) {
@@ -106,6 +125,12 @@ std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::st
         return _parseTCP(reactor, args, params);
     } else if (endpointType == "ssl") {
         return _parseSSL(reactor, args, params);
+    } else if (endpointType == "unix") {
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+        return _parseUNIX(reactor, args, params);
+#else
+        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unsupported endpoint type: '%s'", endpointType.c_str()));
+#endif
     } else {
         NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unknown endpoint type: '%s'", endpointType.c_str()));
     }
@@ -121,6 +146,13 @@ ConnectorPtr SSLClientEndpoint::connect(std::unique_ptr<ClientFactory> &&protoco
     return _reactor->connectSSL(_host, _port, std::move(protocolFactory), _sslOption, _timeout, _bindAddress);
 }
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+ConnectorPtr UNIXClientEndpoint::connect(std::unique_ptr<ClientFactory> &&protocolFactory) const {
+    return _reactor->connectUNIX(_path, std::move(protocolFactory), _timeout);
+}
+
+#endif
 
 std::unique_ptr<ClientEndpoint> _parseClientTCP(Reactor *reactor, const StringVector &args, const StringMap &params) {
     std::string host, port;
@@ -194,6 +226,24 @@ std::unique_ptr<ClientEndpoint> _parseClientSSL(Reactor *reactor, const StringVe
                                                timeout, std::move(bindAddress));
 }
 
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+std::unique_ptr<ClientEndpoint> _parseClientUNIX(Reactor *reactor, const StringVector &args, const StringMap &params) {
+    std::string path;
+    if (!args.empty()) {
+        path = args[0];
+    } else {
+        path = params.at("path");
+    }
+    decltype(params.begin()) iter;
+    double timeout = 30.0;
+    if ((iter = params.find("timeout")) != params.end()) {
+        timeout = std::stod(iter->second);
+    }
+    return std::make_unique<UNIXClientEndpoint>(reactor, std::move(path), timeout);
+}
+
+#endif
 
 std::string _parseClient(const std::string &description, StringVector &args, StringMap &params) {
     _parse(description, args, params);
@@ -215,6 +265,12 @@ std::unique_ptr<ClientEndpoint> clientFromString(Reactor *reactor, const std::st
         return _parseClientTCP(reactor, args, params);
     } else if (endpointType == "ssl") {
         return _parseClientSSL(reactor, args, params);
+    } else if (endpointType == "unix") {
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+        return _parseClientUNIX(reactor, args, params);
+#else
+        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unsupported endpoint type: '%s'", endpointType.c_str()));
+#endif
     } else {
         NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unknown endpoint type: '%s'", endpointType.c_str()));
     }

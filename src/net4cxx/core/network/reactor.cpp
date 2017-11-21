@@ -8,6 +8,7 @@
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
+#include "net4cxx/core/network/unix.h"
 
 
 NS_BEGIN
@@ -76,6 +77,22 @@ ConnectorPtr Reactor::connectSSL(const std::string &host, const std::string &por
     c->startConnecting();
     return c;
 }
+
+#ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
+
+ListenerPtr Reactor::listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory) {
+    auto l =std::make_shared<UNIXListener>(path, std::move(factory), this);
+    l->startListening();
+    return l;
+}
+
+ConnectorPtr Reactor::connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout) {
+    auto c = std::make_shared<UNIXConnector>(path, std::move(factory), timeout, this);
+    c->startConnecting();
+    return c;
+}
+
+#endif
 
 void Reactor::startRunning(bool installSignalHandlers) {
     if (installSignalHandlers) {

@@ -27,8 +27,10 @@
 #include "net4cxx/common/utilities/util.h"
 
 #include "net4cxx/core/network/endpoints.h"
+#include "net4cxx/core/network/unix.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
+#include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
 
 #endif //NET4CXX_NET4CXX_H
