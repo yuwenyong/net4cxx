@@ -44,6 +44,18 @@ int main(int argc, char **argv) {
 //    serverFromString(&reactor, "tcp:28001")->listen(std::make_unique<MyFactory>());
 //    serverFromString(&reactor, "ssl:28001:privateKey=test.key:certKey=test.crt")->listen(std::make_unique<MyFactory>());
     serverFromString(&reactor, "unix:/data/foo/bar")->listen(std::make_unique<MyFactory>());
+    reactor.resolve("localhost", [](StringVector addresses) {
+        NET4CXX_INFO(gAppLog, "resolve localhost");
+        for (auto &addr: addresses) {
+            NET4CXX_INFO("address %s", addr.c_str());
+        }
+    });
+    reactor.resolve("unknlocalhost", [](StringVector addresses) {
+        NET4CXX_INFO(gAppLog, "resolve unknlocalhost");
+        for (auto &addr: addresses) {
+            NET4CXX_INFO("address %s", addr.c_str());
+        }
+    });
     reactor.run();
     return 0;
 }

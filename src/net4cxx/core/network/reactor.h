@@ -8,6 +8,7 @@
 #include "net4cxx/common/common.h"
 #include <boost/signals2.hpp>
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/core/network/resolver.h"
 
 
 NS_BEGIN
@@ -98,6 +99,13 @@ public:
 
     ServiceType& getService() {
         return _ioService;
+    }
+
+    template <typename CallbackT>
+    DelayedResolve resolve(const std::string &name, CallbackT &&callback) {
+        auto resolver = std::make_shared<Resolver>(this);
+        resolver->start(name, std::forward<CallbackT>(callback));
+        return DelayedResolve(resolver);
     }
 
     void stop();

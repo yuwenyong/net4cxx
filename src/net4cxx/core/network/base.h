@@ -210,10 +210,30 @@ public:
     unsigned short getPort() const {
         return _port;
     }
+
+    explicit operator bool() const {
+        return !_address.empty();
+    }
+
+    bool operator!() const {
+        return _address.empty();
+    }
 protected:
     std::string _address;
     unsigned short _port{0};
 };
+
+
+inline bool operator==(const Address &lhs, const Address &rhs) {
+    if (lhs.getAddress() != rhs.getAddress()) {
+        return false;
+    }
+    if (NetUtil::isValidIP(lhs.getAddress())) {
+        return lhs.getPort() == rhs.getPort();
+    } else {
+        return true;
+    }
+}
 
 
 class NET4CXX_COMMON_API Timeout: public std::enable_shared_from_this<Timeout> {
@@ -263,13 +283,12 @@ protected:
     TimerType _timer;
 };
 
-typedef std::weak_ptr<Timeout> TimeoutHandle;
 
 class NET4CXX_COMMON_API DelayedCall {
 public:
     DelayedCall() = default;
 
-    explicit DelayedCall(TimeoutHandle timeout)
+    explicit DelayedCall(std::weak_ptr<Timeout> timeout)
             : _timeout(std::move(timeout)) {
 
     }
@@ -280,7 +299,7 @@ public:
 
     void cancel();
 protected:
-    TimeoutHandle _timeout;
+    std::weak_ptr<Timeout> _timeout;
 };
 
 

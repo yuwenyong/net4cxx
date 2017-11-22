@@ -151,7 +151,11 @@ public:
 
 ### 核心模块
 
-#### class Reactor
+#### Reactor
+
+```c++
+class Reactor;
+```
 
 ##### 默认构造函数
 
@@ -283,13 +287,27 @@ ConnectorPtr connectUNIX(const std::string &path, std::unique_ptr<ClientFactory>
 bool running() const;
 ```
 
+##### 域名解析
+
+```c++
+template <typename CallbackT>
+DelayedResolve resolve(const std::string &name, CallbackT &&callback);
+```
+
+* name: 要解析的域名
+* callback: 回调函数，满足签名void (StringVector)
+
 ##### 停止reactor
 
 ```c++
 void stop();
 ```
 
-#### class DelayedCall
+#### DelayedCall
+
+```
+class DelayedCall;
+```
 
 ##### 获取计时器是否过期
 
@@ -303,7 +321,29 @@ bool cancelled() const;
 void cancel();
 ```
 
-#### class Address
+#### DelayedResolve
+
+```c++
+class DelayedResolve;
+```
+
+##### 获取域名解析是否已经结束
+
+```c++
+bool cancelled() const;
+```
+
+##### 取消本次域名解析
+
+```c++
+void cancel();
+```
+
+#### Address
+
+```c++
+class Address;
+```
 
 ##### 构造函数
 
@@ -342,6 +382,21 @@ void setPort(unsigned short port);
 
 ```c++
 unsigned short getPort() const;
+```
+
+##### 操作符和类型重载
+
+```c++
+explicit operator bool() const;
+bool operator!() const;
+```
+
+#### 全局函数
+
+##### 判断两个地址是否相等
+
+```c++
+bool operator==(const Address &lhs, const Address &rhs);
 ```
 
 ### 基础流协议模块
