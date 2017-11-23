@@ -76,6 +76,14 @@ unsigned short UDPConnection::getLocalPort() const {
     return endpoint.port();
 }
 
+std::string UDPConnection::getRemoteAddress() const {
+    return _connectedAddress.getAddress();
+}
+
+unsigned short UDPConnection::getRemotePort() const {
+    return _connectedAddress.getPort();
+}
+
 void UDPConnection::startListening() {
     try {
         if (_bindAddress) {
@@ -130,6 +138,8 @@ void UDPConnection::bindSocket() {
         EndpointType endpoint{AddressType::from_string(_bindAddress.getAddress()), _bindAddress.getPort()};
         _socket.open(endpoint.protocol());
         _socket.bind(endpoint);
+        NET4CXX_INFO(gGenLog, "UDPConnection starting on %s: %u", _bindAddress.getAddress().c_str(),
+                     _bindAddress.getPort());
     } catch (boost::system::system_error &e) {
         NET4CXX_ERROR(gGenLog, "Bind error %d: %s", e.code().value(), e.code().message().c_str());
         throw;

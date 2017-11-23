@@ -374,6 +374,147 @@ void UNIXConnector::makeTransport() {
     _connection = std::make_shared<UNIXClientConnection>(_reactor);
 }
 
+
+UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol,
+                                               size_t maxPacketSize, Reactor *reactor)
+        : DatagramConnection({std::move(path)}, protocol, maxPacketSize, reactor)
+        , _socket(reactor->getService(), SocketType::protocol_type()) {
+#ifndef NET4CXX_NDEBUG
+    NET4CXX_Watcher->inc(NET4CXX_UNIXDatagramConnection_COUNT);
+#endif
+}
+
+UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol,
+                                               size_t maxPacketSize, std::string bindPath, Reactor *reactor)
+        : DatagramConnection({std::move(path)}, protocol, maxPacketSize, {std::move(bindPath)}, reactor)
+        , _socket(reactor->getService(), SocketType::protocol_type()) {
+#ifndef NET4CXX_NDEBUG
+    NET4CXX_Watcher->inc(NET4CXX_UNIXDatagramConnection_COUNT);
+#endif
+}
+
+void UNIXDatagramConnection::write(const Byte *datagram, size_t length, const Address &address) {
+    try {
+        if (_connectedAddress) {
+            BOOST_ASSERT(!address || address == _connectedAddress);
+            _socket.send(boost::asio::buffer(datagram, length));
+        } else {
+            BOOST_ASSERT(address);
+            EndpointType receiver(address.getAddress());
+            _socket.send_to(boost::asio::buffer(datagram, length), receiver);
+        }
+    } catch (boost::system::system_error &e) {
+        NET4CXX_INFO(gGenLog, "Write error %d: %s", e.code().value(), e.code().message().c_str());
+        if (_connectedAddress) {
+            connectionRefused();
+        }
+        throw;
+    }
+}
+
+void UNIXDatagramConnection::connect(const Address &address) {
+    if (_connectedAddress) {
+        NET4CXX_THROW_EXCEPTION(AlreadyConnected, "Reconnecting is not currently supported");
+    }
+    _connectedAddress = address;
+    connectSocket();
+}
+
+void UNIXDatagramConnection::loseConnection() {
+    if (_reading && _socket.is_open()) {
+        _socket.close();
+    }
+}
+
+std::string UNIXDatagramConnection::getLocalAddress() const {
+    auto endpoint = _socket.remote_endpoint();
+    return endpoint.path();
+}
+
+unsigned short UNIXDatagramConnection::getLocalPort() const {
+    return 0;
+}
+
+std::string UNIXDatagramConnection::getRemoteAddress() const {
+    return _connectedAddress.getAddress();
+}
+
+unsigned short UNIXDatagramConnection::getRemotePort() const {
+    return 0;
+}
+
+void UNIXDatagramConnection::startListening() {
+    try {
+        if (_bindAddress) {
+            bindSocket();
+        }
+        if (_connectedAddress) {
+            connectSocket();
+        }
+        connectToProtocol();
+    } catch (...) {
+        connectionFailed(std::current_exception());
+    }
+}
+
+void UNIXDatagramConnection::connectToProtocol() {
+    auto protocol = _protocol.lock();
+    BOOST_ASSERT(protocol);
+    protocol->makeConnection(shared_from_this());
+    startReading();
+}
+
+void UNIXDatagramConnection::doRead() {
+    auto protocol = _protocol.lock();
+    BOOST_ASSERT(protocol);
+    _reading = true;
+    _socket.async_receive_from(boost::asio::buffer(_readBuffer.data(), _readBuffer.size()), _sender,
+                               [protocol, self = shared_from_this()](const boost::system::error_code &ec,
+                                                                     size_t transferredBytes) {
+                                   self->cbRead(ec, transferredBytes);
+                               });
+}
+
+void UNIXDatagramConnection::handleRead(const boost::system::error_code &ec, size_t transferredBytes) {
+    if (ec) {
+        if (ec != boost::asio::error::operation_aborted) {
+            NET4CXX_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
+            if (_connectedAddress) {
+                connectionRefused();
+            }
+        } else {
+            connectionLost();
+            _reading = false;
+        }
+    } else {
+        Address sender(_sender.path());
+        datagramReceived(_readBuffer.data(), transferredBytes, std::move(sender));
+    }
+}
+
+void UNIXDatagramConnection::bindSocket() {
+    try {
+        EndpointType endpoint{_bindAddress.getAddress()};
+        ::unlink(_bindAddress.getAddress().c_str());
+//        _socket.open(endpoint.protocol());
+        _socket.bind(endpoint);
+        NET4CXX_INFO(gGenLog, "UNIXDatagramConnection starting on %s", _bindAddress.getAddress().c_str());
+    } catch (boost::system::system_error &e) {
+        NET4CXX_ERROR(gGenLog, "Bind error %d: %s", e.code().value(), e.code().message().c_str());
+        throw;
+    }
+}
+
+void UNIXDatagramConnection::connectSocket() {
+    try {
+        EndpointType endpoint{_connectedAddress.getAddress()};
+        _socket.connect(endpoint);
+    } catch (boost::system::system_error &e) {
+        NET4CXX_ERROR(gGenLog, "Connect error %d: %s", e.code().value(), e.code().message().c_str());
+        throw;
+    }
+}
+
 NS_END
 
 #endif //BOOST_ASIO_HAS_LOCAL_SOCKETS

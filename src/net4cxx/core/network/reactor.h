@@ -97,6 +97,12 @@ public:
     ListenerPtr listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory);
 
     ConnectorPtr connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout=30.0);
+
+    DatagramConnectionPtr listenUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
+                                             size_t maxPacketSize=8192);
+
+    DatagramConnectionPtr connectUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
+                                              size_t maxPacketSize=8192, const std::string &bindPath="");
 #endif
 
     bool running() const {

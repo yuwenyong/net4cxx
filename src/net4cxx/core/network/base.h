@@ -431,6 +431,10 @@ public:
 
     virtual unsigned short getLocalPort() const = 0;
 
+    virtual std::string getRemoteAddress() const = 0;
+
+    virtual unsigned short getRemotePort() const = 0;
+
     Reactor* reactor() {
         return _reactor;
     }

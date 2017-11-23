@@ -260,6 +260,16 @@ public:
         BOOST_ASSERT(_transport);
         return _transport->getLocalPort();
     }
+
+    std::string getRemoteAddress() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getRemoteAddress();
+    }
+
+    unsigned short getRemotePort() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getRemotePort();
+    }
 protected:
     void doStart() {
         if (_numPorts == 0) {

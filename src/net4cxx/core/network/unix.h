@@ -268,6 +268,68 @@ protected:
     std::exception_ptr _error;
 };
 
+
+class NET4CXX_COMMON_API UNIXDatagramConnection: public DatagramConnection,
+                                                 public std::enable_shared_from_this<UNIXDatagramConnection> {
+public:
+    using SocketType = boost::asio::local::datagram_protocol::socket;
+    using EndpointType = boost::asio::local::datagram_protocol::endpoint;
+
+    UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol, size_t maxPacketSize,
+                           Reactor *reactor);
+
+    UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol, size_t maxPacketSize,
+                           std::string bindPath, Reactor *reactor);
+
+#ifndef NET4CXX_NDEBUG
+    ~UNIXDatagramConnection() override {
+        NET4CXX_Watcher->dec(NET4CXX_UNIXDatagramConnection_COUNT);
+    }
+#endif
+
+    void write(const Byte *datagram, size_t length, const Address &address) override;
+
+    void connect(const Address &address) override;
+
+    void loseConnection() override;
+
+    std::string getLocalAddress() const override;
+
+    unsigned short getLocalPort() const override;
+
+    std::string getRemoteAddress() const override;
+
+    unsigned short getRemotePort() const override;
+
+    void startListening();
+protected:
+    void connectToProtocol();
+
+    void startReading() {
+        if (!_reading) {
+            doRead();
+        }
+    }
+
+    void doRead();
+
+    void cbRead(const boost::system::error_code &ec, size_t transferredBytes) {
+        handleRead(ec, transferredBytes);
+        if (_reading) {
+            doRead();
+        }
+    }
+
+    void handleRead(const boost::system::error_code &ec, size_t transferredBytes);
+
+    void bindSocket();
+
+    void connectSocket();
+
+    SocketType _socket;
+    EndpointType _sender;
+};
+
 NS_END
 
 #endif //BOOST_ASIO_HAS_LOCAL_SOCKETS

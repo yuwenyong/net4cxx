@@ -42,6 +42,10 @@ public:
 
     unsigned short getLocalPort() const override;
 
+    std::string getRemoteAddress() const override;
+
+    unsigned short getRemotePort() const override;
+
     void startListening();
 protected:
     void connectToProtocol();

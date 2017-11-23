@@ -25,7 +25,8 @@ public:
 int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
-    reactor.connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
+//    reactor.connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
+    reactor.connectUNIXDatagram("/data/foo/bar", std::make_shared<MyProtocol>(), 8192, "/data/foo/bar2");
     reactor.run();
     return 0;
 }

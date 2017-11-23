@@ -96,7 +96,7 @@ DatagramConnectionPtr Reactor::connectUDP(const std::string &address, unsigned s
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 
 ListenerPtr Reactor::listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory) {
-    auto l =std::make_shared<UNIXListener>(path, std::move(factory), this);
+    auto l = std::make_shared<UNIXListener>(path, std::move(factory), this);
     l->startListening();
     return l;
 }
@@ -104,6 +104,20 @@ ListenerPtr Reactor::listenUNIX(const std::string &path, std::unique_ptr<Factory
 ConnectorPtr Reactor::connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout) {
     auto c = std::make_shared<UNIXConnector>(path, std::move(factory), timeout, this);
     c->startConnecting();
+    return c;
+}
+
+DatagramConnectionPtr Reactor::listenUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
+                                                  size_t maxPacketSize) {
+    auto l = std::make_shared<UNIXDatagramConnection>(path, protocol, maxPacketSize, this);
+    l->startListening();
+    return l;
+}
+
+DatagramConnectionPtr Reactor::connectUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
+                                                   size_t maxPacketSize, const std::string &bindPath) {
+    auto c = std::make_shared<UNIXDatagramConnection>(path, protocol, maxPacketSize, bindPath, this);
+    c->startListening();
     return c;
 }
 
