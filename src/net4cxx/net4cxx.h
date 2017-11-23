@@ -32,5 +32,6 @@
 #include "net4cxx/core/network/reactor.h"
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
+#include "net4cxx/core/network/udp.h"
 
 #endif //NET4CXX_NET4CXX_H

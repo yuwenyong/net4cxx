@@ -141,6 +141,20 @@ void GlobalInit::setupWatcherHook() {
     NET4CXX_Watcher->addDecCallback(NET4CXX_UNIXConnector_COUNT, [](int oldValue, int decrement, int value) {
         NET4CXX_TRACE(gGenLog, "Destroy UNIXConnector, current count:%d", value);
     });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_UDPConnection_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create UDPConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_UDPConnection_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy UDPConnection, current count:%d", value);
+    });
+
+    NET4CXX_Watcher->addIncCallback(NET4CXX_UNIXDatagramConnection_COUNT, [](int oldValue, int increment, int value) {
+        NET4CXX_TRACE(gGenLog, "Create UNIXDatagramConnection, current count:%d", value);
+    });
+    NET4CXX_Watcher->addDecCallback(NET4CXX_UNIXDatagramConnection_COUNT, [](int oldValue, int decrement, int value) {
+        NET4CXX_TRACE(gGenLog, "Destroy UNIXDatagramConnection, current count:%d", value);
+    });
 #endif
 }
 

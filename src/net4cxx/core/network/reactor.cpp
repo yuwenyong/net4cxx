@@ -9,6 +9,7 @@
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/core/network/unix.h"
+#include "net4cxx/core/network/udp.h"
 
 
 NS_BEGIN
@@ -75,6 +76,20 @@ ConnectorPtr Reactor::connectSSL(const std::string &host, const std::string &por
     auto c = std::make_shared<SSLConnector>(host, port, std::move(factory), std::move(sslOption), timeout, bindAddress,
                                             this);
     c->startConnecting();
+    return c;
+}
+
+DatagramConnectionPtr Reactor::listenUDP(unsigned short port, DatagramProtocolPtr protocol,
+                                         const std::string &interface, size_t maxPacketSize) {
+    auto l = std::make_shared<UDPConnection>(port, protocol, interface, maxPacketSize, this);
+    l->startListening();
+    return l;
+}
+
+DatagramConnectionPtr Reactor::connectUDP(const std::string &address, unsigned short port, DatagramProtocolPtr protocol,
+                                          size_t maxPacketSize, const Address &bindAddress) {
+    auto c = std::make_shared<UDPConnection>(address, port, protocol, maxPacketSize, bindAddress, this);
+    c->startListening();
     return c;
 }
 

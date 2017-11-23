@@ -19,6 +19,7 @@ NS_BEGIN
 NET4CXX_DECLARE_EXCEPTION(AlreadyCancelled, Exception);
 NET4CXX_DECLARE_EXCEPTION(ReactorNotRunning, Exception);
 NET4CXX_DECLARE_EXCEPTION(ReactorAlreadyRunning, Exception);
+NET4CXX_DECLARE_EXCEPTION(AlreadyConnected, Exception);
 NET4CXX_DECLARE_EXCEPTION(NotConnectingError, Exception);
 NET4CXX_DECLARE_EXCEPTION(ConnectionDone, IOError);
 NET4CXX_DECLARE_EXCEPTION(ConnectionAbort, IOError);
@@ -30,6 +31,8 @@ class Protocol;
 using ProtocolPtr = std::shared_ptr<Protocol>;
 class SSLOption;
 using SSLOptionPtr = std::shared_ptr<SSLOption>;
+class DatagramProtocol;
+using DatagramProtocolPtr = std::shared_ptr<DatagramProtocol>;
 
 
 enum class SSLVerifyMode {
@@ -183,9 +186,7 @@ public:
 
 class NET4CXX_COMMON_API Address {
 public:
-    Address() = default;
-
-    Address(std::string address, unsigned short port)
+    Address(std::string address="", unsigned short port=0)
             : _address{std::move(address)}
             , _port(port) {
 
@@ -399,6 +400,58 @@ protected:
 };
 
 using ConnectorPtr = std::shared_ptr<Connector>;
+
+
+class NET4CXX_COMMON_API DatagramConnection {
+public:
+    DatagramConnection(Address bindAddress, const DatagramProtocolPtr &protocol, size_t maxPacketSize, Reactor *reactor)
+            : DatagramConnection({}, protocol, maxPacketSize, std::move(bindAddress), reactor) {
+
+    }
+
+    DatagramConnection(Address connectedAddress, const DatagramProtocolPtr &protocol, size_t maxPacketSize,
+                       Address bindAddress, Reactor *reactor)
+            : _protocol(protocol)
+            , _reactor(reactor)
+            , _readBuffer(maxPacketSize)
+            , _bindAddress(std::move(bindAddress))
+            , _connectedAddress(std::move(connectedAddress)) {
+
+    }
+
+    virtual ~DatagramConnection() = default;
+
+    virtual void write(const Byte *datagram, size_t length, const Address &address) = 0;
+
+    virtual void connect(const Address &address) = 0;
+
+    virtual void loseConnection() = 0;
+
+    virtual std::string getLocalAddress() const = 0;
+
+    virtual unsigned short getLocalPort() const = 0;
+
+    Reactor* reactor() {
+        return _reactor;
+    }
+protected:
+    void datagramReceived(Byte *datagram, size_t length, Address address);
+
+    void connectionFailed(std::exception_ptr error);
+
+    void connectionRefused();
+
+    void connectionLost();
+
+    std::weak_ptr<DatagramProtocol> _protocol;
+    Reactor *_reactor{nullptr};
+    ByteArray _readBuffer;
+    bool _reading{false};
+    Address _bindAddress;
+    Address _connectedAddress;
+};
+
+using DatagramConnectionPtr = std::shared_ptr<DatagramConnection>;
 
 NS_END
 

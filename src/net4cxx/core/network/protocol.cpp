@@ -119,4 +119,22 @@ void Protocol::connectionLost(std::exception_ptr reason) {
 
 }
 
+
+void DatagramProtocol::startProtocol() {
+
+}
+
+void DatagramProtocol::stopProtocol() {
+
+}
+
+void DatagramProtocol::connectionRefused() {
+
+}
+
+void DatagramProtocol::connectionFailed(std::exception_ptr reason) {
+
+}
+
+
 NS_END

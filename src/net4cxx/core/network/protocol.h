@@ -197,6 +197,90 @@ protected:
     ConnectionPtr _transport;
 };
 
+
+class NET4CXX_COMMON_API DatagramProtocol {
+public:
+    friend class DatagramConnection;
+
+    virtual ~DatagramProtocol() = default;
+
+    virtual void startProtocol();
+
+    virtual void stopProtocol();
+
+    virtual void datagramReceived(Byte *datagram, size_t length, Address address) = 0;
+
+    virtual void connectionRefused();
+
+    virtual void connectionFailed(std::exception_ptr reason);
+
+    void makeConnection(DatagramConnectionPtr transport) {
+        BOOST_ASSERT(!_transport);
+        _transport = std::move(transport);
+        doStart();
+    }
+
+    Reactor* reactor() {
+        return _transport ? _transport->reactor() : nullptr;
+    }
+
+    void write(const Byte *datagram, size_t length, const Address &address={}) {
+        BOOST_ASSERT(_transport);
+        _transport->write(datagram, length, address);
+    }
+
+    void write(const ByteArray &datagram, const Address &address={}) {
+        write(datagram.data(), datagram.size(), address);
+    }
+
+    void write(const char *datagram, const Address &address={}) {
+        write((const Byte *)datagram, strlen(datagram), address);
+    }
+
+    void write(const std::string &datagram, const Address &address={}) {
+        write((const Byte *)datagram.data(), datagram.size(), address);
+    }
+
+    void connect(const Address &address) {
+        BOOST_ASSERT(_transport);
+        _transport->connect(address);
+    }
+
+    void loseConnection() {
+        BOOST_ASSERT(_transport);
+        _transport->loseConnection();
+    }
+
+    std::string getLocalAddress() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getLocalAddress();
+    }
+
+    unsigned short getLocalPort() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getLocalPort();
+    }
+protected:
+    void doStart() {
+        if (_numPorts == 0) {
+            startProtocol();
+        }
+        ++_numPorts;
+    }
+
+    void doStop() {
+        BOOST_ASSERT(_numPorts > 0);
+        --_numPorts;
+        if (_numPorts == 0) {
+            stopProtocol();
+            _transport.reset();
+        }
+    }
+
+    int _numPorts{0};
+    DatagramConnectionPtr _transport;
+};
+
 NS_END
 
 #endif //NET4CXX_CORE_NETWORK_PROTOCOL_H

@@ -348,8 +348,7 @@ class Address;
 ##### 构造函数
 
 ```c++
-Address();
-Address(std::string address, unsigned short port);
+Address(std::string address="", unsigned short port=0);
 ```
 
 * address: ip地址或文件路经(unix)

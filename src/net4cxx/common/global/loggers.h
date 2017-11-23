@@ -43,4 +43,7 @@ NS_END
 #define NET4CXX_UNIXClientConnection_COUNT   "net4cxx.UNIXClientConnection.count"
 #define NET4CXX_UNIXConnector_COUNT          "net4cxx.UNIXConnector.count"
 
+#define NET4CXX_UDPConnection_COUNT          "net4cxx.UDPConnection.count"
+#define NET4CXX_UNIXDatagramConnection_COUNT "net4cxx.UNIXDatagramConnection.count"
+
 #endif //NET4CXX_COMMON_GLOBAL_LOGGERS_H

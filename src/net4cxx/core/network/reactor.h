@@ -87,6 +87,12 @@ public:
     ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
                             SSLOptionPtr sslOption, double timeout=30.0, const Address &bindAddress={});
 
+    DatagramConnectionPtr listenUDP(unsigned short port, DatagramProtocolPtr protocol, const std::string &interface="",
+                                    size_t maxPacketSize=8192);
+
+    DatagramConnectionPtr connectUDP(const std::string &address, unsigned short port, DatagramProtocolPtr protocol,
+                                     size_t maxPacketSize=8192, const Address &bindAddress={});
+
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
     ListenerPtr listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory);
 
