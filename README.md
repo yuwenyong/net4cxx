@@ -11,7 +11,7 @@
 
 using namespace net4cxx;
 
-class Echo: public Protocol, public std::enable_shared_from_this<MyProtocol> {
+class Echo: public Protocol, public std::enable_shared_from_this<Echo> {
 public:
     void dataReceived(Byte *data, size_t length) override {
         write(data, length);
@@ -43,7 +43,7 @@ int main(int argc, char **argv) {
 
 ```c++
 
-class Echo: public Protocol, public std::enable_shared_from_this<MyProtocol> {
+class Echo: public Protocol, public std::enable_shared_from_this<Echo> {
 public:
     void connectionMade() override {
         NET4CXX_INFO(gAppLog, "Connection made");
