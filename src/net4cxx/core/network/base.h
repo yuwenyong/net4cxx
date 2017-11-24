@@ -427,6 +427,10 @@ public:
 
     virtual void loseConnection() = 0;
 
+    virtual bool getBroadcastAllowed() const = 0;
+
+    virtual void setBroadcastAllowed(bool enabled) = 0;
+
     virtual std::string getLocalAddress() const = 0;
 
     virtual unsigned short getLocalPort() const = 0;

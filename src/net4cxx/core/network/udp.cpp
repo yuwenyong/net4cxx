@@ -12,19 +12,21 @@ NS_BEGIN
 
 
 UDPConnection::UDPConnection(unsigned short port, const DatagramProtocolPtr &protocol, std::string interface,
-                             size_t maxPacketSize, Reactor *reactor)
+                             size_t maxPacketSize, bool listenMultiple, Reactor *reactor)
         : DatagramConnection({(interface.empty() ? "0.0.0.0" : std::move(interface)), port}, protocol, maxPacketSize,
                              reactor)
-        , _socket(reactor->getService()) {
+        , _socket(reactor->getService())
+        , _listenMultiple(listenMultiple) {
 #ifndef NET4CXX_NDEBUG
     NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
 #endif
 }
 
 UDPConnection::UDPConnection(std::string address, unsigned short port, const DatagramProtocolPtr &protocol,
-                             size_t maxPacketSize, Address bindAddress, Reactor *reactor)
+                             size_t maxPacketSize, Address bindAddress, bool listenMultiple, Reactor *reactor)
         : DatagramConnection({std::move(address), port}, protocol, maxPacketSize, std::move(bindAddress), reactor)
-        , _socket(reactor->getService()) {
+        , _socket(reactor->getService())
+        , _listenMultiple(listenMultiple) {
 #ifndef NET4CXX_NDEBUG
     NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
 #endif
@@ -64,6 +66,17 @@ void UDPConnection::loseConnection() {
     if (_reading && _socket.is_open()) {
         _socket.close();
     }
+}
+
+bool UDPConnection::getBroadcastAllowed() const {
+    boost::asio::socket_base::broadcast option;
+    _socket.get_option(option);
+    return option.value();
+}
+
+void UDPConnection::setBroadcastAllowed(bool enabled) {
+    boost::asio::socket_base::broadcast option(enabled);
+    _socket.set_option(option);
 }
 
 std::string UDPConnection::getLocalAddress() const {
@@ -137,6 +150,9 @@ void UDPConnection::bindSocket() {
     try {
         EndpointType endpoint{AddressType::from_string(_bindAddress.getAddress()), _bindAddress.getPort()};
         _socket.open(endpoint.protocol());
+        if (_listenMultiple) {
+            _socket.set_option(boost::asio::socket_base::reuse_address(true));
+        }
         _socket.bind(endpoint);
         NET4CXX_INFO(gGenLog, "UDPConnection starting on %s: %u", _bindAddress.getAddress().c_str(),
                      _bindAddress.getPort());

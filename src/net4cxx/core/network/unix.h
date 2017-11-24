@@ -293,6 +293,10 @@ public:
 
     void loseConnection() override;
 
+    bool getBroadcastAllowed() const override;
+
+    void setBroadcastAllowed(bool enabled) override;
+
     std::string getLocalAddress() const override;
 
     unsigned short getLocalPort() const override;

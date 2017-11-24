@@ -11,6 +11,11 @@ class MyProtocol: public Protocol, public std::enable_shared_from_this<MyProtoco
 public:
     void connectionMade() override {
         NET4CXX_INFO(gAppLog, "Connection made");
+        std::cout << "Keep alve:" << std::boolalpha << getKeepAlive() << std::endl;
+        setKeepAlive(true);
+        std::cout << "Keep alve:" << std::boolalpha << getKeepAlive() << std::endl;
+        setKeepAlive(false);
+        std::cout << "Keep alve:" << std::boolalpha << getKeepAlive() << std::endl;
         _timeoutId = reactor()->callLater(3.0f, std::bind(&MyProtocol::sendHello, shared_from_this()));
     }
 

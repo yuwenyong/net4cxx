@@ -21,10 +21,10 @@ public:
     using EndpointType = boost::asio::ip::udp::endpoint;
 
     UDPConnection(unsigned short port, const DatagramProtocolPtr &protocol, std::string interface, size_t maxPacketSize,
-                  Reactor *reactor);
+                  bool listenMultiple, Reactor *reactor);
 
     UDPConnection(std::string address, unsigned short port, const DatagramProtocolPtr &protocol, size_t maxPacketSize,
-                  Address bindAddress, Reactor *reactor);
+                  Address bindAddress, bool listenMultiple, Reactor *reactor);
 
 #ifndef NET4CXX_NDEBUG
     ~UDPConnection() override {
@@ -37,6 +37,10 @@ public:
     void connect(const Address &address) override;
 
     void loseConnection() override;
+
+    bool getBroadcastAllowed() const override;
+
+    void setBroadcastAllowed(bool enabled) override;
 
     std::string getLocalAddress() const override;
 
@@ -73,6 +77,7 @@ protected:
 
     SocketType _socket;
     EndpointType _sender;
+    bool _listenMultiple{false};
 };
 
 NS_END

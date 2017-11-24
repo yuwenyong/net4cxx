@@ -80,15 +80,15 @@ ConnectorPtr Reactor::connectSSL(const std::string &host, const std::string &por
 }
 
 DatagramConnectionPtr Reactor::listenUDP(unsigned short port, DatagramProtocolPtr protocol,
-                                         const std::string &interface, size_t maxPacketSize) {
-    auto l = std::make_shared<UDPConnection>(port, protocol, interface, maxPacketSize, this);
+                                         const std::string &interface, size_t maxPacketSize, bool listenMultiple) {
+    auto l = std::make_shared<UDPConnection>(port, protocol, interface, maxPacketSize, listenMultiple, this);
     l->startListening();
     return l;
 }
 
 DatagramConnectionPtr Reactor::connectUDP(const std::string &address, unsigned short port, DatagramProtocolPtr protocol,
-                                          size_t maxPacketSize, const Address &bindAddress) {
-    auto c = std::make_shared<UDPConnection>(address, port, protocol, maxPacketSize, bindAddress, this);
+                                          size_t maxPacketSize, const Address &bindAddress, bool listenMultiple) {
+    auto c = std::make_shared<UDPConnection>(address, port, protocol, maxPacketSize, bindAddress, listenMultiple, this);
     c->startListening();
     return c;
 }

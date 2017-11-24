@@ -426,6 +426,17 @@ void UNIXDatagramConnection::loseConnection() {
     }
 }
 
+bool UNIXDatagramConnection::getBroadcastAllowed() const {
+    boost::asio::socket_base::broadcast option;
+    _socket.get_option(option);
+    return option.value();
+}
+
+void UNIXDatagramConnection::setBroadcastAllowed(bool enabled) {
+    boost::asio::socket_base::broadcast option(enabled);
+    _socket.set_option(option);
+}
+
 std::string UNIXDatagramConnection::getLocalAddress() const {
     auto endpoint = _socket.remote_endpoint();
     return endpoint.path();

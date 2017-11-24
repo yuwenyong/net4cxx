@@ -168,7 +168,7 @@ public:
         return _transport->getKeepAlive();
     }
 
-    void setTcpKeepAlive(bool enabled) {
+    void setKeepAlive(bool enabled) {
         BOOST_ASSERT(_transport);
         _transport->setKeepAlive(enabled);
     }
@@ -249,6 +249,16 @@ public:
     void loseConnection() {
         BOOST_ASSERT(_transport);
         _transport->loseConnection();
+    }
+
+    bool getBroadcastAllowed() const {
+        BOOST_ASSERT(_transport);
+        return _transport->getBroadcastAllowed();
+    }
+
+    void setBroadcastAllowed(bool enabled) {
+        BOOST_ASSERT(_transport);
+        _transport->setBroadcastAllowed(enabled);
     }
 
     std::string getLocalAddress() const {

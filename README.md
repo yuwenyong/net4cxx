@@ -146,6 +146,68 @@ public:
 
 * 当继承自内建的ReconnectingClientFactory,连接断开时,会自动启用指数避让原则进行重连;
 
+### 开发基于数据报协议的服务器
+
+```c++
+#include "net4cxx/net4cxx.h"
+
+using namespace net4cxx;
+
+class Echo: public DatagramProtocol, public std::enable_shared_from_this<Echo> {
+public:
+    void datagramReceived(Byte *datagram, size_t length, Address address) override {
+        std::string s((char *)datagram, (char *)datagram + length);
+        NET4CXX_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
+                     address.getPort());
+        write(datagram, length, address);
+    }
+};
+
+int main(int argc, char **argv) {
+    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+    Reactor reactor;
+    reactor.listenUDP(28002, std::make_shared<Echo>());
+    reactor.run();
+    return 0;
+}
+```
+
+* 以上实现了一个最简单的echo服务器;
+* 将listenUDP调用替换成listenUNIXDatagram可以使用unix域数据报套接字;
+
+### 开发基于数据报协议的客户端
+
+```c++
+#include "net4cxx/net4cxx.h"
+
+using namespace net4cxx;
+
+class EchoClient: public DatagramProtocol, public std::enable_shared_from_this<EchoClient> {
+public:
+    void startProtocol() override {
+        write("Hello boy!");
+    }
+
+    void datagramReceived(Byte *datagram, size_t length, Address address) override {
+        std::string s((char *)datagram, (char *)datagram + length);
+        NET4CXX_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
+                     address.getPort());
+    }
+};
+
+int main(int argc, char **argv) {
+    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+    Reactor reactor;
+    reactor.connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
+    reactor.connectUNIXDatagram("/data/foo/bar", std::make_shared<MyProtocol>(), 8192, "/data/foo/bar2");
+    reactor.run();
+    return 0;
+}
+```
+
+* 以上实现了一个最简单的udp client;
+* 将connectUDP调用替换成connectUNIXDatagram可以使用unix域数据报套接字;
+
 
 ## Reference
 
@@ -262,6 +324,35 @@ ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::u
 * timeout： 连接超时时间
 * bindAddress: 为客户端套接字绑定一个指定的地址和端口
 
+##### 启动一个udp服务器
+
+```c++
+DatagramConnectionPtr listenUDP(unsigned short port, DatagramProtocolPtr protocol, const std::string &interface="",
+                                size_t maxPacketSize=8192, bool listenMultiple=false);
+```
+
+* port: 绑定的端口号
+* protocol: 协议处理器
+* interfance: 绑定的ip地址
+* maxPacketSize: 接收数据报的最大尺寸
+* listenMultiple: 允许多个套接字绑定相同的地址
+
+##### 启动一个udp客户端
+
+```c++
+DatagramConnectionPtr connectUDP(const std::string &address, unsigned short port, DatagramProtocolPtr protocol,
+                                 size_t maxPacketSize=8192, const Address &bindAddress={},
+                                 bool listenMultiple=false);
+```
+
+* address: 连接的ip地址
+* port: 连接的端口号
+* protocol: 协议处理器
+* interfance: 绑定的ip地址
+* maxPacketSize: 接收数据报的最大尺寸
+* bindAddress: 为客户端套接字绑定一个指定的地址和端口
+* listenMultiple: 允许多个套接字绑定相同的地址
+
 ##### 启动一个unix服务器
 
 ```c++
@@ -280,6 +371,30 @@ ConnectorPtr connectUNIX(const std::string &path, std::unique_ptr<ClientFactory>
 * path: 服务器的文件路经
 * factory： 协议工厂
 * timeout： 连接超时时间
+
+##### 启动一个unix域数据报服务器
+
+```c++
+DatagramConnectionPtr listenUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
+                                         size_t maxPacketSize=8192);
+```
+
+* path: 绑定的文件路经
+* protocol: 协议处理器
+* maxPacketSize: 接收数据报的最大尺寸
+
+##### 启动一个unix域数据报客户端
+
+```c++
+DatagramConnectionPtr connectUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
+                                          size_t maxPacketSize=8192, const std::string &bindPath="");
+```
+
+* path: 连接的服务器的文件路经
+* protocol: 协议处理器
+* maxPacketSize: 接收数据报的最大尺寸
+* bindPath: 绑定的文件路经(如果要接收数据,必须绑定一个路经)
+
 
 ##### 获取reactor是否正在运行
 
@@ -415,5 +530,3 @@ bool operator==(const Address &lhs, const Address &rhs);
 ### 单元测试模块(待实现)
 
 ### 电子邮件模块(待实现)
-
-
