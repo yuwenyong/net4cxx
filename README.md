@@ -515,9 +515,232 @@ bool operator==(const Address &lhs, const Address &rhs);
 
 ### 基础流协议模块
 
-### 基础数据报协议模块(待实现)
+#### Protocol
 
-### http核心模块(待实现)
+```c++
+class Protocol;
+```
+
+##### 连接建立时回调
+
+```c++
+virtual void connectionMade();
+```
+
+##### 收到数据时回调
+
+```c++
+virtual void dataReceived(Byte *data, size_t length) = 0;
+```
+
+* data: 数据包
+* length: 数据包长度
+
+##### 连接关闭时回调
+
+```c++
+virtual void connectionLost(std::exception_ptr reason);
+```
+
+* reason: 关闭原因
+
+##### 获取关联的反应器
+
+```c++
+Reactor* reactor();
+```
+
+##### 发送数据
+
+```c++
+void write(const Byte *data, size_t length);
+void write(const ByteArray &data);
+void write(const char *data);
+void write(const std::string &data);
+```
+
+* data: 数据包
+* length: 数据包长度
+
+##### 安全的关闭连接
+
+```c++
+void loseConnection();
+```
+
+##### 快速的关闭连接
+
+```c++
+void abortConnection();
+```
+
+##### 获取nodelay选项
+
+```c++
+bool getNoDelay() const;
+```
+
+##### 设置nodelay选项
+
+```c++
+void setNoDelay(bool enabled);
+```
+
+* enabled: 是否启用nodelay
+
+##### 获取keepalive选项
+
+```c++
+bool getKeepAlive() const;
+```
+
+##### 设置keepalive选项
+
+```c++
+void setKeepAlive(bool enabled);
+```
+
+* enabled: 是否启用keepalive
+
+##### 获取本地地址
+
+```c++
+std::string getLocalAddress() const;
+```
+
+##### 获取本地端口
+
+```c++
+unsigned short getLocalPort() const;
+```
+
+##### 获取对端地址
+
+```c++
+std::string getRemoteAddress() const;
+```
+
+##### 获取对端端口
+
+```c++
+unsigned short getRemotePort() const;
+```
+
+
+### 基础数据报协议模块
+
+#### DatagramProtocol
+
+```c++
+class DatagramProtocol;
+```
+
+##### 开始时的回调
+
+```c++
+virtual void startProtocol();
+```
+
+##### 结束时的回调
+
+```c++
+virtual void stopProtocol();
+```
+
+##### 收到数据报时的回调
+
+```c++
+virtual void datagramReceived(Byte *datagram, size_t length, Address address) = 0;
+```
+
+* datagram: 数据报内容
+* length: 数据报长度
+* address: 对端地址
+
+##### 连接拒绝时的回调
+
+```c++
+virtual void connectionRefused();
+```
+
+##### 连接出错时的回调
+
+```c++
+virtual void connectionFailed(std::exception_ptr reason);
+```
+
+* reason: 出错原因
+
+##### 获取关联的反应器
+
+```c++
+Reactor* reactor();
+```
+
+##### 发送数据报
+
+```c++
+void write(const Byte *datagram, size_t length, const Address &address={});
+void write(const ByteArray &datagram, const Address &address={});
+void write(const char *datagram, const Address &address={});
+void write(const std::string &datagram, const Address &address={});
+```
+
+* datagram: 数据报内容
+* length: 数据报长度
+* address: 对端地址
+
+##### 连接对端
+
+```c++
+void connect(const Address &address);
+```
+
+* address: 对端地址
+
+##### 关闭连接
+
+```c++
+void loseConnection();
+```
+
+##### 获取是否允许广播
+
+```c++
+bool getBroadcastAllowed() const;
+```
+
+##### 设置是否允许广播
+
+```c++
+void setBroadcastAllowed(bool enabled);
+```
+
+* enabled: 是否允许广播
+
+##### 获取本地地址
+
+```c++
+std::string getLocalAddress() const;
+```
+
+##### 获取本地端口
+
+```c++
+unsigned short getLocalPort() const;
+```
+
+##### 获取对端地址
+
+```c++
+std::string getRemoteAddress() const;
+```
+
+##### 获取对端端口
+
+```c++
+unsigned short getRemotePort() const;
+```
 
 ### web模块(待实现)
 
