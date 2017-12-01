@@ -463,7 +463,7 @@ class Address;
 ##### 构造函数
 
 ```c++
-Address(std::string address="", unsigned short port=0);
+explicit Address(std::string address="", unsigned short port=0);
 ```
 
 * address: ip地址或文件路经(unix)
@@ -507,13 +507,122 @@ bool operator!() const;
 
 #### 全局函数
 
-##### 判断两个地址是否相等
+##### 判断两个地址相等性
 
 ```c++
 bool operator==(const Address &lhs, const Address &rhs);
+bool operator!=(const Address &lhs, const Address &rhs);
 ```
 
 ### 基础流协议模块
+
+#### Factory
+
+```c++
+class Factory;
+```
+
+##### 开始时回调
+
+```c++
+virtual void startFactory();
+```
+
+##### 结束时回调
+
+```c++
+virtual void stopFactory();
+```
+
+##### 接收到新连接时回调
+
+```c++
+virtual ProtocolPtr buildProtocol(const Address &address) = 0;
+```
+
+#### ClientFactory
+
+```c++
+class ClientFactory: public Factory;
+```
+
+##### 开始连接时回调
+
+```c++
+virtual void startedConnecting(ConnectorPtr connector);
+```
+
+##### 连接失败时回调
+
+```c++
+virtual void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason);
+```
+
+##### 连接断开时回调
+
+```c++
+virtual void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason);
+```
+
+#### OneShotFactory
+
+```c++
+class OneShotFactory: public ClientFactory;
+```
+
+##### 构造函数
+
+```c++
+explicit OneShotFactory(ProtocolPtr protocol);
+```
+
+* protocol: 绑定指定的protocol对象
+
+#### ReconnectingClientFactory
+
+```c++
+class ReconnectingClientFactory: public ClientFactory;
+```
+
+##### 停止连接
+
+```c++
+void stopTrying();
+```
+
+##### 获取最大的延迟时间
+
+```c++
+double getMaxDelay() const
+```
+
+##### 设置最大的延迟时间
+
+```c++
+void setMaxDelay(double maxDelay);
+```
+
+* maxDelay: 最大的重试延迟时间
+
+##### 获取最大的重试次数
+
+```c++
+int getMaxRetires() const;
+```
+
+##### 设置最大的重试次数
+
+```c++
+void setMaxRetries(int maxRetries);
+```
+
+* maxRetries: 最大的重试次数
+
+##### 重置重连延迟和次数信息
+
+```c++
+void resetDelay();
+```
 
 #### Protocol
 

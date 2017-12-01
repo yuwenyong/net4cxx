@@ -186,7 +186,7 @@ public:
 
 class NET4CXX_COMMON_API Address {
 public:
-    Address(std::string address="", unsigned short port=0)
+    explicit Address(std::string address="", unsigned short port=0)
             : _address{std::move(address)}
             , _port(port) {
 
@@ -226,6 +226,7 @@ protected:
 
 
 inline bool operator==(const Address &lhs, const Address &rhs) {
+//    return lhs.getAddress() == rhs.getAddress() && lhs.getPort() == rhs.getPort();
     if (lhs.getAddress() != rhs.getAddress()) {
         return false;
     }
@@ -234,6 +235,10 @@ inline bool operator==(const Address &lhs, const Address &rhs) {
     } else {
         return true;
     }
+}
+
+inline bool operator!=(const Address &lhs, const Address &rhs) {
+    return !(lhs == rhs);
 }
 
 
