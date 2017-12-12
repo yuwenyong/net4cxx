@@ -186,7 +186,7 @@ public:
 
 class NET4CXX_COMMON_API Address {
 public:
-    explicit Address(std::string address="", unsigned short port=0)
+    Address(std::string address="", unsigned short port=0)
             : _address{std::move(address)}
             , _port(port) {
 
