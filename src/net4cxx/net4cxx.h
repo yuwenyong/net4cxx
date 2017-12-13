@@ -8,6 +8,7 @@
 #include "net4cxx/common/compress/gzip.h"
 #include "net4cxx/common/configuration/configparser.h"
 #include "net4cxx/common/configuration/csvreader.h"
+#include "net4cxx/common/configuration/json.h"
 #include "net4cxx/common/configuration/options.h"
 #include "net4cxx/common/crypto/base64.h"
 #include "net4cxx/common/crypto/hashlib.h"

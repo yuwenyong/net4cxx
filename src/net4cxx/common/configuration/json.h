@@ -22,6 +22,14 @@ enum class JSONType {
 };
 
 
+enum CommentPlacement {
+    COMMENT_BEFORE = 0,
+    COMMENT_ON_SAME_LINE,
+    COMMENT_AFTER,
+    COMMENT_COUNT,
+};
+
+
 class NET4CXX_COMMON_API JSONValue {
 public:
     struct NullValue {
@@ -31,6 +39,10 @@ public:
     using ObjectType = std::map<std::string, JSONValue>;
     using ArrayType = std::vector<JSONValue>;
     using ValueType = boost::variant<NullValue, long, double, std::string, bool, ArrayType, ObjectType>;
+    using ArrayIterator = ArrayType::iterator;
+    using ConstArrayIterator = ArrayType::const_iterator;
+    using ObjectIterator = ObjectType::iterator;
+    using ConstObjectIterator = ObjectType::const_iterator;
 
     struct GetTypeVisitor: public boost::static_visitor<JSONType> {
         JSONType operator()(NullValue v) const {
@@ -335,6 +347,8 @@ public:
         return boost::apply_visitor(GetTypeVisitor(), _value);
     }
 
+    int compare(const JSONValue &other) const;
+
     bool isNull() const {
         return _value.type() == typeid(NullValue);
     }
@@ -391,6 +405,153 @@ public:
         return boost::apply_visitor(AsStringVisitor(), _value);
     }
 
+    bool isConvertibleTo(JSONType other) const;
+
+    size_t size() const;
+
+    bool empty() const {
+        if (isNull() || isArray() || isObject()) {
+            return size() == 0;
+        } else {
+            return false;
+        }
+    }
+
+    bool operator!() const {
+        return isNull();
+    }
+
+    void clear();
+
+    void resize(size_t newSize);
+
+    JSONValue& operator[](size_t index);
+
+    const JSONValue& operator[](size_t index) const;
+
+    JSONValue get(size_t index, const JSONValue &defaultValue) const {
+        const JSONValue *value = &((*this)[index]);
+        return value == &nullSingleton() ? defaultValue : *value;
+    }
+
+    bool isValidIndex(size_t index) const {
+        return index < size();
+    }
+
+    JSONValue& append(const JSONValue &value) {
+        return (*this)[size()] = value;
+    }
+
+    JSONValue& append(JSONValue &&value) {
+        return (*this)[size()] = std::move(value);
+    }
+
+    JSONValue& operator[](const char *key);
+
+    JSONValue& operator[](const std::string &key) {
+        return (*this)[key.c_str()];
+    }
+
+    const JSONValue& operator[](const char *key) const;
+
+    const JSONValue& operator[](const std::string &key) const {
+        return (*this)[key.c_str()];
+    }
+
+    JSONValue get(const char *key, const JSONValue &defaultValue) const;
+
+    JSONValue get(const std::string &key, const JSONValue &defaultValue) const {
+        return get(key.c_str(), defaultValue);
+    }
+
+    const JSONValue* find(const char *key) const;
+
+    const JSONValue* find(const std::string &key) const {
+        return find(key.c_str());
+    }
+
+    bool removeMember(const char *key, JSONValue *removed= nullptr);
+
+    bool removeMember(const std::string &key, JSONValue *removed= nullptr) {
+        return removeMember(key.c_str(), removed);
+    }
+
+    bool removeIndex(size_t index, JSONValue *removed= nullptr);
+
+    bool isMember(const char *key) const {
+        return find(key) != nullptr;
+    }
+
+    bool isMember(const std::string &key) const {
+        return isMember(key.c_str());
+    }
+
+    StringVector getMemberNames() const;
+
+    void setComment(const char *comment, CommentPlacement placement) {
+        _comments[placement] = comment;
+    }
+
+    void setComment(const std::string &comment, CommentPlacement placement) {
+        _comments[placement] = comment;
+    }
+
+    void setComment(std::string &&comment, CommentPlacement placement) {
+        _comments[placement] = std::move(comment);
+    }
+
+    bool hasComment(CommentPlacement placement) const {
+        return !_comments[placement].empty();
+    }
+
+    const std::string& getComment(CommentPlacement placement) const {
+        return _comments[placement];
+    }
+
+//    std::string toStyledString() const;
+
+    ConstArrayIterator arrayBegin() const {
+        auto &array = boost::get<ArrayType>(_value);
+        return array.cbegin();
+    }
+
+    ConstArrayIterator arrayEnd() const {
+        auto &array = boost::get<ArrayType>(_value);
+        return array.cend();
+    }
+
+    ArrayIterator arrayBegin() {
+        auto &array = boost::get<ArrayType>(_value);
+        return array.begin();
+    }
+
+    ArrayIterator arrayEnd() {
+        auto &array = boost::get<ArrayType>(_value);
+        return array.end();
+    }
+
+    ConstObjectIterator objectBegin() const {
+        auto &object = boost::get<ObjectType>(_value);
+        return object.cbegin();
+    }
+
+    ConstObjectIterator objectEnd() const {
+        auto &object = boost::get<ObjectType>(_value);
+        return object.cend();
+    }
+
+    ObjectIterator objectBegin() {
+        auto &object = boost::get<ObjectType>(_value);
+        return object.begin();
+    }
+
+    ObjectIterator objectEnd() {
+        auto &object = boost::get<ObjectType>(_value);
+        return object.end();
+    }
+
+    static const JSONValue& nullSingleton();
+
     static bool isIntegral(double d) {
         double integralPart;
         return modf(d, &integralPart) == 0.0;
@@ -402,13 +563,6 @@ public:
 
     static std::string valueToString(double value, bool useSpecialFloats, unsigned int precision);
 private:
-    enum CommentPlacement {
-        COMMENT_BEFORE = 0,
-        COMMENT_ON_SAME_LINE,
-        COMMENT_AFTER,
-        COMMENT_COUNT,
-    };
-
     ValueType _value;
     std::array<std::string, COMMENT_COUNT> _comments;
 };
