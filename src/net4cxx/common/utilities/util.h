@@ -35,6 +35,12 @@ inline bool StringToBool(const std::string &s) {
 }
 
 
+inline bool IsIntegral(double d) {
+    double integralPart;
+    return modf(d, &integralPart) == 0.0;
+}
+
+
 class JsonUtil {
 public:
     static std::string encode(const boost::property_tree::ptree &doc) {

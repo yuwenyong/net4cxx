@@ -7,18 +7,20 @@
 
 #include "net4cxx/common/common.h"
 #include <boost/variant.hpp>
+#include "net4cxx/common/utilities/util.h"
 
 NS_BEGIN
 
 
 enum class JSONType {
-    JSON_NULL = 0,
-    JSON_INTEGER,
-    JSON_REAL,
-    JSON_STRING,
-    JSON_BOOL,
-    JSON_ARRAY,
-    JSON_OBJECT,
+    nullValue = 0,
+    intValue,
+    uintValue,
+    realValue,
+    stringValue,
+    boolValue,
+    arrayValue,
+    objectValue,
 };
 
 
@@ -38,238 +40,46 @@ public:
 
     using ObjectType = std::map<std::string, JSONValue>;
     using ArrayType = std::vector<JSONValue>;
-    using ValueType = boost::variant<NullValue, long, double, std::string, bool, ArrayType, ObjectType>;
+    using ValueType = boost::variant<NullValue, int64_t, uint64_t, double, std::string, bool, ArrayType, ObjectType>;
     using ArrayIterator = ArrayType::iterator;
     using ConstArrayIterator = ArrayType::const_iterator;
     using ObjectIterator = ObjectType::iterator;
     using ConstObjectIterator = ObjectType::const_iterator;
 
-    struct GetTypeVisitor: public boost::static_visitor<JSONType> {
-        JSONType operator()(NullValue v) const {
-            return JSONType::JSON_NULL;
-        }
-
-        JSONType operator()(long v) const {
-            return JSONType::JSON_INTEGER;
-        }
-
-        JSONType operator()(double v) const {
-            return JSONType::JSON_REAL;
-        }
-
-        JSONType operator()(const std::string &v) const {
-            return JSONType::JSON_STRING;
-        }
-
-        JSONType operator()(bool v) const {
-            return JSONType::JSON_BOOL;
-        }
-
-        JSONType operator()(const ArrayType &v) const {
-            return JSONType::JSON_ARRAY;
-        }
-
-        JSONType operator()(const ObjectType &v) const {
-            return JSONType::JSON_OBJECT;
-        }
-    };
-
-    struct IsIntegerVisitor: public boost::static_visitor<bool> {
-        bool operator()(NullValue v) const {
-            return false;
-        }
-
-        bool operator()(long v) const {
-            return true;
-        }
-
-        bool operator()(double v) const {
-            return v >= LONG_MIN && v <= LONG_MAX && isIntegral(v);
-        }
-
-        bool operator()(const std::string &v) const {
-            return false;
-        }
-
-        bool operator()(bool v) const {
-            return false;
-        }
-
-        bool operator()(const ArrayType &v) const {
-            return false;
-        }
-
-        bool operator()(const ObjectType &v) const {
-            return false;
-        }
-    };
-
-    struct AsIntVisitor: public boost::static_visitor<int> {
-        int operator()(NullValue v) const {
-            return 0;
-        }
-
-        int operator()(long v) const;
-
-        int operator()(double v) const;
-
-        int operator()(const std::string &v) const;
-
-        int operator()(bool v) const {
-            return v ? 1 : 0;
-        }
-
-        int operator()(const ArrayType &v) const;
-
-        int operator()(const ObjectType &v) const;
-    };
-
-    struct AsLongVisitor: public boost::static_visitor<long> {
-        long operator()(NullValue v) const {
-            return 0;
-        }
-
-        long operator()(long v) const {
-            return v;
-        }
-
-        long operator()(double v) const;
-
-        long operator()(const std::string &v) const;
-
-        long operator()(bool v) const {
-            return v ? 1 : 0;
-        }
-
-        long operator()(const ArrayType &v) const;
-
-        long operator()(const ObjectType &v) const;
-    };
-
-    struct AsFloatVisitor: public boost::static_visitor<float> {
-        float operator()(NullValue v) const {
-            return 0.0f;
-        }
-
-        float operator()(long v) const {
-            return static_cast<float>(v);
-        }
-
-        float operator()(double v) const {
-            return static_cast<float>(v);
-        }
-
-        float operator()(const std::string &v) const;
-
-        float operator()(bool v) const {
-            return v ? 1.0f : 0.0f;
-        }
-
-        float operator()(const ArrayType &v) const;
-
-        float operator()(const ObjectType &v) const;
-    };
-
-    struct AsDoubleVisitor: public boost::static_visitor<double> {
-        double operator()(NullValue v) const {
-            return 0.0;
-        }
-
-        double operator()(long v) const {
-            return static_cast<double >(v);
-        }
-
-        double operator()(double v) const {
-            return v;
-        }
-
-        double operator()(const std::string &v) const;
-
-        double operator()(bool v) const {
-            return v ? 1.0 : 0.0;
-        }
-
-        double operator()(const ArrayType &v) const;
-
-        double operator()(const ObjectType &v) const;
-    };
-
-    struct AsBoolVisitor: public boost::static_visitor<bool> {
-        bool operator()(NullValue v) const {
-            return false;
-        }
-
-        bool operator()(long v) const {
-            return v != 0;
-        }
-
-        bool operator()(double v) const {
-            return v != 0.0;
-        }
-
-        bool operator()(const std::string &v) const;
-
-        bool operator()(bool v) const {
-            return v;
-        }
-
-        bool operator()(const ArrayType &v) const;
-
-        bool operator()(const ObjectType &v) const;
-    };
-
-    struct AsStringVisitor: public boost::static_visitor<std::string> {
-        std::string operator()(NullValue v) const {
-            return "";
-        }
-
-        std::string operator()(long v) const {
-            return std::to_string(v);
-        }
-
-        std::string operator()(double v) const {
-            return valueToString(v);
-        }
-
-        std::string operator()(const std::string &v) const {
-            return v;
-        }
-
-        std::string operator()(bool v) const {
-            return v ? "true" : "false";
-        }
-
-        std::string operator()(const ArrayType &v) const;
-
-        std::string operator()(const ObjectType &v) const;
-    };
-
     friend bool operator<(const JSONValue &lhs, const JSONValue &rhs);
     friend bool operator==(const JSONValue &lhs, const JSONValue &rhs);
 
-    JSONValue() = default;
+    JSONValue(JSONType type=JSONType::nullValue);
 
-    explicit JSONValue(nullptr_t) {
-
-    }
-
-    explicit JSONValue(int value): _value(long{value}) {
+    JSONValue(nullptr_t) {
 
     }
 
-    explicit JSONValue(long value): _value(value) {
+    JSONValue(int value): _value(int64_t{value}) {
 
     }
 
-    explicit JSONValue(float value): _value(double{value}) {
+    JSONValue(unsigned int value): _value(uint64_t{value}) {
 
     }
 
-    explicit JSONValue(double value): _value(value) {
+    JSONValue(int64_t value): _value(value) {
 
     }
 
-    explicit JSONValue(const char *value): _value(std::string{value}) {
+    JSONValue(uint64_t value): _value(value) {
+
+    }
+
+    JSONValue(float value): _value(double{value}) {
+
+    }
+
+    JSONValue(double value): _value(value) {
+
+    }
+
+    JSONValue(const char *value): _value(std::string{value}) {
 
     }
 
@@ -277,77 +87,50 @@ public:
 
     }
 
-    explicit JSONValue(const std::string &value): _value(value) {
+    JSONValue(const std::string &value): _value(value) {
 
     }
 
-    explicit JSONValue(bool value): _value(value) {
+    JSONValue(bool value): _value(value) {
 
     }
 
-    JSONValue& operator=(nullptr_t) {
-        _value = {};
-        return *this;
+    void swap(JSONValue &other) {
+        std::swap(*this, other);
     }
 
-    JSONValue& operator=(int rhs) {
-        _value = long{rhs};
-        return *this;
+    void swapPayload(JSONValue &other) {
+        std::swap(_value, other._value);
     }
 
-    JSONValue& operator=(long rhs) {
-        _value = rhs;
-        return *this;
+    void copy(const JSONValue &other) {
+        *this = other;
     }
 
-    JSONValue& operator=(float rhs) {
-        _value = double{rhs};
-        return *this;
+    void copyPayload(const JSONValue &other) {
+        _value = other._value;
     }
 
-    JSONValue& operator=(double rhs) {
-        _value = rhs;
-        return *this;
-    }
-
-    JSONValue& operator=(const char *rhs) {
-        _value = std::string{rhs};
-        return *this;
-    }
-
-    JSONValue& operator=(const std::string &rhs) {
-        _value = rhs;
-        return *this;
-    }
-
-    JSONValue& operator=(bool rhs) {
-        _value = rhs;
-        return *this;
-    }
-
-    void setNull() {
-        if (!isNull()) {
-            _value = NullValue{};
-        }
-    }
-
-    void setArray() {
-        if (_value.type() != typeid(ArrayType)) {
-            _value = ArrayType{};
-        }
-    }
-
-    void setObject() {
-        if (_value.type() != typeid(ObjectType)) {
-            _value = ObjectType{};
-        }
-    }
-
-    JSONType getType() const {
-        return boost::apply_visitor(GetTypeVisitor(), _value);
-    }
+    JSONType getType() const;
 
     int compare(const JSONValue &other) const;
+
+    std::string asString() const;
+
+    int asInt() const;
+
+    unsigned int asUInt() const;
+
+    int64_t asInt64() const;
+
+
+    uint64_t asUInt64() const;
+
+    float asFloat() const;
+
+    double asDouble() const;
+
+    bool asBool() const;
 
     bool isNull() const {
         return _value.type() == typeid(NullValue);
@@ -357,16 +140,22 @@ public:
         return _value.type() == typeid(bool);
     }
 
-    bool isInteger() const {
-        return boost::apply_visitor(IsIntegerVisitor(), _value);
-    }
+    bool isInt() const;
 
-    bool isReal() const {
-        return _value.type() == typeid(long) || _value.type() == typeid(double);
+    bool isInt64() const;
+
+    bool isUInt() const;
+
+    bool isUInt64() const;
+
+    bool isIntegral() const;
+
+    bool isDouble() const {
+        return _value.type() == typeid(int64_t) || _value.type() == typeid(uint64_t) || _value.type() == typeid(double);
     }
 
     bool isNumeric() const {
-        return isReal();
+        return isDouble();
     }
 
     bool isString() const {
@@ -379,30 +168,6 @@ public:
 
     bool isObject() const {
         return _value.type() == typeid(ObjectType);
-    }
-
-    int asInt() const {
-        return boost::apply_visitor(AsIntVisitor(), _value);
-    }
-
-    long asLong() const {
-        return boost::apply_visitor(AsLongVisitor(), _value);
-    }
-
-    float asFloat() const {
-        return boost::apply_visitor(AsFloatVisitor(), _value);
-    }
-
-    double asDouble() const {
-        return boost::apply_visitor(AsDoubleVisitor(), _value);
-    }
-
-    bool asBool() const {
-        return boost::apply_visitor(AsBoolVisitor(), _value);
-    }
-
-    std::string asString() const {
-        return boost::apply_visitor(AsStringVisitor(), _value);
     }
 
     bool isConvertibleTo(JSONType other) const;
@@ -552,11 +317,6 @@ public:
 
     static const JSONValue& nullSingleton();
 
-    static bool isIntegral(double d) {
-        double integralPart;
-        return modf(d, &integralPart) == 0.0;
-    }
-
     static std::string valueToString(double value) {
         return valueToString(value, false, 17);
     }
@@ -615,6 +375,88 @@ inline bool operator==(const JSONValue::NullValue &lhs, const JSONValue::NullVal
 inline bool operator!=(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
     return !(lhs == rhs);
 }
+
+
+class NET4CXX_COMMON_API StreamWriter {
+public:
+    virtual ~StreamWriter() = default;
+
+    virtual int write(const JSONValue &root, std::ostream *sout) = 0;
+
+    class NET4CXX_COMMON_API Factory {
+    public:
+        virtual ~Factory() = default;
+
+        virtual StreamWriter* newStreamWriter() const = 0;
+    };
+protected:
+    std::ostream *_sout{nullptr};
+};
+
+
+enum class CommentStyle {
+    None,
+    Most,
+    All
+};
+
+
+class NET4CXX_COMMON_API BuiltStyledStreamWriter: public StreamWriter {
+public:
+    BuiltStyledStreamWriter(std::string indentation,
+                            CommentStyle cs,
+                            std::string colonSymbol,
+                            std::string nullSymbol,
+                            std::string endingLineFeedSymbol,
+                            bool useSpecialFloats,
+                            unsigned int precision);
+
+    int write(const JSONValue &root, std::ostream *sout) override;
+private:
+    StringVector _childValues;
+    std::string _indentString;
+    unsigned int _rightMargin;
+    std::string _indentation_;
+    CommentStyle _cs;
+    std::string _colonSymbol;
+    std::string _nullSymbol;
+    std::string _endingLineFeedSymbol;
+    bool _addChildValues;
+    bool _indented;
+    bool _useSpecialFloats;
+    unsigned int _precision;
+};
+
+
+class NET4CXX_COMMON_API StreamWriterBuilder: public StreamWriter::Factory {
+public:
+    StreamWriterBuilder();
+
+    virtual StreamWriter* newStreamWriter() const override;
+
+    JSONValue& settings() {
+        return _settings;
+    }
+
+    const JSONValue& settings() const {
+        return _settings;
+    }
+
+    bool validate(JSONValue *invalid= nullptr) const;
+
+    JSONValue& operator[](const std::string &key) {
+        return _settings[key];
+    }
+
+    static void setDefaults(JSONValue *settings);
+protected:
+    JSONValue _settings;
+};
+
+
+NET4CXX_COMMON_API std::string writeString(const StreamWriter::Factory &factory, const JSONValue &root);
+
+NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &sout, const JSONValue &root);
 
 NS_END
 
