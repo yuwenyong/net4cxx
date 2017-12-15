@@ -7,6 +7,7 @@
 
 #include "net4cxx/common/common.h"
 #include <boost/variant.hpp>
+#include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/utilities/util.h"
 
 NS_BEGIN
@@ -49,7 +50,9 @@ public:
     friend bool operator<(const JSONValue &lhs, const JSONValue &rhs);
     friend bool operator==(const JSONValue &lhs, const JSONValue &rhs);
 
-    JSONValue(JSONType type=JSONType::nullValue);
+    JSONValue() = default;
+
+    JSONValue(JSONType type);
 
     JSONValue(nullptr_t) {
 
@@ -111,7 +114,7 @@ public:
         _value = other._value;
     }
 
-    JSONType getType() const;
+    JSONType type() const;
 
     int compare(const JSONValue &other) const;
 
@@ -192,7 +195,11 @@ public:
 
     JSONValue& operator[](size_t index);
 
+    JSONValue& operator[](int index);
+
     const JSONValue& operator[](size_t index) const;
+
+    const JSONValue& operator[](int index) const;
 
     JSONValue get(size_t index, const JSONValue &defaultValue) const {
         const JSONValue *value = &((*this)[index]);
@@ -316,12 +323,6 @@ public:
     }
 
     static const JSONValue& nullSingleton();
-
-    static std::string valueToString(double value) {
-        return valueToString(value, false, 17);
-    }
-
-    static std::string valueToString(double value, bool useSpecialFloats, unsigned int precision);
 private:
     ValueType _value;
     std::array<std::string, COMMENT_COUNT> _comments;
@@ -413,10 +414,53 @@ public:
 
     int write(const JSONValue &root, std::ostream *sout) override;
 private:
+    void writeValue(const JSONValue &value);
+
+    void writeArrayValue(const JSONValue &value);
+
+    bool isMultilineArray(const JSONValue &value);
+
+    void pushValue(const std::string &value) {
+        if (_addChildValues) {
+            _childValues.push_back(value);
+        } else {
+            *_sout << value;
+        }
+    }
+
+    void writeIndent() {
+        if (!_indentString.empty()) {
+            *_sout << '\n' << _indentString;
+        }
+    }
+
+    void writeWithIndent(const std::string &value) {
+        if (!_indented) {
+            writeIndent();
+        }
+        *_sout << value;
+        _indented = false;
+    }
+
+    void indent() {
+        _indentString += _indentation;
+    }
+
+    void unindent() {
+        BOOST_ASSERT(_indentString.size() >= _indentation.size());
+        _indentString.resize(_indentString.size() - _indentation.size());
+    }
+
+    void writeCommentBeforeValue(const JSONValue &root);
+
+    void writeCommentAfterValueOnSameLine(const JSONValue &root);
+
+    static bool hasCommentForValue(const JSONValue &value);
+
     StringVector _childValues;
     std::string _indentString;
     unsigned int _rightMargin;
-    std::string _indentation_;
+    std::string _indentation;
     CommentStyle _cs;
     std::string _colonSymbol;
     std::string _nullSymbol;

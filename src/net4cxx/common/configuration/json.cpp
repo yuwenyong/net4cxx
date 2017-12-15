@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/configuration/json.h"
-#include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/utilities/errors.h"
 
 
@@ -16,6 +15,172 @@ static const double maxUInt64AsDouble = 18446744073709551615.0;
 template <typename T, typename U>
 static inline bool InRange(double d, T min, U max) {
     return d >= min && d <= max;
+}
+
+static std::string valueToString(double value, bool useSpecialFloats, unsigned int precision) {
+    if (std::isfinite(value)) {
+        std::ostringstream os;
+        os << std::setprecision(precision) << value;
+        return os.str();
+    } else {
+        if (value != value) {
+            return useSpecialFloats ? "NaN" : "null";
+        } else if (value < 0.0) {
+            return useSpecialFloats ? "-Infinity" : "-1e+9999";
+        } else {
+            return useSpecialFloats ? "Infinity" : "1e+9999";
+        }
+    }
+}
+
+static std::string valueToString(double value) {
+    return valueToString(value, false, 17);
+}
+
+
+static bool isAnyCharRequiredQuoting(const std::string &s) {
+    for (auto c: s) {
+        if (c == '\\' || c == '\"' || c < ' ' || static_cast<unsigned char>(c) < 0x80) {
+            return true;
+        }
+    }
+    return false;
+}
+
+static unsigned int utf8ToCodePoint(const char *&s, const char *e) {
+    const unsigned int REPLACEMENT_CHARACTER = 0xFFFD;
+    unsigned int firstByte = static_cast<unsigned char>(*s);
+    if (firstByte < 0x80) {
+        return firstByte;
+    }
+    if (firstByte < 0xE0) {
+        if (e - s < 2) {
+            return REPLACEMENT_CHARACTER;
+        }
+        unsigned int calculated = ((firstByte & 0x1F) << 6) | (static_cast<unsigned int>(s[1]) & 0x3F);
+        s += 1;
+        return calculated < 0x80 ? REPLACEMENT_CHARACTER : calculated;
+    }
+
+    if (firstByte < 0xF0) {
+        if (e - s < 3) {
+            return REPLACEMENT_CHARACTER;
+        }
+        unsigned int calculated = ((firstByte & 0x0F) << 12)
+                                  | ((static_cast<unsigned int>(s[1]) & 0x3F) << 6)
+                                  |  (static_cast<unsigned int>(s[2]) & 0x3F);
+        s += 2;
+        if (calculated >= 0xD800 && calculated >= 0xDFFF) {
+            return REPLACEMENT_CHARACTER;
+        }
+        return calculated < 0x800 ? REPLACEMENT_CHARACTER : calculated;
+    }
+
+    if (firstByte < 0xF8) {
+        if (e - s < 4) {
+            return REPLACEMENT_CHARACTER;
+        }
+        unsigned int calculated = ((firstByte & 0x07) << 24)
+                                  | ((static_cast<unsigned int>(s[1]) & 0x3F) << 12)
+                                  | ((static_cast<unsigned int>(s[2]) & 0x3F) << 6)
+                                  |  (static_cast<unsigned int>(s[3]) & 0x3F);
+        s += 3;
+        return calculated < 0x10000 ? REPLACEMENT_CHARACTER : calculated;
+    }
+    return REPLACEMENT_CHARACTER;
+}
+
+
+static const char hex2[] =
+    "000102030405060708090a0b0c0d0e0f"
+    "101112131415161718191a1b1c1d1e1f"
+    "202122232425262728292a2b2c2d2e2f"
+    "303132333435363738393a3b3c3d3e3f"
+    "404142434445464748494a4b4c4d4e4f"
+    "505152535455565758595a5b5c5d5e5f"
+    "606162636465666768696a6b6c6d6e6f"
+    "707172737475767778797a7b7c7d7e7f"
+    "808182838485868788898a8b8c8d8e8f"
+    "909192939495969798999a9b9c9d9e9f"
+    "a0a1a2a3a4a5a6a7a8a9aaabacadaeaf"
+    "b0b1b2b3b4b5b6b7b8b9babbbcbdbebf"
+    "c0c1c2c3c4c5c6c7c8c9cacbcccdcecf"
+    "d0d1d2d3d4d5d6d7d8d9dadbdcdddedf"
+    "e0e1e2e3e4e5e6e7e8e9eaebecedeeef"
+    "f0f1f2f3f4f5f6f7f8f9fafbfcfdfeff";
+
+static std::string toHex16Bit(unsigned int x) {
+    const unsigned int hi = (x >> 8) & 0xff;
+    const unsigned int lo = x & 0xff;
+    std::string result(4, ' ');
+    result[0] = hex2[2 * hi];
+    result[1] = hex2[2 * hi + 1];
+    result[2] = hex2[2 * lo];
+    result[3] = hex2[2 * lo + 1];
+    return result;
+}
+
+static std::string valueToQuotedString(const std::string &value) {
+    if (!isAnyCharRequiredQuoting(value)) {
+        return "\"" + value + "\"";
+    }
+    std::string::size_type maxsize = value.size() * 2 + 3;
+    std::string result;
+    result.reserve(maxsize);
+    result += "\"";
+    const char *end = value.c_str() + value.size();
+    for (const char *c = value.c_str(); c != end; ++c) {
+        switch (*c) {
+            case '\"': {
+                result += "\\\"";
+                break;
+            }
+            case '\\': {
+                result += "\\\\";
+                break;
+            }
+            case '\b': {
+                result += "\\b";
+                break;
+            }
+            case '\f': {
+                result += "\\f";
+                break;
+            }
+            case '\n': {
+                result += "\\n";
+                break;
+            }
+            case '\r': {
+                result += "\\r";
+                break;
+            }
+            case '\t': {
+                result += "\\t";
+                break;
+            }
+            default: {
+                unsigned int cp = utf8ToCodePoint(c, end);
+                if (cp < 0x80 && cp >= 0x20) {
+                    result += static_cast<char>(cp);
+                }
+                else if (cp < 0x10000) {
+                    result += "\\u";
+                    result += toHex16Bit(cp);
+                }
+                else {
+                    cp -= 0x10000;
+                    result += "\\u";
+                    result += toHex16Bit((cp >> 10) + 0xD800);
+                    result += "\\u";
+                    result += toHex16Bit((cp & 0x3FF) + 0xDC00);
+                }
+                break;
+            }
+        }
+    }
+    result += "\"";
+    return result;
 }
 
 
@@ -55,7 +220,7 @@ JSONValue::JSONValue(JSONType type) {
     }
 }
 
-JSONType JSONValue::getType() const {
+JSONType JSONValue::type() const {
 
     struct GetTypeVisitor: public boost::static_visitor<JSONType> {
         result_type operator()(NullValue v) const {
@@ -75,7 +240,7 @@ JSONType JSONValue::getType() const {
         }
 
         result_type operator()(const std::string &v) const {
-            return JSONType::realValue;
+            return JSONType::stringValue;
         }
 
         result_type operator()(bool v) const {
@@ -732,6 +897,13 @@ JSONValue& JSONValue::operator[](size_t index) {
     return array[index];
 }
 
+JSONValue& JSONValue::operator[](int index) {
+    if (index < 0) {
+        NET4CXX_THROW_EXCEPTION(ValueError, "index cannot be negative");
+    }
+    return (*this)[static_cast<size_t>(index)];
+}
+
 const JSONValue& JSONValue::operator[](size_t index) const {
     if (_value.type() == typeid(NullValue)) {
         return nullSingleton();
@@ -745,6 +917,13 @@ const JSONValue& JSONValue::operator[](size_t index) const {
     } else {
         NET4CXX_THROW_EXCEPTION(ValueError, "operator[](index)const requires array value");
     }
+}
+
+const JSONValue& JSONValue::operator[](int index) const {
+    if (index < 0) {
+        NET4CXX_THROW_EXCEPTION(ValueError, "index cannot be negative");
+    }
+    return (*this)[static_cast<size_t>(index)];
 }
 
 JSONValue& JSONValue::operator[](const char *key) {
@@ -835,22 +1014,6 @@ const JSONValue& JSONValue::nullSingleton() {
     return nullStatic;
 }
 
-std::string JSONValue::valueToString(double value, bool useSpecialFloats, unsigned int precision) {
-    if (std::isfinite(value)) {
-        std::ostringstream os;
-        os << std::setprecision(precision) << value;
-        return os.str();
-    } else {
-        if (value != value) {
-            return useSpecialFloats ? "NaN" : "null";
-        } else if (value < 0.0) {
-            return useSpecialFloats ? "-Infinity" : "-1e+9999";
-        } else {
-            return useSpecialFloats ? "Infinity" : "1e+9999";
-        }
-    }
-}
-
 
 BuiltStyledStreamWriter::BuiltStyledStreamWriter(
         std::string indentation,
@@ -861,7 +1024,7 @@ BuiltStyledStreamWriter::BuiltStyledStreamWriter(
         bool useSpecialFloats,
         unsigned int precision)
         : _rightMargin(74)
-        , _indentation_(std::move(indentation))
+        , _indentation(std::move(indentation))
         , _cs(cs)
         , _colonSymbol(std::move(colonSymbol))
         , _nullSymbol(std::move(nullSymbol))
@@ -874,7 +1037,191 @@ BuiltStyledStreamWriter::BuiltStyledStreamWriter(
 }
 
 int BuiltStyledStreamWriter::write(const JSONValue &root, std::ostream *sout) {
+    _sout = sout;
+    _addChildValues = false;
+    _indented = true;
+    _indentString.clear();
+    writeCommentBeforeValue(root);
+    if (!_indented) {
+        writeIndent();
+    }
+    _indented = true;
+    writeValue(root);
+    writeCommentAfterValueOnSameLine(root);
+    *_sout << _endingLineFeedSymbol;
+    _sout = nullptr;
     return 0;
+}
+
+void BuiltStyledStreamWriter::writeValue(const JSONValue &value) {
+    switch (value.type()) {
+        case JSONType::nullValue: {
+            pushValue(_nullSymbol);
+            break;
+        }
+        case JSONType::intValue: {
+            pushValue(std::to_string(value.asInt64()));
+            break;
+        }
+        case JSONType::uintValue: {
+            pushValue(std::to_string(value.asUInt64()));
+            break;
+        }
+        case JSONType::realValue: {
+            pushValue(valueToString(value.asDouble(), _useSpecialFloats, _precision));
+            break;
+        }
+        case JSONType::stringValue: {
+            pushValue(valueToQuotedString(value.asString()));
+            break;
+        }
+        case JSONType::boolValue: {
+            pushValue(value.asBool() ? "true" : "false");
+            break;
+        }
+        case JSONType::arrayValue: {
+            writeArrayValue(value);
+            break;
+        }
+        case JSONType::objectValue: {
+            StringVector members = value.getMemberNames();
+            if (members.empty()) {
+                pushValue("{}");
+            } else {
+                writeWithIndent("{");
+                indent();
+                for (auto it = members.begin();it != members.end(); ++ it) {
+                    const std::string &name = *it;
+                    const JSONValue &childValue = value[name];
+                    writeCommentBeforeValue(childValue);
+                    writeWithIndent(valueToQuotedString(name));
+                    *_sout << _colonSymbol;
+                    writeValue(childValue);
+                    if (std::next(it) != members.end()) {
+                        *_sout << ",";
+                    }
+                    writeCommentAfterValueOnSameLine(childValue);
+                }
+                unindent();
+                writeWithIndent("}");
+            }
+            break;
+        }
+    }
+}
+
+void BuiltStyledStreamWriter::writeArrayValue(const JSONValue &value) {
+    size_t size = value.size();
+    if (size == 0) {
+        pushValue("[]");
+    } else {
+        bool isMultiLine = (_cs == CommentStyle::All) || isMultilineArray(value);
+        if (isMultiLine) {
+            writeWithIndent("[");
+            indent();
+            bool hasChildValue = !_childValues.empty();
+            for (size_t index = 0; index != size; ++index) {
+                const JSONValue &childValue = value[index];
+                writeCommentBeforeValue(childValue);
+                if (hasChildValue) {
+                    writeWithIndent(_childValues[index]);
+                } else {
+                    if (!_indented) {
+                        writeIndent();
+                    }
+                    _indented = true;
+                    writeValue(childValue);
+                    _indented = false;
+                }
+                if (index + 1 != size) {
+                    *_sout << ",";
+                }
+                writeCommentAfterValueOnSameLine(childValue);
+            }
+            unindent();
+            writeWithIndent("]");
+        } else {
+            BOOST_ASSERT(_childValues.size() == size);
+            *_sout << "[";
+            if (!_indentation.empty()) {
+                *_sout << " ";
+            }
+            for (unsigned index = 0; index < size; ++index) {
+                if (index > 0) {
+                    *_sout << ((!_indentation.empty()) ? ", " : ",");
+                }
+                *_sout << _childValues[index];
+            }
+            if (!_indentation.empty()) {
+                *_sout << " ";
+            }
+            *_sout << "]";
+        }
+    }
+}
+
+bool BuiltStyledStreamWriter::isMultilineArray(const JSONValue &value) {
+    size_t size = value.size();
+    bool isMultiLine = size * 3 >= _rightMargin;
+    _childValues.clear();
+    for (size_t index = 0; index < size && !isMultiLine; ++index) {
+        const JSONValue &childValue = value[index];
+        isMultiLine = ((childValue.isArray() || childValue.isObject()) && !childValue.empty());
+    }
+    if (!isMultiLine) {
+        _childValues.reserve(size);
+        _addChildValues = true;
+        size_t lineLength = 4 + (size - 1) * 2; // '[ ' + ', '*n + ' ]'
+        for (size_t index = 0; index < size; ++index) {
+            if (hasCommentForValue(value[index])) {
+                isMultiLine = true;
+            }
+            writeValue(value[index]);
+            lineLength += _childValues[index].length();
+        }
+        _addChildValues = false;
+        isMultiLine = isMultiLine || lineLength >= _rightMargin;
+    }
+    return isMultiLine;
+}
+
+void BuiltStyledStreamWriter::writeCommentBeforeValue(const JSONValue &root) {
+    if (_cs == CommentStyle::None) {
+        return;
+    }
+    if (!root.hasComment(COMMENT_BEFORE)) {
+        return;
+    }
+    if (!_indented) {
+        writeIndent();
+    }
+    const std::string &comment = root.getComment(COMMENT_BEFORE);
+    for (auto iter = comment.begin(); iter != comment.end(); ++iter) {
+        *_sout << *iter;
+        if (*iter == '\n' && (iter + 1) != comment.end() && *(iter + 1) == '/') {
+            *_sout << _indentString;
+        }
+    }
+    _indented = false;
+}
+
+void BuiltStyledStreamWriter::writeCommentAfterValueOnSameLine(const JSONValue &root) {
+    if (_cs == CommentStyle::None) {
+        return;
+    }
+    if (root.hasComment(COMMENT_ON_SAME_LINE)) {
+        *_sout << " " << root.getComment(COMMENT_ON_SAME_LINE);
+    }
+    if (root.hasComment(COMMENT_AFTER)) {
+        writeIndent();
+        *_sout << root.getComment(COMMENT_AFTER);
+    }
+}
+
+bool BuiltStyledStreamWriter::hasCommentForValue(const JSONValue &value) {
+    return value.hasComment(COMMENT_BEFORE)
+           || value.hasComment(COMMENT_ON_SAME_LINE)
+           || value.hasComment(COMMENT_AFTER);
 }
 
 
