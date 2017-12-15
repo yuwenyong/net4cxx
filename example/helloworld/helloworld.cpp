@@ -25,7 +25,20 @@ int main () {
     root["object"]["obj"]["a"] = JSONValue(JSONType::arrayValue);
     root["object"]["obj"]["a"][0] = "ttt";
     root["object"]["zzz"] = true;
-    std::cerr << root;
+    JSONValue cp, nu;
+    std::cerr << root << std::endl;
+    cp = root;
+    std::cerr << cp << std::endl;
+    if (cp == root) {
+        std::cerr << "cp == root" << std::endl;
+    }  else {
+        std::cerr << "cp != root" << std::endl;
+    }
+    if (nu == root) {
+        std::cerr << "nu == root" << std::endl;
+    }  else {
+        std::cerr << "nu != root" << std::endl;
+    }
     return 0;
 }
 

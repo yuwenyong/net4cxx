@@ -476,7 +476,7 @@ class NET4CXX_COMMON_API StreamWriterBuilder: public StreamWriter::Factory {
 public:
     StreamWriterBuilder();
 
-    virtual StreamWriter* newStreamWriter() const override;
+    StreamWriter* newStreamWriter() const override;
 
     JSONValue& settings() {
         return _settings;
@@ -501,6 +501,74 @@ protected:
 NET4CXX_COMMON_API std::string writeString(const StreamWriter::Factory &factory, const JSONValue &root);
 
 NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &sout, const JSONValue &root);
+
+
+class NET4CXX_COMMON_API CharReader {
+public:
+    virtual ~CharReader() = default;
+
+    virtual bool parse(char const* beginDoc, char const* endDoc, JSONValue* root, std::string *errs) = 0;
+
+    class NET4CXX_COMMON_API Factory {
+    public:
+        virtual ~Factory() = default;
+
+        virtual CharReader* newCharReader() const = 0;
+    };
+};
+
+
+struct CharReaderFeatures {
+    bool allowComments;
+    bool strictRoot;
+    bool allowDroppedNullPlaceholders;
+    bool allowNumericKeys;
+    bool allowSingleQuotes;
+    bool failIfExtra;
+    bool rejectDupKeys;
+    bool allowSpecialFloats;
+    int stackLimit;
+};
+
+
+//class NET4CXX_COMMON_API BuiltCharReader: public CharReader {
+//public:
+//
+//};
+
+
+class NET4CXX_COMMON_API CharReaderBuilder: public CharReader::Factory {
+public:
+    CharReaderBuilder();
+
+    CharReader* newCharReader() const override;
+
+    JSONValue& settings() {
+        return _settings;
+    }
+
+    const JSONValue& settings() const {
+        return _settings;
+    }
+
+    bool validate(JSONValue *invalid= nullptr) const;
+
+    JSONValue& operator[](const std::string &key) {
+        return _settings[key];
+    }
+
+    static void setDefaults(JSONValue *settings);
+
+    static void strictMode(JSONValue *settings);
+protected:
+    JSONValue _settings;
+};
+
+
+NET4CXX_COMMON_API bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JSONValue* root,
+                                        std::string *errs);
+
+NET4CXX_COMMON_API std::istream& operator>>(std::istream &sin, JSONValue &root);
 
 NS_END
 

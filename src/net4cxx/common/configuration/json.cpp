@@ -1311,4 +1311,101 @@ std::ostream& operator<<(std::ostream &sout, const JSONValue &root) {
     return sout;
 }
 
+
+CharReaderBuilder::CharReaderBuilder() {
+    setDefaults(&_settings);
+}
+
+CharReader* CharReaderBuilder::newCharReader() const {
+    bool collectComments = _settings["collectComments"].asBool();
+    CharReaderFeatures features;
+    features.allowComments = _settings["allowComments"].asBool();
+    features.strictRoot = _settings["strictRoot"].asBool();
+    features.allowDroppedNullPlaceholders = _settings["allowDroppedNullPlaceholders"].asBool();
+    features.allowNumericKeys = _settings["allowNumericKeys"].asBool();
+    features.allowSingleQuotes = _settings["allowSingleQuotes"].asBool();
+    features.stackLimit = _settings["stackLimit"].asInt();
+    features.failIfExtra = _settings["failIfExtra"].asBool();
+    features.rejectDupKeys = _settings["rejectDupKeys"].asBool();
+    features.allowSpecialFloats = _settings["allowSpecialFloats"].asBool();
+    return nullptr;
+}
+
+static void getValidReaderKeys(StringSet *validKeys) {
+    validKeys->clear();
+    validKeys->insert("collectComments");
+    validKeys->insert("allowComments");
+    validKeys->insert("strictRoot");
+    validKeys->insert("allowDroppedNullPlaceholders");
+    validKeys->insert("allowNumericKeys");
+    validKeys->insert("allowSingleQuotes");
+    validKeys->insert("stackLimit");
+    validKeys->insert("failIfExtra");
+    validKeys->insert("rejectDupKeys");
+    validKeys->insert("allowSpecialFloats");
+}
+
+bool CharReaderBuilder::validate(JSONValue *invalid) const {
+    JSONValue myInvalid;
+    if (!invalid) {
+        invalid = &myInvalid;
+    }
+    JSONValue &inv = *invalid;
+    StringSet validKeys;
+    getValidReaderKeys(&validKeys);
+    StringVector keys = _settings.getMemberNames();
+    for (auto &key: keys) {
+        if (validKeys.find(key) == validKeys.end()) {
+            inv[key] = _settings[key];
+        }
+    }
+    return inv.empty();
+}
+
+void CharReaderBuilder::setDefaults(JSONValue *settings) {
+    (*settings)["collectComments"] = true;
+    (*settings)["allowComments"] = true;
+    (*settings)["strictRoot"] = false;
+    (*settings)["allowDroppedNullPlaceholders"] = false;
+    (*settings)["allowNumericKeys"] = false;
+    (*settings)["allowSingleQuotes"] = false;
+    (*settings)["stackLimit"] = 1000;
+    (*settings)["failIfExtra"] = false;
+    (*settings)["rejectDupKeys"] = false;
+    (*settings)["allowSpecialFloats"] = false;
+}
+
+void CharReaderBuilder::strictMode(JSONValue *settings) {
+    (*settings)["allowComments"] = false;
+    (*settings)["strictRoot"] = true;
+    (*settings)["allowDroppedNullPlaceholders"] = false;
+    (*settings)["allowNumericKeys"] = false;
+    (*settings)["allowSingleQuotes"] = false;
+    (*settings)["stackLimit"] = 1000;
+    (*settings)["failIfExtra"] = true;
+    (*settings)["rejectDupKeys"] = true;
+    (*settings)["allowSpecialFloats"] = false;
+}
+
+
+bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JSONValue* root, std::string *errs) {
+    std::ostringstream ssin;
+    ssin << sin.rdbuf();
+    std::string doc = ssin.str();
+    char const* begin = doc.data();
+    char const* end = begin + doc.size();
+    std::unique_ptr<CharReader> reader(factory.newCharReader());
+    return reader->parse(begin, end, root, errs);
+}
+
+std::istream& operator>>(std::istream &sin, JSONValue &root) {
+    CharReaderBuilder b;
+    std::string errs;
+    bool ok = parseFromStream(b, sin, &root, &errs);
+    if (!ok) {
+        NET4CXX_THROW_EXCEPTION(ValueError, errs);
+    }
+    return sin;
+}
+
 NS_END
