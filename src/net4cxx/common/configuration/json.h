@@ -518,7 +518,7 @@ public:
 };
 
 
-struct CharReaderFeatures {
+struct ReaderFeatures {
     bool allowComments;
     bool strictRoot;
     bool allowDroppedNullPlaceholders;
@@ -531,10 +531,90 @@ struct CharReaderFeatures {
 };
 
 
-//class NET4CXX_COMMON_API BuiltCharReader: public CharReader {
-//public:
-//
-//};
+class BuiltReader: public boost::noncopyable {
+public:
+    struct StructuredError {
+        ptrdiff_t offsetStart;
+        ptrdiff_t offsetLimit;
+        std::string message;
+    };
+
+    explicit BuiltReader(const ReaderFeatures &features)
+            : _features(features) {
+
+    }
+
+    bool parse(const char* beginDoc, const char* endDoc, JSONValue& root, bool collectComments = true);
+
+    std::string getFormattedErrorMessages() const;
+
+    std::vector<StructuredError> getStructuredErrors() const;
+
+    bool pushError(const JSONValue &value, const std::string &message);
+
+    bool pushError(const JSONValue &value, const std::string &message, const JSONValue &extra);
+
+    bool good() const;
+protected:
+    enum TokenType {
+        tokenEndOfStream = 0,
+        tokenObjectBegin,
+        tokenObjectEnd,
+        tokenArrayBegin,
+        tokenArrayEnd,
+        tokenString,
+        tokenNumber,
+        tokenTrue,
+        tokenFalse,
+        tokenNull,
+        tokenNaN,
+        tokenPosInf,
+        tokenNegInf,
+        tokenArraySeparator,
+        tokenMemberSeparator,
+        tokenComment,
+        tokenError
+    };
+
+    struct Token {
+        TokenType type;
+        const char *start;
+        const char *end;
+    };
+
+    struct ErrorInfo {
+        Token token;
+        std::string message;
+        const char *extra;
+    };
+
+    std::stack<JSONValue *> _nodes;
+    std::deque<ErrorInfo> _errors;
+    std::string _document;
+    const char *_begin{nullptr};
+    const char *_end{nullptr};
+    const char *_current{nullptr};
+    const char *_lastValueEnd{nullptr};
+    JSONValue *_lastValue{nullptr};
+    std::string _commentsBefore;
+    ReaderFeatures _features;
+    bool _collectComments{false};
+};
+
+
+class NET4CXX_COMMON_API BuiltCharReader: public CharReader {
+public:
+    BuiltCharReader(bool collectComments, const ReaderFeatures &features)
+            : _collectComments(collectComments)
+            , _reader(features) {
+
+    }
+
+    bool parse(char const* beginDoc, char const* endDoc, JSONValue* root, std::string *errs) override;
+protected:
+    bool _collectComments;
+    BuiltReader _reader;
+};
 
 
 class NET4CXX_COMMON_API CharReaderBuilder: public CharReader::Factory {

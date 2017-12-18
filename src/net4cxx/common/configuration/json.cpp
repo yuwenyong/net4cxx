@@ -70,7 +70,7 @@ static unsigned int utf8ToCodePoint(const char *&s, const char *e) {
                                   | ((static_cast<unsigned int>(s[1]) & 0x3F) << 6)
                                   |  (static_cast<unsigned int>(s[2]) & 0x3F);
         s += 2;
-        if (calculated >= 0xD800 && calculated >= 0xDFFF) {
+        if (calculated >= 0xD800 && calculated <= 0xDFFF) {
             return REPLACEMENT_CHARACTER;
         }
         return calculated < 0x800 ? REPLACEMENT_CHARACTER : calculated;
@@ -1312,13 +1312,22 @@ std::ostream& operator<<(std::ostream &sout, const JSONValue &root) {
 }
 
 
+bool BuiltCharReader::parse(char const *beginDoc, char const *endDoc, JSONValue *root, std::string *errs) {
+    bool ok = _reader.parse(beginDoc, endDoc, *root, _collectComments);
+    if (errs) {
+        *errs = _reader.getFormattedErrorMessages();
+    }
+    return ok;
+}
+
+
 CharReaderBuilder::CharReaderBuilder() {
     setDefaults(&_settings);
 }
 
 CharReader* CharReaderBuilder::newCharReader() const {
     bool collectComments = _settings["collectComments"].asBool();
-    CharReaderFeatures features;
+    ReaderFeatures features;
     features.allowComments = _settings["allowComments"].asBool();
     features.strictRoot = _settings["strictRoot"].asBool();
     features.allowDroppedNullPlaceholders = _settings["allowDroppedNullPlaceholders"].asBool();
@@ -1328,7 +1337,7 @@ CharReader* CharReaderBuilder::newCharReader() const {
     features.failIfExtra = _settings["failIfExtra"].asBool();
     features.rejectDupKeys = _settings["rejectDupKeys"].asBool();
     features.allowSpecialFloats = _settings["allowSpecialFloats"].asBool();
-    return nullptr;
+    return new BuiltCharReader(collectComments, features);
 }
 
 static void getValidReaderKeys(StringSet *validKeys) {
