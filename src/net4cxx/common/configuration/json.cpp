@@ -91,6 +91,32 @@ static unsigned int utf8ToCodePoint(const char *&s, const char *e) {
 }
 
 
+static std::string codePointToUTF8(unsigned int cp) {
+    std::string result;
+    // based on description from http://en.wikipedia.org/wiki/UTF-8
+    if (cp <= 0x7f) {
+        result.resize(1);
+        result[0] = static_cast<char>(cp);
+    } else if (cp <= 0x7FF) {
+        result.resize(2);
+        result[1] = static_cast<char>(0x80 | (0x3f & cp));
+        result[0] = static_cast<char>(0xC0 | (0x1f & (cp >> 6)));
+    } else if (cp <= 0xFFFF) {
+        result.resize(3);
+        result[2] = static_cast<char>(0x80 | (0x3f & cp));
+        result[1] = static_cast<char>(0x80 | (0x3f & (cp >> 6)));
+        result[0] = static_cast<char>(0xE0 | (0xf & (cp >> 12)));
+    } else if (cp <= 0x10FFFF) {
+        result.resize(4);
+        result[3] = static_cast<char>(0x80 | (0x3f & cp));
+        result[2] = static_cast<char>(0x80 | (0x3f & (cp >> 6)));
+        result[1] = static_cast<char>(0x80 | (0x3f & (cp >> 12)));
+        result[0] = static_cast<char>(0xF0 | (0x7 & (cp >> 18)));
+    }
+    return result;
+}
+
+
 static const char hex2[] =
     "000102030405060708090a0b0c0d0e0f"
     "101112131415161718191a1b1c1d1e1f"
@@ -1309,6 +1335,532 @@ std::ostream& operator<<(std::ostream &sout, const JSONValue &root) {
     std::unique_ptr<StreamWriter> writer(builder.newStreamWriter());
     writer->write(root, &sout);
     return sout;
+}
+
+
+bool BuiltReader::parse(const char *beginDoc, const char *endDoc, JSONValue &root, bool collectComments) {
+    if (_features.allowComments) {
+        collectComments = false;
+    }
+    _begin = beginDoc;
+    _end = endDoc;
+    _collectComments = collectComments;
+    _current = _begin;
+    _lastValueEnd = nullptr;
+    _lastValue = nullptr;
+    _commentsBefore.clear();
+    _errors.clear();
+    while (!_nodes.empty()) {
+        _nodes.pop();
+    }
+    _nodes.push(&root);
+    bool successful = readValue();
+    return successful;
+}
+
+bool BuiltReader::readToken(Token &token) {
+    skipSpaces();
+    token.start = _current;
+    char c = getNextChar();
+    bool ok = true;
+    switch (c) {
+        case '{':
+            token.type = tokenObjectBegin;
+            break;
+        case '}':
+            token.type = tokenObjectEnd;
+            break;
+        case '[':
+            token.type = tokenArrayBegin;
+            break;
+        case ']':
+            token.type = tokenArrayEnd;
+            break;
+        case '"':
+            token.type = tokenString;
+            ok = readString();
+            break;
+        case '\'':
+            if (_features.allowSingleQuotes) {
+                token.type = tokenString;
+                ok = readStringSingleQuote();
+            } else {
+                ok = false;
+            }
+            break;
+        case '/':
+            token.type = tokenComment;
+            ok = readComment();
+            break;
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '6':
+        case '7':
+        case '8':
+        case '9':
+            token.type = tokenNumber;
+            readNumber(false);
+            break;
+        case '-':
+            if (readNumber(true)) {
+                token.type = tokenNumber;
+            } else {
+                token.type = tokenNegInf;
+                ok = _features.allowSpecialFloats && match("nfinity", 7);
+            }
+            break;
+        case 't':
+            token.type = tokenTrue;
+            ok = match("rue", 3);
+            break;
+        case 'f':
+            token.type = tokenFalse;
+            ok = match("alse", 4);
+            break;
+        case 'n':
+            token.type = tokenNull;
+            ok = match("ull", 3);
+            break;
+        case 'N':
+            if (_features.allowSpecialFloats) {
+                token.type = tokenNaN;
+                ok = match("aN", 2);
+            } else {
+                ok = false;
+            }
+            break;
+        case 'I':
+            if (_features.allowSpecialFloats) {
+                token.type = tokenPosInf;
+                ok = match("nfinity", 7);
+            } else {
+                ok = false;
+            }
+            break;
+        case ',':
+            token.type = tokenArraySeparator;
+            break;
+        case ':':
+            token.type = tokenMemberSeparator;
+            break;
+        case 0:
+            token.type = tokenEndOfStream;
+            break;
+        default:
+            ok = false;
+            break;
+    }
+    if (!ok) {
+        token.type = tokenError;
+    }
+    token.end = _current;
+    return true;
+}
+
+void BuiltReader::skipSpaces() {
+    for (;_current != _end; ++ _current) {
+        char c = *_current;
+        if (c != ' ' && c != '\t' && c != '\r' && c != '\n') {
+            break;
+        }
+    }
+}
+
+bool BuiltReader::match(const char *pattern, int patternLength) {
+    if (_end - _current < patternLength) {
+        return false;
+    }
+    int index = patternLength;
+    while (index--) {
+        if (_current[index] != pattern[index]) {
+            return false;
+        }
+    }
+    _current += patternLength;
+    return true;
+}
+
+bool BuiltReader::readComment() {
+    const char *commentBegin = _current - 1;
+    char c = getNextChar();
+    bool successful = false;
+    if (c == '*') {
+        successful = readCStyleComment();
+    } else if (c == '/') {
+        successful = readCppStyleComment();
+    }
+    if (!successful) {
+        return false;
+    }
+    if (_collectComments) {
+        CommentPlacement placement = COMMENT_BEFORE;
+        if (_lastValueEnd && !containsNewLine(_lastValueEnd, commentBegin)) {
+            if (c != '*' || !containsNewLine(commentBegin, _current)) {
+                placement = COMMENT_ON_SAME_LINE;
+            }
+        }
+        addComment(commentBegin, _current, placement);
+    }
+    return true;
+}
+
+bool BuiltReader::readCStyleComment() {
+    while ((_current + 1) < _end) {
+        char c = getNextChar();
+        if (c == '*' && *_current == '/') {
+            break;
+        }
+    }
+    return getNextChar() == '/';
+}
+
+bool BuiltReader::readCppStyleComment() {
+    while (_current != _end) {
+        char c = getNextChar();
+        if (c == '\n') {
+            break;
+        }
+        if (c == '\r') {
+            // Consume DOS EOL. It will be normalized in addComment.
+            if (_current != _end && *_current == '\n') {
+                getNextChar();
+            }
+            // Break on Mac OS 9 EOL.
+            break;
+        }
+    }
+    return true;
+}
+
+bool BuiltReader::readString() {
+    char c = 0;
+    while (_current != _end) {
+        c = getNextChar();
+        if (c == '\\') {
+            getNextChar();
+        } else if (c == '"') {
+            break;
+        }
+    }
+    return c == '"';
+}
+
+bool BuiltReader::readStringSingleQuote() {
+    char c = 0;
+    while (_current != _end) {
+        c = getNextChar();
+        if (c == '\\') {
+            getNextChar();
+        } else if (c == '\'') {
+            break;
+        }
+    }
+    return c == '\'';
+}
+
+bool BuiltReader::readNumber(bool checkInf) {
+    const char *p = _current;
+    if (checkInf && p != _end && *p == 'I') {
+        _current = ++p;
+        return false;
+    }
+    char c = '0';
+    // integral part
+    while (c >= '0' && c <= '9') {
+        c = (_current = p) < _end ? *p++ : '\0';
+    }
+
+    // fractional part
+    if (c == '.') {
+        c = (_current = p) < _end ? *p++ : '\0';
+        while (c >= '0' && c <= '9') {
+            c = (_current = p) < _end ? *p++ : '\0';
+        }
+    }
+    // exponential part
+    if (c == 'e' || c == 'E') {
+        c = (_current = p) < _end ? *p++ : '\0';
+        if (c == '+' || c == '-') {
+            c = (_current = p) < _end ? *p++ : '\0';
+        }
+        while (c >= '0' && c <= '9') {
+            c = (_current = p) < _end ? *p++ : '\0';
+        }
+    }
+    return true;
+}
+
+bool BuiltReader::readValue() {
+    if (static_cast<int>(_nodes.size()) > _features.stackLimit) {
+        NET4CXX_THROW_EXCEPTION(ParsingError, "Exceeded stackLimit in readValue().");
+    }
+    Token token;
+    skipCommentTokens(token);
+    bool successful = true;
+    if (_collectComments && !_commentsBefore.empty()) {
+        currentValue().setComment(std::move(_commentsBefore), COMMENT_BEFORE);
+    }
+
+//    switch (token.type) {
+//
+//    }
+
+    if (_collectComments) {
+        _lastValueEnd = _current;
+        _lastValue = &currentValue();
+    }
+
+    return successful;
+}
+
+bool BuiltReader::readObject(Token &token) {
+    Token tokenName;
+    std::string name;
+    JSONValue init(JSONType::objectValue);
+    currentValue().swapPayload(init);
+    while (readToken(tokenName)) {
+        bool initialTokenOk = true;
+        while (tokenName.type == tokenComment && initialTokenOk) {
+            initialTokenOk = readToken(tokenName);
+        }
+        if (!initialTokenOk) {
+            break;
+        }
+        if (tokenName.type == tokenObjectEnd && name.empty()) {
+            return true;
+        }
+        name.clear();
+        if (tokenName.type == tokenString) {
+            if (!decodeString(tokenName, name)) {
+                return recoverFromError(tokenObjectEnd);
+            }
+        } else if (tokenName.type == tokenNumber && _features.allowNumericKeys) {
+            JSONValue numberName;
+//            if (!decodeNumber(tokenName, numberName))
+//                return recoverFromError(tokenObjectEnd);
+            name = numberName.asString();
+        } else {
+            break;
+        }
+
+//        Token colon;
+//        if (!readToken(colon) || colon.type_ != tokenMemberSeparator) {
+//            return addErrorAndRecover(
+//                    "Missing ':' after object member name", colon, tokenObjectEnd);
+//        }
+//        if (name.length() >= (1U<<30)) throwRuntimeError("keylength >= 2^30");
+//        if (features_.rejectDupKeys_ && currentValue().isMember(name)) {
+//            JSONCPP_STRING msg = "Duplicate key: '" + name + "'";
+//            return addErrorAndRecover(
+//                    msg, tokenName, tokenObjectEnd);
+//        }
+//        Value& value = currentValue()[name];
+//        nodes_.push(&value);
+//        bool ok = readValue();
+//        nodes_.pop();
+//        if (!ok) // error already set
+//            return recoverFromError(tokenObjectEnd);
+//
+//        Token comma;
+//        if (!readToken(comma) ||
+//            (comma.type_ != tokenObjectEnd && comma.type_ != tokenArraySeparator &&
+//             comma.type_ != tokenComment)) {
+//            return addErrorAndRecover(
+//                    "Missing ',' or '}' in object declaration", comma, tokenObjectEnd);
+//        }
+//        bool finalizeTokenOk = true;
+//        while (comma.type_ == tokenComment && finalizeTokenOk)
+//            finalizeTokenOk = readToken(comma);
+//        if (comma.type_ == tokenObjectEnd)
+//            return true;
+    }
+//    return addErrorAndRecover(
+//            "Missing '}' or object member name", tokenName, tokenObjectEnd);
+}
+
+bool BuiltReader::decodeNumber(Token &token, JSONValue &decoded) {
+    
+}
+
+bool BuiltReader::decodeString(Token &token, std::string &decoded) {
+    decoded.reserve(static_cast<size_t >(token.end - token.start + 2));
+    const char *current = token.start + 1;
+    const char *end = token.end - 1;
+    while (current != end) {
+        char c = *current++;
+        if (c == '"') {
+            break;
+        } else if (c == '\\') {
+            if (current == end) {
+                return addError("Empty escape sequence in string", token, current);
+            }
+            char escape = *current++;
+            switch (escape) {
+                case '"':
+                    decoded += '"';
+                    break;
+                case '/':
+                    decoded += '/';
+                    break;
+                case '\\':
+                    decoded += '\\';
+                    break;
+                case 'b':
+                    decoded += '\b';
+                    break;
+                case 'f':
+                    decoded += '\f';
+                    break;
+                case 'n':
+                    decoded += '\n';
+                    break;
+                case 'r':
+                    decoded += '\r';
+                    break;
+                case 't':
+                    decoded += '\t';
+                    break;
+                case 'u': {
+                    unsigned int unicode;
+                    if (!decodeUnicodeCodePoint(token, current, end, unicode)) {
+                        return false;
+                    }
+                    decoded += codePointToUTF8(unicode);
+                    break;
+                }
+                default:
+                    return addError("Bad escape sequence in string", token, current);
+            }
+        } else {
+            decoded += c;
+        }
+    }
+    return true;
+}
+
+bool BuiltReader::decodeUnicodeCodePoint(Token &token, const char *&current, const char *end, unsigned int &unicode) {
+    if (!decodeUnicodeEscapeSequence(token, current, end, unicode)) {
+        return false;
+    }
+    if (unicode >= 0xD800 && unicode <= 0xDBFF) {
+        // surrogate pairs
+        if (end - current < 6) {
+            return addError("additional six characters expected to parse unicode surrogate pair.", token, current);
+        }
+        unsigned int surrogatePair;
+        if (*(current++) == '\\' && *(current++) == 'u') {
+            if (decodeUnicodeEscapeSequence(token, current, end, surrogatePair)) {
+                unicode = 0x10000 + ((unicode & 0x3FF) << 10) + (surrogatePair & 0x3FF);
+            } else {
+                return false;
+            }
+        } else {
+            return addError("expecting another \\u token to begin the second half of a unicode surrogate pair", token,
+                            current);
+        }
+    }
+    return true;
+}
+
+bool BuiltReader::decodeUnicodeEscapeSequence(Token &token, const char *&current, const char *end,
+                                              unsigned int &unicode) {
+    if (end - current < 4) {
+        return addError("Bad unicode escape sequence in string: four digits expected.", token, current);
+    }
+    int result = 0;
+    for (int index = 0; index < 4; ++index) {
+        char c = *current++;
+        result *= 16;
+        if (c >= '0' && c <= '9') {
+            result += c - '0';
+        } else if (c >= 'a' && c <= 'f') {
+            result += c - 'a' + 10;
+        } else if (c >= 'A' && c <= 'F') {
+            result += c - 'A' + 10;
+        } else {
+            return addError("Bad unicode escape sequence in string: hexadecimal digit expected.", token, current);
+        }
+    }
+    unicode = static_cast<unsigned int>(result);
+    return true;
+
+}
+
+bool BuiltReader::addError(const std::string &message, Token &token, const char *extra) {
+    ErrorInfo info;
+    info.token = token;
+    info.message = message;
+    info.extra = extra;
+    _errors.emplace_back(std::move(info));
+    return false;
+}
+
+bool BuiltReader::recoverFromError(TokenType skipUntilToken) {
+    size_t errorCount = _errors.size();
+    Token skip;
+    for (;;) {
+        if (!readToken(skip)) {
+            _errors.resize(errorCount); // discard errors caused by recovery
+        }
+        if (skip.type == skipUntilToken || skip.type == tokenEndOfStream) {
+            break;
+        }
+    }
+    _errors.resize(errorCount);
+    return false;
+}
+
+void BuiltReader::addComment(const char *begin, const char *end, CommentPlacement placement) {
+    BOOST_ASSERT(_collectComments);
+    std::string normalized = normalizeEOL(begin, end);
+    if (placement == COMMENT_ON_SAME_LINE) {
+        BOOST_ASSERT(_lastValue);
+        _lastValue->setComment(normalized, placement);
+    } else {
+        _commentsBefore += normalized;
+    }
+}
+
+void BuiltReader::skipCommentTokens(Token &token) {
+    if (_features.allowComments) {
+        do {
+            readToken(token);
+        } while (token.type == tokenComment);
+    } else {
+        readToken(token);
+    }
+}
+
+std::string BuiltReader::normalizeEOL(const char *begin, const char *end) {
+    std::string normalized;
+    normalized.reserve(static_cast<size_t>(end - begin));
+    const char *current = begin;
+    while (current != end) {
+        char c = *current++;
+        if (c == '\r') {
+            if (current != end && *current == '\n') {
+                ++current;
+            }
+            // convert Mac EOL
+            normalized += '\n';
+        } else {
+            normalized += c;
+        }
+    }
+    return normalized;
+}
+
+bool BuiltReader::containsNewLine(const char *begin, const char *end) {
+    for (; begin < end; ++begin) {
+        if (*begin == '\n' || *begin == '\r') {
+            return true;
+        }
+    }
+    return false;
 }
 
 

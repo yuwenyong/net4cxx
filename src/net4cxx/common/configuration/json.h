@@ -588,6 +588,59 @@ protected:
         const char *extra;
     };
 
+    bool readToken(Token &token);
+
+    void skipSpaces();
+
+    bool match(const char *pattern, int patternLength);
+
+    bool readComment();
+
+    bool readCStyleComment();
+
+    bool readCppStyleComment();
+
+    bool readString();
+
+    bool readStringSingleQuote();
+
+    bool readNumber(bool checkInf);
+
+    bool readValue();
+
+    bool readObject(Token &token);
+
+    bool decodeNumber(Token &token, JSONValue &decoded);
+
+    bool decodeString(Token &token, std::string &decoded);
+
+    bool decodeUnicodeCodePoint(Token &token, const char *&current, const char *end, unsigned int &unicode);
+
+    bool decodeUnicodeEscapeSequence(Token &token, const char *&current, const char *end, unsigned int &unicode);
+
+    bool addError(const std::string &message, Token& token, const char *extra=nullptr);
+
+    bool recoverFromError(TokenType skipUntilToken);
+
+    JSONValue& currentValue() {
+        return *(_nodes.top());
+    }
+
+    char getNextChar() {
+        if (_current == _end) {
+            return '\0';
+        }
+        return *_current++;
+    }
+
+    void addComment(const char *begin, const char *end, CommentPlacement placement);
+
+    void skipCommentTokens(Token &token);
+
+    static std::string normalizeEOL(const char *begin, const char *end);
+
+    static bool containsNewLine(const char *begin, const char *end);
+
     std::stack<JSONValue *> _nodes;
     std::deque<ErrorInfo> _errors;
     std::string _document;
