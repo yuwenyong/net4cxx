@@ -39,6 +39,12 @@ int main () {
     }  else {
         std::cerr << "nu != root" << std::endl;
     }
+    std::stringstream ss;
+    JSONValue result;
+    ss << cp;
+    ss >> result;
+    std::cerr << "result" << std::endl;
+    std::cerr << result;
     return 0;
 }
 

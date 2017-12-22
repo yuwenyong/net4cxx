@@ -550,11 +550,9 @@ public:
 
     std::vector<StructuredError> getStructuredErrors() const;
 
-    bool pushError(const JSONValue &value, const std::string &message);
-
-    bool pushError(const JSONValue &value, const std::string &message, const JSONValue &extra);
-
-    bool good() const;
+    bool good() const {
+        return _errors.empty();
+    }
 protected:
     enum TokenType {
         tokenEndOfStream = 0,
@@ -610,9 +608,19 @@ protected:
 
     bool readObject(Token &token);
 
+    bool readArray(Token &token);
+
+    bool decodeNumber(Token& token);
+
     bool decodeNumber(Token &token, JSONValue &decoded);
 
+    bool decodeString(Token &token);
+
     bool decodeString(Token &token, std::string &decoded);
+
+    bool decodeDouble(Token &token);
+
+    bool decodeDouble(Token &token, JSONValue &decoded);
 
     bool decodeUnicodeCodePoint(Token &token, const char *&current, const char *end, unsigned int &unicode);
 
@@ -621,6 +629,11 @@ protected:
     bool addError(const std::string &message, Token& token, const char *extra=nullptr);
 
     bool recoverFromError(TokenType skipUntilToken);
+
+    bool addErrorAndRecover(const std::string &message, Token &token, TokenType skipUntilToken) {
+        addError(message, token);
+        return recoverFromError(skipUntilToken);
+    }
 
     JSONValue& currentValue() {
         return *(_nodes.top());
@@ -632,6 +645,10 @@ protected:
         }
         return *_current++;
     }
+
+    void getLocationLineAndColumn(const char *location, int &line, int &column) const;
+
+    std::string getLocationLineAndColumn(const char *location) const;
 
     void addComment(const char *begin, const char *end, CommentPlacement placement);
 

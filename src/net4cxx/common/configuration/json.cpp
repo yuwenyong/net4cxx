@@ -9,6 +9,32 @@
 NS_BEGIN
 
 
+static inline char getDecimalPoint() {
+    struct lconv* lc = localeconv();
+    return lc ? *(lc->decimal_point) : '\0';
+}
+
+static inline void fixNumericLocale(char* begin, char* end) {
+    while (begin < end) {
+        if (*begin == ',') {
+            *begin = '.';
+        }
+        ++begin;
+    }
+}
+
+static void fixNumericLocaleInput(char* begin, char* end) {
+    char decimalPoint = getDecimalPoint();
+    if (decimalPoint != '\0' && decimalPoint != '.') {
+        while (begin < end) {
+            if (*begin == '.') {
+                *begin = decimalPoint;
+            }
+            ++begin;
+        }
+    }
+}
+
 static const double maxUInt64AsDouble = 18446744073709551615.0;
 
 
@@ -1355,7 +1381,51 @@ bool BuiltReader::parse(const char *beginDoc, const char *endDoc, JSONValue &roo
     }
     _nodes.push(&root);
     bool successful = readValue();
+    Token token;
+    skipCommentTokens(token);
+    if (_features.failIfExtra) {
+        if ((_features.strictRoot || token.type != tokenError) && token.type != tokenEndOfStream) {
+            addError("Extra non-whitespace after JSON value.", token);
+            return false;
+        }
+    }
+    if (_collectComments && !_commentsBefore.empty()) {
+        root.setComment(_commentsBefore, COMMENT_AFTER);
+    }
+    if (_features.strictRoot) {
+        if (!root.isArray() && !root.isObject()) {
+            token.type = tokenError;
+            token.start = beginDoc;
+            token.end = endDoc;
+            addError("A valid JSON document must be either an array or an object value.", token);
+            return false;
+        }
+    }
     return successful;
+}
+
+std::string BuiltReader::getFormattedErrorMessages() const {
+    std::string formattedMessage;
+    for (auto &error: _errors) {
+        formattedMessage += "* " + getLocationLineAndColumn(error.token.start) + "\n";
+        formattedMessage += "  " + error.message + "\n";
+        if (error.extra) {
+            formattedMessage += "See " + getLocationLineAndColumn(error.extra) + " for detail.\n";
+        }
+    }
+    return formattedMessage;
+}
+
+std::vector<BuiltReader::StructuredError> BuiltReader::getStructuredErrors() const {
+    std::vector<StructuredError> allErrors;
+    for (auto &error: _errors) {
+        StructuredError structured;
+        structured.offsetStart = error.token.start - _begin;
+        structured.offsetLimit = error.token.end - _begin;
+        structured.message = error.message;
+        allErrors.push_back(structured);
+    }
+    return allErrors;
 }
 
 bool BuiltReader::readToken(Token &token) {
@@ -1605,9 +1675,67 @@ bool BuiltReader::readValue() {
         currentValue().setComment(std::move(_commentsBefore), COMMENT_BEFORE);
     }
 
-//    switch (token.type) {
-//
-//    }
+    switch (token.type) {
+        case tokenObjectBegin: {
+            successful = readObject(token);
+            break;
+        }
+        case tokenArrayBegin: {
+            successful = readArray(token);
+            break;
+        }
+        case tokenNumber: {
+            successful = decodeNumber(token);
+            break;
+        }
+        case tokenString: {
+            successful = decodeString(token);
+            break;
+        }
+        case tokenTrue: {
+            JSONValue v(true);
+            currentValue().swapPayload(v);
+            break;
+        }
+        case tokenFalse: {
+            JSONValue v(false);
+            currentValue().swapPayload(v);
+            break;
+        }
+        case tokenNull: {
+            JSONValue v;
+            currentValue().swapPayload(v);
+            break;
+        }
+        case tokenNaN: {
+            JSONValue v(std::numeric_limits<double>::quiet_NaN());
+            currentValue().swapPayload(v);
+            break;
+        }
+        case tokenPosInf: {
+            JSONValue v(std::numeric_limits<double>::infinity());
+            currentValue().swapPayload(v);
+            break;
+        }
+        case tokenNegInf: {
+            JSONValue v(-std::numeric_limits<double>::infinity());
+            currentValue().swapPayload(v);
+            break;
+        }
+        case tokenArraySeparator:
+        case tokenObjectEnd:
+        case tokenArrayEnd: {
+            if (_features.allowDroppedNullPlaceholders) {
+                --_current;
+                JSONValue v;
+                currentValue().swapPayload(v);
+                break;
+            }
+        } // else, fall through ...
+        default: {
+            return addError("Syntax error: value, object or array expected.", token);
+        }
+    }
 
     if (_collectComments) {
         _lastValueEnd = _current;
@@ -1640,50 +1768,138 @@ bool BuiltReader::readObject(Token &token) {
             }
         } else if (tokenName.type == tokenNumber && _features.allowNumericKeys) {
             JSONValue numberName;
-//            if (!decodeNumber(tokenName, numberName))
-//                return recoverFromError(tokenObjectEnd);
+            if (!decodeNumber(tokenName, numberName)) {
+                return recoverFromError(tokenObjectEnd);
+            }
             name = numberName.asString();
         } else {
             break;
         }
 
-//        Token colon;
-//        if (!readToken(colon) || colon.type_ != tokenMemberSeparator) {
-//            return addErrorAndRecover(
-//                    "Missing ':' after object member name", colon, tokenObjectEnd);
-//        }
-//        if (name.length() >= (1U<<30)) throwRuntimeError("keylength >= 2^30");
-//        if (features_.rejectDupKeys_ && currentValue().isMember(name)) {
-//            JSONCPP_STRING msg = "Duplicate key: '" + name + "'";
-//            return addErrorAndRecover(
-//                    msg, tokenName, tokenObjectEnd);
-//        }
-//        Value& value = currentValue()[name];
-//        nodes_.push(&value);
-//        bool ok = readValue();
-//        nodes_.pop();
-//        if (!ok) // error already set
-//            return recoverFromError(tokenObjectEnd);
-//
-//        Token comma;
-//        if (!readToken(comma) ||
-//            (comma.type_ != tokenObjectEnd && comma.type_ != tokenArraySeparator &&
-//             comma.type_ != tokenComment)) {
-//            return addErrorAndRecover(
-//                    "Missing ',' or '}' in object declaration", comma, tokenObjectEnd);
-//        }
-//        bool finalizeTokenOk = true;
-//        while (comma.type_ == tokenComment && finalizeTokenOk)
-//            finalizeTokenOk = readToken(comma);
-//        if (comma.type_ == tokenObjectEnd)
-//            return true;
+        Token colon;
+        if (!readToken(colon) || colon.type != tokenMemberSeparator) {
+            return addErrorAndRecover("Missing ':' after object member name", colon, tokenObjectEnd);
+        }
+        if (name.length() >= (1U<<30)) {
+            NET4CXX_THROW_EXCEPTION(ParsingError, "keylength >= 2^30");
+        }
+        if (_features.rejectDupKeys && currentValue().isMember(name)) {
+            std::string msg = "Duplicate key: '" + name + "'";
+            return addErrorAndRecover(msg, tokenName, tokenObjectEnd);
+        }
+        JSONValue &value = currentValue()[name];
+        _nodes.push(&value);
+        bool ok = readValue();
+        _nodes.pop();
+        if (!ok) {
+            return recoverFromError(tokenObjectEnd);
+        }
+
+        Token comma;
+        if (!readToken(comma) ||
+            (comma.type != tokenObjectEnd && comma.type != tokenArraySeparator && comma.type != tokenComment)) {
+            return addErrorAndRecover("Missing ',' or '}' in object declaration", comma, tokenObjectEnd);
+        }
+        bool finalizeTokenOk = true;
+        while (comma.type == tokenComment && finalizeTokenOk) {
+            finalizeTokenOk = readToken(comma);
+        }
+        if (comma.type == tokenObjectEnd) {
+            return true;
+        }
     }
-//    return addErrorAndRecover(
-//            "Missing '}' or object member name", tokenName, tokenObjectEnd);
+    return addErrorAndRecover("Missing '}' or object member name", tokenName, tokenObjectEnd);
+}
+
+bool BuiltReader::readArray(Token &token) {
+    JSONValue init(JSONType::arrayValue);
+    currentValue().swapPayload(init);
+    skipSpaces();
+    if (_current != _end && *_current == ']') {
+        Token endArray;
+        readToken(endArray);
+        return true;
+    }
+    int index = 0;
+    for (;;) {
+        JSONValue &value = currentValue()[index++];
+        _nodes.push(&value);
+        bool ok = readValue();
+        _nodes.pop();
+        if (!ok) {
+            return recoverFromError(tokenArrayEnd);
+        }
+
+        Token token;
+        ok = readToken(token);
+        while (token.type == tokenComment && ok) {
+            ok = readToken(token);
+        }
+        bool badTokenType = (token.type != tokenArraySeparator && token.type != tokenArrayEnd);
+        if (!ok || badTokenType) {
+            return addErrorAndRecover("Missing ',' or ']' in array declaration", token, tokenArrayEnd);
+        }
+        if (token.type == tokenArrayEnd) {
+            break;
+        }
+    }
+    return true;
+}
+
+bool BuiltReader::decodeNumber(Token &token) {
+    JSONValue decoded;
+    if (!decodeNumber(token, decoded)) {
+        return false;
+    }
+    currentValue().swapPayload(decoded);
+    return true;
 }
 
 bool BuiltReader::decodeNumber(Token &token, JSONValue &decoded) {
-    
+    const char *current = token.start;
+    bool isNegative = *current == '-';
+    if (isNegative) {
+        ++current;
+    }
+    uint64_t maxIntegerValue = isNegative ? static_cast<uint64_t >(-std::numeric_limits<int64_t>::min())
+                                          : std::numeric_limits<uint64_t>::max();
+    uint64_t threshold = maxIntegerValue / 10;
+    uint64_t value = 0;
+    while (current < token.end) {
+        char c = *current++;
+        if (c < '0' || c > '9') {
+            return decodeDouble(token, decoded);
+        }
+        auto digit = static_cast<unsigned int>(c - '0');
+        if (value >= threshold) {
+            // We've hit or exceeded the max value divided by 10 (rounded down). If
+            // a) we've only just touched the limit, b) this is the last digit, and
+            // c) it's small enough to fit in that rounding delta, we're okay.
+            // Otherwise treat this number as a double to avoid overflow.
+            if (value > threshold || current != token.end || digit > maxIntegerValue % 10) {
+                return decodeDouble(token, decoded);
+            }
+        }
+        value = value * 10 + digit;
+    }
+    if (isNegative) {
+        decoded = -static_cast<int64_t>(value);
+    } else if (value <= std::numeric_limits<int64_t>::max()) {
+        decoded = static_cast<int64_t>(value);
+    } else {
+        decoded = value;
+    }
+    return true;
+}
+
+bool BuiltReader::decodeString(Token &token) {
+    std::string decodedString;
+    if (!decodeString(token, decodedString)) {
+        return false;
+    }
+    JSONValue decoded(decodedString);
+    currentValue().swapPayload(decoded);
+    return true;
 }
 
 bool BuiltReader::decodeString(Token &token, std::string &decoded) {
@@ -1739,6 +1955,50 @@ bool BuiltReader::decodeString(Token &token, std::string &decoded) {
             decoded += c;
         }
     }
+    return true;
+}
+
+bool BuiltReader::decodeDouble(Token &token) {
+    JSONValue decoded;
+    if (!decodeDouble(token, decoded)) {
+        return false;
+    }
+    currentValue().swapPayload(decoded);
+    return true;
+}
+
+bool BuiltReader::decodeDouble(Token &token, JSONValue &decoded) {
+    double value = 0;
+    constexpr int bufferSize = 32;
+    int count;
+    ptrdiff_t length = token.end - token.start;
+
+    if (length < 0) {
+        return addError("Unable to parse token length", token);
+    }
+
+    // Avoid using a string constant for the format control string given to
+    // sscanf, as this can cause hard to debug crashes on OS X. See here for more
+    // info:
+    //
+    //     http://developer.apple.com/library/mac/#DOCUMENTATION/DeveloperTools/gcc-4.0.1/gcc/Incompatibilities.html
+    char format[] = "%lf";
+
+    if (length <= bufferSize) {
+        char buffer[bufferSize + 1];
+        memcpy(buffer, token.start, static_cast<size_t>(length));
+        buffer[length] = 0;
+        fixNumericLocaleInput(buffer, buffer + length);
+        count = sscanf(buffer, format, &value);
+    } else {
+        std::string buffer(token.start, token.end);
+        count = sscanf(buffer.c_str(), format, &value);
+    }
+
+    if (count != 1) {
+        return addError("'" + std::string(token.start, token.end) + "' is not a number.", token);
+    }
+    decoded = value;
     return true;
 }
 
@@ -1812,6 +2072,36 @@ bool BuiltReader::recoverFromError(TokenType skipUntilToken) {
     }
     _errors.resize(errorCount);
     return false;
+}
+
+void BuiltReader::getLocationLineAndColumn(const char *location, int &line, int &column) const {
+    const char *current = _begin;
+    const char *lastLineStart = current;
+    line = 0;
+    while (current < location && current != _end) {
+        char c = *current++;
+        if (c == '\r') {
+            if (*current == '\n') {
+                ++current;
+            }
+            lastLineStart = current;
+            ++line;
+        } else if (c == '\n') {
+            lastLineStart = current;
+            ++line;
+        }
+    }
+    // column & line start at 1
+    column = int(location - lastLineStart) + 1;
+    ++line;
+}
+
+std::string BuiltReader::getLocationLineAndColumn(const char *location) const {
+    int line, column;
+    getLocationLineAndColumn(location, line, column);
+    char buffer[18 + 16 + 16 + 1];
+    snprintf(buffer, sizeof(buffer), "Line %d, Column %d", line, column);
+    return std::string(buffer);
 }
 
 void BuiltReader::addComment(const char *begin, const char *end, CommentPlacement placement) {
@@ -1964,7 +2254,7 @@ std::istream& operator>>(std::istream &sin, JSONValue &root) {
     std::string errs;
     bool ok = parseFromStream(b, sin, &root, &errs);
     if (!ok) {
-        NET4CXX_THROW_EXCEPTION(ValueError, errs);
+        NET4CXX_THROW_EXCEPTION(ParsingError, errs);
     }
     return sin;
 }
