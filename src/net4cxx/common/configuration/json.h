@@ -280,7 +280,7 @@ public:
         return _comments[placement];
     }
 
-//    std::string toStyledString() const;
+    std::string toStyledString() const;
 
     ConstArrayIterator arrayBegin() const {
         auto &array = boost::get<ArrayType>(_value);
@@ -660,7 +660,7 @@ protected:
 
     std::stack<JSONValue *> _nodes;
     std::deque<ErrorInfo> _errors;
-    std::string _document;
+//    std::string _document;
     const char *_begin{nullptr};
     const char *_end{nullptr};
     const char *_current{nullptr};

@@ -215,12 +215,10 @@ static std::string valueToQuotedString(const std::string &value) {
                 unsigned int cp = utf8ToCodePoint(c, end);
                 if (cp < 0x80 && cp >= 0x20) {
                     result += static_cast<char>(cp);
-                }
-                else if (cp < 0x10000) {
+                } else if (cp < 0x10000) {
                     result += "\\u";
                     result += toHex16Bit(cp);
-                }
-                else {
+                } else {
                     cp -= 0x10000;
                     result += "\\u";
                     result += toHex16Bit((cp >> 10) + 0xD800);
@@ -981,7 +979,7 @@ const JSONValue& JSONValue::operator[](int index) const {
 JSONValue& JSONValue::operator[](const char *key) {
     if (_value.type() == typeid(NullValue)) {
         *this = JSONValue(JSONType::objectValue);
-    }else if (_value.type() != typeid(ObjectType)) {
+    } else if (_value.type() != typeid(ObjectType)) {
         NET4CXX_THROW_EXCEPTION(ValueError, "operator[](key) requires object value");
     }
     auto &object = boost::get<ObjectType>(_value);
@@ -1059,6 +1057,14 @@ StringVector JSONValue::getMemberNames() const {
         NET4CXX_THROW_EXCEPTION(ValueError, "getMemberNames requires object value");
     }
     return members;
+}
+
+std::string JSONValue::toStyledString() const {
+    StreamWriterBuilder builder;
+    std::string out = hasComment(COMMENT_BEFORE) ? "\n" : "";
+    out += writeString(builder, *this);
+    out += "\n";
+    return out;
 }
 
 const JSONValue& JSONValue::nullSingleton() {
@@ -1287,7 +1293,7 @@ StreamWriter* StreamWriterBuilder::newStreamWriter() const {
     bool eyc = _settings["enableYAMLCompatibility"].asBool();
     bool dnp = _settings["dropNullPlaceholders"].asBool();
     bool usf = _settings["useSpecialFloats"].asBool();
-    int pre = _settings["precision"].asInt();
+    unsigned int pre = _settings["precision"].asUInt();
     CommentStyle cs;
     if (cs_str == "All") {
         cs = CommentStyle::All;
@@ -1306,10 +1312,10 @@ StreamWriter* StreamWriterBuilder::newStreamWriter() const {
     if (dnp) {
         nullSymbol.clear();
     }
-    pre = std::min(pre, 17);
+    pre = std::min(pre, 17u);
     std::string endingLineFeedSymbol;
     return new BuiltStyledStreamWriter(std::move(indentation), cs, std::move(colonSymbol), std::move(nullSymbol),
-                                       std::move(endingLineFeedSymbol), usf, (unsigned int)pre);
+                                       std::move(endingLineFeedSymbol), usf, pre);
 }
 
 static void getValidWriterKeys(StringSet *validKeys) {
