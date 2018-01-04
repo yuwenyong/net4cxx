@@ -514,6 +514,23 @@ bool operator==(const Address &lhs, const Address &rhs);
 bool operator!=(const Address &lhs, const Address &rhs);
 ```
 
+### SSL工具
+
+#### SSLVerifyMode
+
+```c++
+enum class SSLVerifyMode {
+    CERT_NONE,
+    CERT_OPTIONAL,
+    CERT_REQUIRED,
+}
+```
+
+* CERT_NONE: 不启用认证
+* CERT_OPTIONAL: 启用认证
+* CERT_REQUIRED： 启用认证,对端没有证书时认证失败
+
+
 ### 基础流协议模块
 
 #### Factory
@@ -733,6 +750,54 @@ std::string getRemoteAddress() const;
 
 ```c++
 unsigned short getRemotePort() const;
+```
+
+#### Listener
+
+```c++
+class Listener;
+```
+
+##### 开始监听
+
+```c++
+virtual void startListening()=0;
+```
+
+##### 停止监听
+
+```c++
+virtual void stopListening()=0;
+```
+
+##### 获取关联的反应器
+
+```c++
+Reactor* reactor();
+```
+
+#### Connector
+
+```c++
+class Connector;
+```
+
+##### 开始连接
+
+```c++
+virtual void startConnecting()=0;
+```
+
+#### 停止连接
+
+```c++
+virtual void stopConnecting()=0;
+```
+
+##### 获取关联的反应器
+
+```c++
+Reactor* reactor();
 ```
 
 
