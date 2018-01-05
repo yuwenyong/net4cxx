@@ -87,8 +87,8 @@ int main(int argc, char **argv) {
     Reactor reactor;
 //    reactor.connectTCP("localhost", "28001", std::make_unique<MyFactory>());
 //    clientFromString(&reactor, "tcp:host=localhost:port=28001")->connect(std::make_unique<MyFactory>());
-//    clientFromString(&reactor, "ssl:host=localhost:port=28001")->connect(std::make_unique<MyFactory>());
-    clientFromString(&reactor, "unix:/data/foo/bar")->connect(std::make_unique<MyFactory>());
+    clientFromString(&reactor, "ssl:host=localhost:port=28001")->connect(std::make_unique<MyFactory>());
+//    clientFromString(&reactor, "unix:/data/foo/bar")->connect(std::make_unique<MyFactory>());
 //    TCPClientEndpoint endpoint(&reactor, "localhost", "28001");
 //    connectProtocol(endpoint, std::make_shared<MyProtocol>());
     reactor.run();

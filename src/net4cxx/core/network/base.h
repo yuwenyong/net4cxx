@@ -358,6 +358,7 @@ protected:
     bool _connected{false};
     bool _disconnected{false};
     bool _disconnecting{false};
+    bool _aborting{false};
 };
 
 using ConnectionPtr = std::shared_ptr<Connection>;

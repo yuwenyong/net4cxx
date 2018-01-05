@@ -42,8 +42,8 @@ int main(int argc, char **argv) {
 //    TCPServerEndpoint endpoint(&reactor, "28001");
 //    endpoint.listen(std::make_unique<MyFactory>());
 //    serverFromString(&reactor, "tcp:28001")->listen(std::make_unique<MyFactory>());
-//    serverFromString(&reactor, "ssl:28001:privateKey=test.key:certKey=test.crt")->listen(std::make_unique<MyFactory>());
-    serverFromString(&reactor, "unix:/data/foo/bar")->listen(std::make_unique<MyFactory>());
+    serverFromString(&reactor, "ssl:28001:privateKey=test.key:certKey=test.crt")->listen(std::make_unique<MyFactory>());
+//    serverFromString(&reactor, "unix:/data/foo/bar")->listen(std::make_unique<MyFactory>());
     reactor.resolve("localhost", [](StringVector addresses) {
         NET4CXX_INFO(gAppLog, "resolve localhost");
         for (auto &addr: addresses) {

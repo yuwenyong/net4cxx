@@ -9,9 +9,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
-#ifdef HAS_CPP_FORMAT
-#include "fmt/format.h"
-#endif
 
 NS_BEGIN
 
@@ -37,19 +34,12 @@ public:
         return std::string(fmt);
     }
 
-#ifdef HAS_CPP_FORMAT
-    template<typename... Args>
-    static std::string format(const char *fmt, Args&&... args) {
-        return fmt::sprintf(fmt, std::forward<Args>(args)...);
-    }
-#else
     template <typename... Args>
     static std::string format(const char *fmt, Args&&... args) {
         boost::format formatter(fmt);
         format(formatter, std::forward<Args>(args)...);
         return formatter.str();
     }
-#endif
 
     static PartitionResult partition(const std::string &s, const std::string &sep);
 
@@ -83,18 +73,16 @@ public:
 
     static std::string filter(const std::string &s, std::function<bool (char)> pred);
 protected:
-#ifndef HAS_CPP_FORMAT
     template <typename ValueT, typename... Args>
     static void format(boost::format &formatter, ValueT &&value, Args&&... args) {
-        formatter % std::forward<T>(value);
+        formatter % std::forward<ValueT>(value);
         format(formatter, std::forward<Args>(args)...);
     }
 
     template <typename ValueT>
     static void format(boost::format &formatter, ValueT &&value) {
-        formatter % std::forward<T>(value);
+        formatter % std::forward<ValueT>(value);
     }
-#endif
 };
 
 NS_END

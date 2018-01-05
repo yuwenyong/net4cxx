@@ -42,6 +42,7 @@ void UNIXConnection::abortConnection() {
     }
     _error = NET4CXX_EXCEPTION_PTR(ConnectionAbort, "");
     _disconnecting = true;
+    _aborting = true;
     doAbort();
 }
 
@@ -73,6 +74,7 @@ void UNIXConnection::closeSocket() {
     _connected = false;
     _disconnected = true;
     _disconnecting = false;
+    _aborting = false;
     if (_socket.is_open()) {
         _socket.close();
     }
@@ -98,7 +100,11 @@ void UNIXConnection::handleRead(const boost::system::error_code &ec, size_t tran
             NET4CXX_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
-            if (ec != boost::asio::error::operation_aborted) {
+            if (ec == boost::asio::error::operation_aborted) {
+                BOOST_ASSERT(_error);
+            } else if (ec == boost::asio::error::eof) {
+                _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
+            } else {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             }
             closeSocket();
@@ -160,7 +166,9 @@ void UNIXConnection::handleWrite(const boost::system::error_code &ec, size_t tra
             NET4CXX_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
-            if (ec != boost::asio::error::operation_aborted) {
+            if (ec == boost::asio::error::operation_aborted) {
+                BOOST_ASSERT(_error);
+            } else {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             }
             closeSocket();
@@ -172,7 +180,7 @@ void UNIXConnection::handleWrite(const boost::system::error_code &ec, size_t tra
                 _writeQueue.pop_front();
             }
         }
-        if (_disconnecting) {
+        if ((_disconnecting && _writeQueue.empty()) || _aborting) {
             closeSocket();
         }
     }

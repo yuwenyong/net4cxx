@@ -11,13 +11,6 @@
 #include <boost/property_tree/ptree.hpp>
 #include <boost/ptr_container/ptr_vector.hpp>
 
-#ifdef HAS_RAPID_JSON
-#include <rapidjson/document.h>
-#include <rapidjson/writer.h>
-#include <rapidjson/reader.h>
-#include <rapidjson/stringbuffer.h>
-#endif
-
 
 NS_BEGIN
 
@@ -53,19 +46,6 @@ public:
         std::istringstream buffer(s);
         boost::property_tree::read_json(s, doc);
     }
-
-#ifdef HAS_RAPID_JSON
-    static std::string encode(const rapidjson::Document &doc) {
-        rapidjson::StringBuffer buffer;
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        doc.Accept(writer);
-        return buffer.GetString();
-    }
-
-    static void decode(const std::string &s, rapidjson::Document &doc) {
-        doc.Parse(s.c_str(), s.size());
-    }
-#endif
 };
 
 

@@ -528,7 +528,131 @@ enum class SSLVerifyMode {
 
 * CERT_NONE: 不启用认证
 * CERT_OPTIONAL: 启用认证
-* CERT_REQUIRED： 启用认证,对端没有证书时认证失败
+* CERT_REQUIRED: 启用认证，对端没有证书时认证失败
+
+#### SSLParams
+
+```c++
+class SSLParams;
+```
+
+##### 构造函数
+
+```c++
+explicit SSLParams(bool serverSide= false);
+```
+
+* serverSide: 是否用于服务端
+
+##### 设置证书文件
+
+```c++
+void setCertFile(const std::string &certFile);
+```
+
+* certFile: 证书文件名
+
+##### 获取证书文件名
+
+```c++
+const std::string& getCertFile() const;
+```
+
+##### 设置私钥文件名
+
+```c++
+void setKeyFile(const std::string &keyFile);
+```
+
+* keyFile: 私钥文件名
+
+##### 获取私钥文件名
+
+```c++
+const std::string& getKeyFile() const;
+```
+
+##### 设置密码
+
+```c++
+void setPassword(const std::string &password);
+```
+
+* password: 密码
+
+##### 获取密码
+
+```c++
+const std::string& getPassword() const;
+```
+
+##### 设置验证模式
+
+```c++
+void setVerifyMode(SSLVerifyMode verifyMode);
+```
+
+* verifyMode: 验证模式
+
+##### 获取验证模式
+
+```c++
+SSLVerifyMode getVerifyMode() const;
+```
+
+##### 设置CA文件
+
+```c++
+void setVerifyFile(const std::string &verifyFile);
+```
+
+* verifyFile: CA文件名
+
+##### 获取CA文件
+
+```c++
+const std::string& getVerifyFile() const;
+```
+
+##### 设置要验证的主机名
+
+```c++
+void setCheckHost(const std::string &hostName);
+```
+
+* hostname: 主机名
+
+##### 获取要验证的主机名
+
+```c++
+const std::string& getCheckHost() const;
+```
+
+##### 获取是否用于服务端
+
+```c++
+bool isServerSide() const;
+```
+
+#### SSLOption
+
+```c++
+class SSLOption;
+```
+
+##### 获取是否用于服务端
+
+```c++
+bool isServerSide() const;
+```
+
+##### 创建SSLOption
+
+```c++
+static SSLOptionPtr create(const SSLParams &sslParams);
+```
+
+* sslParams: 用于初始化sslContext的参数
 
 
 ### 基础流协议模块
@@ -800,6 +924,199 @@ virtual void stopConnecting()=0;
 Reactor* reactor();
 ```
 
+#### Endpoint
+
+```c++
+class Endpoint;
+```
+
+##### 构造函数
+
+```c++
+explicit Endpoint(Reactor *reactor);
+```
+
+* 关联的反应器
+
+##### 获取关联的反应器
+
+```c++
+Reactor* reactor();
+```
+
+#### ServerEndpoint
+
+```c++
+class ServerEndpoint: public Endpoint;
+```
+
+##### 开始监听
+
+```c++
+virtual ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const = 0;
+```
+
+* protocolFactory: 协议工厂
+
+#### TCPServerEndpoint
+
+```c++
+class TCPServerEndpoint: public ServerEndpoint;
+```
+
+##### 构造函数
+
+```c++
+TCPServerEndpoint(Reactor *reactor, std::string port, std::string interface={});
+```
+
+* reactor: 关联的反应器
+* port: 绑定的端口
+* interface: 绑定的地址
+
+#### SSLServerEndpoint
+
+```c++
+class SSLServerEndpoint: public ServerEndpoint;
+```
+
+##### 构造函数
+
+```c++
+SSLServerEndpoint(Reactor *reactor, std::string port, SSLOptionPtr sslOption, std::string interface={});
+```
+
+* reactor: 关联的反应器
+* sslOption: ssl选项
+* port: 绑定的端口
+* interface: 绑定的地址
+
+#### UNIXServerEndpoint
+
+```c++
+class UNIXServerEndpoint: public ServerEndpoint;
+```
+
+##### 构造函数
+
+```c++
+UNIXServerEndpoint(Reactor *reactor, std::string path);
+```
+
+* reactor: 关联的反应器
+* path: 绑定的路径
+
+#### ClientEndpoint
+
+```c++
+class ClientEndpoint: public Endpoint;
+```
+
+##### 开始连接
+
+```c++
+virtual ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const = 0;
+```
+
+* protocolFactory: 协议工厂
+
+#### TCPClientEndpoint
+
+```c++
+class TCPClientEndpoint: public ClientEndpoint;
+```
+
+##### 构造函数
+
+```c++
+TCPClientEndpoint(Reactor *reactor, std::string host, std::string port, double timeout=30.0, Address bindAddress={});
+```
+
+* reactor: 关联的反应器
+* host: 要连接的对端地址
+* port: 要连接的对端端口
+* timeout: 连接超时时间
+* bindAddress: 绑定的本地地址
+
+#### SSLClientEndpoint
+
+```c++
+class SSLClientEndpoint: public ClientEndpoint;
+```
+
+##### 构造函数
+
+```c++
+SSLClientEndpoint(Reactor *reactor, std::string host, std::string port, SSLOptionPtr sslOption, double timeout=30.0, Address bindAddress={});
+```
+
+* reactor: 关联的反应器
+* host: 要连接的对端地址
+* port: 要连接的对端端口
+* sslOption: ssl上下文
+* timeout: 连接超时时间
+* bindAddress: 绑定的本地地址
+
+#### UNIXClientEndpoint
+
+```c++
+class UNIXClientEndpoint: public ClientEndpoint;
+```
+
+##### 构造函数
+
+```c++
+UNIXClientEndpoint(Reactor *reactor, std::string path, double timeout=30.0);
+```
+
+* reactor: 关联的反应器
+* path: 要连接的对端路经
+* timeout: 连接超时时间
+
+#### 全局函数
+
+##### 启动服务器
+
+```c++
+///
+/// \param reactor
+/// \param description
+///     tcp:80
+///     tcp:80:interface=127.0.0.1
+///     ssl:443:privateKey=key.pem:certKey=crt.pem
+///     unix:/var/run/finger
+/// \return
+std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::string &description);
+```
+
+##### 连接客户端
+
+```c++
+///
+/// \param reactor
+/// \param description
+///     tcp:host=www.example.com:port=80
+///     tcp:www.example.com:80
+///     tcp:host=www.example.com:80
+///     tcp:www.example.com:port=80
+///     ssl:web.example.com:443:privateKey=foo.pem:certKey=foo.pem
+///     ssl:host=web.example.com:port=443:caCertsDir=/etc/ssl/certs
+///     tcp:www.example.com:80:bindAddress=192.0.2.100
+///     unix:path=/var/foo/bar:timeout=9
+///     unix:/var/foo/bar
+///     unix:/var/foo/bar:timeout=9
+/// \return
+std::unique_ptr<ClientEndpoint> clientFromString(Reactor *reactor, const std::string &description);
+```
+
+##### 在指定的协议处理器上连接客户端
+
+```c++
+ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);
+```
+
+* endpoint: 要连接的对端
+* protocl: 指定的协议处理器
 
 ### 基础数据报协议模块
 
