@@ -73,7 +73,7 @@ int main(int argc, char **argv) {
     Reactor reactor;
     serverFromString(&reactor, "tcp:28001")->listen(std::make_unique<EchoFactory>());
     serverFromString(&reactor, "ssl:28002:privateKey=test.key:certKey=test.crt")->listen(std::make_unique<EchoFactory>());
-    serverFromString(&reactor, "unix:/var/foo/bar")->listen(std::make_unique<MyFactory>());
+    serverFromString(&reactor, "unix:/var/foo/bar")->listen(std::make_unique<EchoFactory>());
     reactor.run();
     return 0;
 }

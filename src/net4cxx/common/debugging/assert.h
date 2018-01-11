@@ -56,7 +56,7 @@ public:
 
 NS_END
 
-#define NET4CXX_ASSERT(cond, ...) ASSERT_BEGIN do { if (!(cond)) net4cxx::Assert::assertHandler(__FILE__, __LINE__, __FUNCTION__, #cond, ##__VA_ARGS__); } while(0) ASSERT_END
+#define NET4CXX_ASSERT_EX(cond, ...) ASSERT_BEGIN do { if (!(cond)) net4cxx::Assert::assertHandler(__FILE__, __LINE__, __FUNCTION__, #cond, ##__VA_ARGS__); } while(0) ASSERT_END
 
 
 namespace boost {
