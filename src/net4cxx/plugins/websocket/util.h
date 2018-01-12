@@ -13,9 +13,33 @@
 
 NS_BEGIN
 
-class NET4CXX_COMMON_API WebSocketOptions {
+
+class TrafficStats {
+public:
+    void reset();
+protected:
+    size_t _outgoingOctetsWireLevel{0};
+    size_t _outgoingOctetsWebSocketLevel{0};
+    size_t _outgoingOctetsAppLevel{0};
+    size_t _outgoingWebSocketFrames{0};
+    size_t _outgoingWebSocketMessages{0};
+
+    size_t _incomingOctetsWireLevel{0};
+    size_t _incomingOctetsWebSocketLevel{0};
+    size_t _incomingOctetsAppLevel{0};
+    size_t _incomingWebSocketFrames{0};
+    size_t _incomingWebSocketMessages{0};
+
+    size_t _preopenOutgoingOctetsWireLevel{0};
+    size_t _preopenIncomingOctetsWireLevel{0};
+};
+
+
+class WebSocketOptions {
 public:
     using Headers = std::map<std::string, StringVector>;
+
+    void resetProtocolOptions();
 private:
     bool _isServer{false};
     bool _logOctets{false};

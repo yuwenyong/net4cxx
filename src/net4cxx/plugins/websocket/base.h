@@ -6,5 +6,6 @@
 #define NET4CXX_PLUGINS_WEBSOCKET_BASE_H
 
 #include "net4cxx/common/common.h"
+#include "net4cxx/common/global/loggers.h"
 
 #endif //NET4CXX_PLUGINS_WEBSOCKET_BASE_H
