@@ -6,6 +6,16 @@
 
 using namespace net4cxx;
 
+int test1(int arg) {
+    NET4CXX_THROW_EXCEPTION(ValueError, "Hehe");
+    return 0;
+}
+
+int test2(int arg1, int arg2) {
+    return test1(arg1);
+}
+
+
 int main () {
     JSONValue root{JSONType::objectValue};
     root["str"] = "Hello world";
@@ -44,7 +54,12 @@ int main () {
     ss << cp;
     ss >> result;
     std::cerr << "result" << std::endl;
-    std::cerr << result;
+    std::cerr << result << std::endl;
+    try {
+        test2(0, 0);
+    } catch (std::exception &e) {
+        std::cerr << e.what() << std::endl;
+    }
     return 0;
 }
 
