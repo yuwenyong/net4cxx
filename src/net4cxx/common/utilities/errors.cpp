@@ -26,5 +26,17 @@ const char* Exception::what() const noexcept {
     return _what.c_str();
 }
 
+Exception::Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames,
+                     tagException)
+        : runtime_error(message)
+        , _file(file)
+        , _line(line)
+        , _func(func)  {
+#ifdef NET4CXX_DEBUG
+    _backtrace = boost::lexical_cast<std::string>(boost::stacktrace::stacktrace(2 + skipFrames,
+                                                                                DEFAULT_STACKTRACE_MAX_DEPTH));
+#endif
+}
+
 
 NS_END

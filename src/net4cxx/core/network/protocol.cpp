@@ -88,17 +88,17 @@ void ReconnectingClientFactory::stopTrying() {
 
 void ReconnectingClientFactory::retry(ConnectorPtr connector) {
     if (!_continueTrying) {
-        NET4CXX_INFO(gGenLog, "Abandoning reconnect on explicit request");
+        NET4CXX_LOG_INFO(gGenLog, "Abandoning reconnect on explicit request");
         return;
     }
     ++_retries;
     if (_maxRetries > 0 && _retries > _maxRetries) {
-        NET4CXX_INFO(gGenLog, "Abandoning reconnect after %d retries", _retries);
+        NET4CXX_LOG_INFO(gGenLog, "Abandoning reconnect after %d retries", _retries);
         return;
     }
     _delay = std::min(_delay * factor, _maxDelay);
     _delay = Random::normalvariate(_delay, _delay * jitter);
-    NET4CXX_INFO(gGenLog, "Reconnect will retry in %f seconds", _delay);
+    NET4CXX_LOG_INFO(gGenLog, "Reconnect will retry in %f seconds", _delay);
     _connector = connector;
     _callId = connector->reactor()->callLater(_delay, [connector]() {
         connector->startConnecting();

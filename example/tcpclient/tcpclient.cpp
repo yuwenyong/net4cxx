@@ -10,7 +10,7 @@ using namespace net4cxx;
 class MyProtocol: public Protocol, public std::enable_shared_from_this<MyProtocol> {
 public:
     void connectionMade() override {
-        NET4CXX_INFO(gAppLog, "Connection made");
+        NET4CXX_LOG_INFO(gAppLog, "Connection made");
         std::cout << "Keep alve:" << std::boolalpha << getKeepAlive() << std::endl;
         setKeepAlive(true);
         std::cout << "Keep alve:" << std::boolalpha << getKeepAlive() << std::endl;
@@ -21,13 +21,13 @@ public:
 
     void dataReceived(Byte *data, size_t length) override {
         std::string s((char *)data, (char *)data + length);
-        NET4CXX_INFO(gAppLog, "Data received: %s", s.c_str());
+        NET4CXX_LOG_INFO(gAppLog, "Data received: %s", s.c_str());
         loseConnection();
         _timeoutId = reactor()->callLater(3.0f, std::bind(&MyProtocol::sendHello, shared_from_this()));
     }
 
     void connectionLost(std::exception_ptr reason) override {
-        NET4CXX_INFO(gAppLog, "Connection lost");
+        NET4CXX_LOG_INFO(gAppLog, "Connection lost");
     }
 
     void sendHello() {
@@ -67,17 +67,17 @@ public:
     }
 
     void startedConnecting(ConnectorPtr connector) override {
-        NET4CXX_INFO(gAppLog, "Start connecting");
+        NET4CXX_LOG_INFO(gAppLog, "Start connecting");
         ReconnectingClientFactory::startedConnecting(std::move(connector));
     }
 
     void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
-        NET4CXX_INFO(gAppLog, "Client connection failed");
+        NET4CXX_LOG_INFO(gAppLog, "Client connection failed");
         ReconnectingClientFactory::clientConnectionFailed(std::move(connector), std::move(reason));
     }
 
     void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
-        NET4CXX_INFO(gAppLog, "Client connection lost");
+        NET4CXX_LOG_INFO(gAppLog, "Client connection lost");
         ReconnectingClientFactory::clientConnectionLost(std::move(connector), std::move(reason));
     }
 };

@@ -169,12 +169,12 @@ class NET4CXX_COMMON_API SSLServerConnection: public SSLConnection {
 public:
     explicit SSLServerConnection(SSLOptionPtr sslOption, Reactor *reactor)
             : SSLConnection({}, std::move(sslOption), reactor) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(NET4CXX_SSLServerConnection_COUNT);
 #endif
     }
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~SSLServerConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_SSLServerConnection_COUNT);
     }
@@ -188,12 +188,12 @@ class NET4CXX_COMMON_API SSLClientConnection: public SSLConnection {
 public:
     explicit SSLClientConnection(SSLOptionPtr sslOption, Reactor *reactor)
             : SSLConnection({}, std::move(sslOption), reactor) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(NET4CXX_SSLClientConnection_COUNT);
 #endif
     }
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~SSLClientConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_SSLClientConnection_COUNT);
     }
@@ -219,7 +219,7 @@ public:
     SSLListener(std::string port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption, std::string interface,
                 Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~SSLListener() override {
         NET4CXX_Watcher->dec(NET4CXX_SSLListener_COUNT);
     }
@@ -270,7 +270,7 @@ public:
     SSLConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, SSLOptionPtr sslOption,
                  double timeout, Address bindAddress, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~SSLConnector() override {
         NET4CXX_Watcher->dec(NET4CXX_SSLConnector_COUNT);
     }

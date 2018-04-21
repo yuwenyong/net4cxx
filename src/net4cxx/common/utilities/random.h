@@ -62,7 +62,7 @@ public:
         std::advance(first, n);
         std::uniform_int_distribution<size_t> dist;
         for (size_t k = n; first != seq.end(); ++first, ++k) {
-            size_t r = dist(_engine, {0, k});
+            size_t r = dist(_engine, std::uniform_int_distribution<size_t>::param_type{0, k});
             if (r < n) {
                 result[r] = *first;
             }

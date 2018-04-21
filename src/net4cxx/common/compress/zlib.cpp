@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/common/compress/zlib.h"
+#include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/common/debugging/assert.h"
 
 NS_BEGIN
@@ -82,8 +83,8 @@ ByteArray Zlib::compress(const Byte *data, size_t len, int level) {
             NET4CXX_THROW_EXCEPTION(ZlibError, "while compressing data");
         }
     } while (zst.avail_out == 0);
-    BOOST_ASSERT(zst.avail_in == 0);
-    BOOST_ASSERT(err == Z_STREAM_END);
+    NET4CXX_ASSERT(zst.avail_in == 0);
+    NET4CXX_ASSERT(err == Z_STREAM_END);
     err = deflateEnd(&zst);
     if (err != Z_OK) {
         handleError(zst, err, "while finishing compression");
@@ -119,8 +120,8 @@ std::string Zlib::compressToString(const Byte *data, size_t len, int level) {
             NET4CXX_THROW_EXCEPTION(ZlibError, "while compressing data");
         }
     } while (zst.avail_out == 0);
-    BOOST_ASSERT(zst.avail_in == 0);
-    BOOST_ASSERT(err == Z_STREAM_END);
+    NET4CXX_ASSERT(zst.avail_in == 0);
+    NET4CXX_ASSERT(err == Z_STREAM_END);
     err = deflateEnd(&zst);
     if (err != Z_OK) {
         handleError(zst, err, "while finishing compression");
@@ -284,7 +285,7 @@ CompressObj::CompressObj(const CompressObj &rhs)
 
         if (err != Z_OK) {
             _inited = false;
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
             if (err == Z_STREAM_ERROR) {
                 NET4CXX_THROW_EXCEPTION(ValueError, "Inconsistent stream state");
             } else if (err == Z_MEM_ERROR) {
@@ -379,7 +380,7 @@ ByteArray CompressObj::compress(const Byte *data, size_t len) {
             Zlib::handleError(_zst, err, "while compressing data");
         }
     } while (_zst.avail_out == 0);
-    BOOST_ASSERT(_zst.avail_in == 0);
+    NET4CXX_ASSERT(_zst.avail_in == 0);
     retVal.resize(_zst.next_out - (Bytef *)retVal.data());
     return retVal;
 }
@@ -398,7 +399,7 @@ std::string CompressObj::compressToString(const Byte *data, size_t len) {
             Zlib::handleError(_zst, err, "while compressing data");
         }
     } while (_zst.avail_out == 0);
-    BOOST_ASSERT(_zst.avail_in == 0);
+    NET4CXX_ASSERT(_zst.avail_in == 0);
     retVal.resize(_zst.next_out - (Bytef *)retVal.data());
     return retVal;
 }
@@ -419,7 +420,7 @@ ByteArray CompressObj::flush(int flushMode) {
             Zlib::handleError(_zst, err, "while flushing");
         }
     } while (_zst.avail_out == 0);
-    BOOST_ASSERT(_zst.avail_in == 0);
+    NET4CXX_ASSERT(_zst.avail_in == 0);
     if (err == Z_STREAM_END && flushMode == Z_FINISH) {
         err = deflateEnd(&_zst);
         _inited = false;
@@ -449,7 +450,7 @@ std::string CompressObj::flushToString(int flushMode) {
             Zlib::handleError(_zst, err, "while flushing");
         }
     } while (_zst.avail_out == 0);
-    BOOST_ASSERT(_zst.avail_in == 0);
+    NET4CXX_ASSERT(_zst.avail_in == 0);
     if (err == Z_STREAM_END && flushMode == Z_FINISH) {
         err = deflateEnd(&_zst);
         _inited = false;

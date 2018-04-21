@@ -20,7 +20,7 @@ struct tagException {
 class NET4CXX_COMMON_API Exception: public std::runtime_error {
 public:
     Exception(const char *file, int line, const char *func, const std::string &message={})
-            : Exception(file, line, func, message, {}) {
+            : Exception(file, line, func, message, 1) {
 
     }
 
@@ -30,15 +30,13 @@ public:
         return "Exception";
     }
 protected:
-    Exception(const char *file, int line, const char *func, const std::string &message, tagException)
-            : runtime_error(message)
-            , _file(file)
-            , _line(line)
-            , _func(func)  {
-#ifndef NET4CXX_NDEBUG
-        _backtrace = boost::lexical_cast<std::string>(boost::stacktrace::stacktrace(3, DEFAULT_STACKTRACE_MAX_DEPTH));
-#endif
+    Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames)
+            : Exception(file, line, func, message, ++skipFrames, tagException{}) {
+
     }
+
+    Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames,
+              tagException);
 
     const char *_file{nullptr};
     int _line{0};
@@ -51,10 +49,14 @@ protected:
 #define NET4CXX_DECLARE_EXCEPTION(Exception, ParentException) \
 class NET4CXX_COMMON_API Exception: public ParentException { \
 public: \
-    using ParentException::ParentException; \
+    Exception(const char *file, int line, const char *func, const std::string &message={}) \
+            : Exception(file, line, func, message, 1) {} \
     const char *getTypeName() const override { \
         return #Exception; \
     } \
+protected: \
+    Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames) \
+            : ParentException(file, line, func, message, ++skipFrames) {} \
 }
 
 

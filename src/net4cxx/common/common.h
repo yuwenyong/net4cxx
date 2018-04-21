@@ -53,7 +53,6 @@
 
 #define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
 #include <boost/config.hpp>
-#include <boost/assert.hpp>
 #include <boost/date_time.hpp>
 
 #if !defined(NET4CXX_ENDIAN)

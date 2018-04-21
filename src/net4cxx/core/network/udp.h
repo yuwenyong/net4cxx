@@ -26,7 +26,7 @@ public:
     UDPConnection(std::string address, unsigned short port, const DatagramProtocolPtr &protocol, size_t maxPacketSize,
                   Address bindAddress, bool listenMultiple, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~UDPConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_UDPConnection_COUNT);
     }

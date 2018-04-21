@@ -9,7 +9,7 @@ NS_BEGIN
 
 void WebSocketProtocol::connectionMade() {
     _peer = getPeerName();
-    NET4CXX_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
+    NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
     setNoDelay(_tcpNoDelay);
 }
 

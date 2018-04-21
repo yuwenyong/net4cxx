@@ -84,145 +84,145 @@ public:
 
     template <typename... Args>
     static void trace(const char *format, Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void trace(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void trace(const Byte *data, size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(data, length, limit);
     }
 
     static void trace(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void debug(const char *format, Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void debug(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void debug(const Byte *data, size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(data, length, limit);
     }
 
     static void debug(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void info(const char *format, Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void info(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                      Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void info(const Byte *data, size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(data, length, limit);
     }
 
     static void info(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                      size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void warn(const char *format, Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void warn(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                         Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void warn(const Byte *data, size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(data, length, limit);
     }
 
     static void warn(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                         size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void error(const char *format, Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void error(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void error(const Byte *data, size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(data, length, limit);
     }
 
     static void error(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void fatal(const char *format, Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     static void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void fatal(const Byte *data, size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(data, length, limit);
     }
 
     static void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
-        BOOST_ASSERT(_rootLogger != nullptr);
+        NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(file, line, func, data, length, limit);
     }
 protected:
@@ -238,7 +238,7 @@ protected:
     }
 
     static std::string joinLoggerName(const std::string &name, const std::string &suffix) {
-        BOOST_ASSERT(!name.empty() && !suffix.empty());
+        NET4CXX_ASSERT(!name.empty() && !suffix.empty());
         return name + '.' + suffix;
     }
 
@@ -392,16 +392,16 @@ public:
 
 NS_END
 
-#define NET4CXX_TRACE(...)      net4cxx::LoggingHelper::trace(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#ifdef NET4CXX_NDEBUG
-#define NET4CXX_DEBUG(...)
+#define NET4CXX_LOG_TRACE(...)      net4cxx::LoggingHelper::trace(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#ifdef NET4CXX_DEBUG
+#define NET4CXX_LOG_DEBUG(...)      net4cxx::LoggingHelper::debug(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #else
-#define NET4CXX_DEBUG(...)      net4cxx::LoggingHelper::debug(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_LOG_DEBUG(...)
 #endif
-#define NET4CXX_INFO(...)       net4cxx::LoggingHelper::info(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define NET4CXX_WARN(...)       net4cxx::LoggingHelper::warning(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define NET4CXX_ERROR(...)      net4cxx::LoggingHelper::error(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define NET4CXX_FATAL(...)      net4cxx::LoggingHelper::fatal(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_LOG_INFO(...)       net4cxx::LoggingHelper::info(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_LOG_WARN(...)       net4cxx::LoggingHelper::warning(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_LOG_ERROR(...)      net4cxx::LoggingHelper::error(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_LOG_FATAL(...)      net4cxx::LoggingHelper::fatal(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 
 
 #endif //NET4CXX_COMMON_LOGGING_LOGGING_H

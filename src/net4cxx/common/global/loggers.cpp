@@ -41,10 +41,10 @@ void LogUtil::enablePrettyLogging(const OptionParser *options) {
 }
 
 void LogUtil::defineLoggingOptions(OptionParser *options) {
-#ifdef NET4CXX_NDEBUG
-    options->addArgument<std::string>("log_level", "Set the log level", std::string("info"), {}, "logging");
-#else
+#ifdef NET4CXX_DEBUG
     options->addArgument<std::string>("log_level", "Set the log level", std::string("debug"), {}, "logging");
+#else
+    options->addArgument<std::string>("log_level", "Set the log level", std::string("info"), {}, "logging");
 #endif
     options->addArgument("log_to_console", "Send log output to stderr", "logging");
     options->addArgument<std::string>("log_file_prefix", "Path prefix for log files", {}, {}, "logging");

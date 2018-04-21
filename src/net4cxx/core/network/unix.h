@@ -124,12 +124,12 @@ class NET4CXX_COMMON_API UNIXServerConnection: public UNIXConnection {
 public:
     explicit UNIXServerConnection(Reactor *reactor)
             : UNIXConnection({}, reactor) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(NET4CXX_UNIXServerConnection_COUNT);
 #endif
     }
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~UNIXServerConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_UNIXServerConnection_COUNT);
     }
@@ -143,12 +143,12 @@ class NET4CXX_COMMON_API UNIXClientConnection: public UNIXConnection {
 public:
     explicit UNIXClientConnection(Reactor *reactor)
             : UNIXConnection({}, reactor) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(NET4CXX_UNIXClientConnection_COUNT);
 #endif
     }
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~UNIXClientConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_UNIXClientConnection_COUNT);
     }
@@ -170,7 +170,7 @@ public:
 
     UNIXListener(std::string path, std::unique_ptr<Factory> &&factory, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~UNIXListener() override {
         NET4CXX_Watcher->dec(NET4CXX_UNIXListener_COUNT);
     }
@@ -214,7 +214,7 @@ public:
 
     UNIXConnector(std::string path, std::unique_ptr<ClientFactory> &&factory, double timeout, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~UNIXConnector() override {
         NET4CXX_Watcher->dec(NET4CXX_UNIXConnector_COUNT);
     }
@@ -281,7 +281,7 @@ public:
     UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol, size_t maxPacketSize,
                            std::string bindPath, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~UNIXDatagramConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_UNIXDatagramConnection_COUNT);
     }

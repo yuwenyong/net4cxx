@@ -24,7 +24,7 @@ OpenSSLInit gInit;
 
 EVPContext::EVPContext(const char *name) {
     const EVP_MD *type = EVP_get_digestbyname(name);
-    BOOST_ASSERT(type != nullptr);
+    NET4CXX_ASSERT(type != nullptr);
     _ctx = EVP_MD_CTX_new();
     EVP_DigestInit(_ctx, type);
 }

@@ -126,12 +126,12 @@ class NET4CXX_COMMON_API TCPServerConnection: public TCPConnection {
 public:
     explicit TCPServerConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(NET4CXX_TCPServerConnection_COUNT);
 #endif
     }
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~TCPServerConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_TCPServerConnection_COUNT);
     }
@@ -145,12 +145,12 @@ class NET4CXX_COMMON_API TCPClientConnection: public TCPConnection {
 public:
     explicit TCPClientConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(NET4CXX_TCPClientConnection_COUNT);
 #endif
     }
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~TCPClientConnection() override {
         NET4CXX_Watcher->dec(NET4CXX_TCPClientConnection_COUNT);
     }
@@ -175,7 +175,7 @@ public:
 
     TCPListener(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~TCPListener() override {
         NET4CXX_Watcher->dec(NET4CXX_TCPListener_COUNT);
     }
@@ -225,7 +225,7 @@ public:
     TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
                  Address bindAddress, Reactor *reactor);
 
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     ~TCPConnector() override {
         NET4CXX_Watcher->dec(NET4CXX_TCPConnector_COUNT);
     }

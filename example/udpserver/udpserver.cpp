@@ -12,7 +12,7 @@ class MyProtocol: public DatagramProtocol, public std::enable_shared_from_this<M
 public:
     void datagramReceived(Byte *datagram, size_t length, Address address) override {
         std::string s((char *)datagram, (char *)datagram + length);
-        NET4CXX_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
+        NET4CXX_LOG_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
                      address.getPort());
         write(datagram, length, address);
     }

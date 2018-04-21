@@ -95,7 +95,7 @@ void SSLConnection::closeSocket() {
 
 void SSLConnection::doHandshake() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _sslAccepting = true;
     if (_sslOption->isServerSide()) {
         _socket.async_handshake(boost::asio::ssl::stream_base::server,
@@ -113,7 +113,7 @@ void SSLConnection::doHandshake() {
 void SSLConnection::handleHandshake(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Handshake error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Handshake error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
             if (ec != boost::asio::error::operation_aborted) {
@@ -128,7 +128,7 @@ void SSLConnection::handleHandshake(const boost::system::error_code &ec) {
 
 void SSLConnection::doRead() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _readBuffer.normalize();
     _readBuffer.ensureFreeSpace();
     _reading = true;
@@ -144,11 +144,11 @@ void SSLConnection::handleRead(const boost::system::error_code &ec, size_t trans
         if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof &&
             (ec.category() != boost::asio::error::get_ssl_category() ||
              ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)) {
-            NET4CXX_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
             if (ec == boost::asio::error::operation_aborted) {
-                BOOST_ASSERT(_error);
+                NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
                 _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
             } else if (ec.category() != boost::asio::error::get_ssl_category() ||
@@ -186,7 +186,7 @@ void SSLConnection::doWrite() {
         }
     }
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _writing = true;
     _socket.async_write_some(boost::asio::buffer(buffer.getReadPointer(), buffer.getActiveSize()),
                              [protocol, self = shared_from_this()](const boost::system::error_code &ec,
@@ -200,11 +200,11 @@ void SSLConnection::handleWrite(const boost::system::error_code &ec, size_t tran
         if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof &&
             (ec.category() != boost::asio::error::get_ssl_category() ||
              ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)) {
-            NET4CXX_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
             if (ec == boost::asio::error::operation_aborted) {
-                BOOST_ASSERT(_error);
+                NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
                 _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
             } else if (ec.category() != boost::asio::error::get_ssl_category() ||
@@ -231,7 +231,7 @@ void SSLConnection::handleWrite(const boost::system::error_code &ec, size_t tran
 
 void SSLConnection::doShutdown() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _sslShutting = true;
     _socket.async_shutdown([protocol, self = shared_from_this()](const boost::system::error_code &ec) {
         self->cbShutdown(ec);
@@ -243,11 +243,11 @@ void SSLConnection::handleShutdown(const boost::system::error_code &ec) {
         if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof &&
             (ec.category() != boost::asio::error::get_ssl_category() ||
              ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)) {
-            NET4CXX_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
             _error = std::make_exception_ptr(boost::system::system_error(ec));
         }
     }
-    BOOST_ASSERT(!_disconnected);
+    NET4CXX_ASSERT(!_disconnected);
     closeSocket();
 }
 
@@ -286,7 +286,7 @@ SSLListener::SSLListener(std::string port, std::unique_ptr<Factory> &&factory, S
         , _sslOption(std::move(sslOption))
         , _interface(std::move(interface))
         , _acceptor(reactor->getService()) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_SSLListener_COUNT);
 #endif
     if (_interface.empty()) {
@@ -308,7 +308,7 @@ void SSLListener::startListening() {
     _acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     _acceptor.bind(endpoint);
     _acceptor.listen();
-    NET4CXX_INFO(gGenLog, "SSLListener starting on %s", _port.c_str());
+    NET4CXX_LOG_INFO(gGenLog, "SSLListener starting on %s", _port.c_str());
     _factory->doStart();
     _connected = true;
     doAccept();
@@ -319,7 +319,7 @@ void SSLListener::stopListening() {
         _connected = false;
         _acceptor.close();
         _factory->doStop();
-        NET4CXX_INFO(gGenLog, "SSLListener closed on %s", _port.c_str());
+        NET4CXX_LOG_INFO(gGenLog, "SSLListener closed on %s", _port.c_str());
     }
 }
 
@@ -334,7 +334,7 @@ void SSLListener::cbAccept(const boost::system::error_code &ec) {
 void SSLListener::handleAccept(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
         }
     } else {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
@@ -357,7 +357,7 @@ SSLConnector::SSLConnector(std::string host, std::string port, std::unique_ptr<C
         , _timeout(timeout)
         , _bindAddress(std::move(bindAddress))
         , _resolver(reactor->getService()) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_SSLConnector_COUNT);
 #endif
 }
@@ -441,7 +441,7 @@ void SSLConnector::doResolve() {
 void SSLConnector::handleResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Resolve error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Resolve error %d :%s", ec.value(), ec.message().c_str());
             _error = std::make_exception_ptr(boost::system::system_error(ec));
         }
         connectionFailed();
@@ -470,7 +470,7 @@ void SSLConnector::doConnect(ResolverIterator iterator) {
 void SSLConnector::handleConnect(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Connect error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Connect error %d :%s", ec.value(), ec.message().c_str());
             _error = std::make_exception_ptr(boost::system::system_error(ec));
         }
         connectionFailed();
@@ -488,7 +488,7 @@ void SSLConnector::handleConnect(const boost::system::error_code &ec) {
 }
 
 void SSLConnector::handleTimeout() {
-    NET4CXX_ERROR(gGenLog, "Connect error : Timeout");
+    NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = NET4CXX_EXCEPTION_PTR(TimeoutError, "");
     connectionFailed();
 }

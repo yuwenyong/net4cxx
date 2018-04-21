@@ -46,11 +46,11 @@ int main(int argc, char **argv) {
 class Echo: public Protocol, public std::enable_shared_from_this<Echo> {
 public:
     void connectionMade() override {
-        NET4CXX_INFO(gAppLog, "Connection made");
+        NET4CXX_LOG_INFO(gAppLog, "Connection made");
     }
     
     void connectionLost(std::exception_ptr reason) override {
-        NET4CXX_INFO(gAppLog, "Connection lost");
+        NET4CXX_LOG_INFO(gAppLog, "Connection lost");
     }
 
     void dataReceived(Byte *data, size_t length) override {
@@ -157,8 +157,8 @@ class Echo: public DatagramProtocol, public std::enable_shared_from_this<Echo> {
 public:
     void datagramReceived(Byte *datagram, size_t length, Address address) override {
         std::string s((char *)datagram, (char *)datagram + length);
-        NET4CXX_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
-                     address.getPort());
+        NET4CXX_LOG_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
+                         address.getPort());
         write(datagram, length, address);
     }
 };
@@ -190,8 +190,8 @@ public:
 
     void datagramReceived(Byte *datagram, size_t length, Address address) override {
         std::string s((char *)datagram, (char *)datagram + length);
-        NET4CXX_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
-                     address.getPort());
+        NET4CXX_LOG_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
+                         address.getPort());
     }
 };
 

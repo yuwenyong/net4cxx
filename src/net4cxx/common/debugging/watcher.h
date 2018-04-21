@@ -64,23 +64,23 @@ protected:
         if (logger == nullptr) {
             logger = Logging::getRootLogger();
         }
-        NET4CXX_INFO(logger, "+----------------------------------------|--------------------+");
-        NET4CXX_INFO(logger, "|%-40s|%-20s|", "ObjectKey", "CurrentValue");
+        NET4CXX_LOG_INFO(logger, "+----------------------------------------|--------------------+");
+        NET4CXX_LOG_INFO(logger, "|%-40s|%-20s|", "ObjectKey", "CurrentValue");
     }
 
     void dumpObject(const std::string &key, int value, Logger *logger) const {
         if (logger == nullptr) {
             logger = Logging::getRootLogger();
         }
-        NET4CXX_INFO(logger, "+----------------------------------------|--------------------+");
-        NET4CXX_INFO(logger, "|%-40s|%-20d|", key.c_str(), value);
+        NET4CXX_LOG_INFO(logger, "+----------------------------------------|--------------------+");
+        NET4CXX_LOG_INFO(logger, "|%-40s|%-20d|", key.c_str(), value);
     }
 
     void dumpFooter(Logger *logger) const {
         if (logger == nullptr) {
             logger = Logging::getRootLogger();
         }
-        NET4CXX_INFO(logger, "+----------------------------------------|--------------------+");
+        NET4CXX_LOG_INFO(logger, "+----------------------------------------|--------------------+");
     }
 
     mutable std::mutex _lock;

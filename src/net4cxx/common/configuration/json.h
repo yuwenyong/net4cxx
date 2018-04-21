@@ -447,7 +447,7 @@ private:
     }
 
     void unindent() {
-        BOOST_ASSERT(_indentString.size() >= _indentation.size());
+        NET4CXX_ASSERT(_indentString.size() >= _indentation.size());
         _indentString.resize(_indentString.size() - _indentation.size());
     }
 

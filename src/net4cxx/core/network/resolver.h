@@ -36,7 +36,7 @@ protected:
                 if (ec == boost::asio::error::operation_aborted) {
                     return;
                 }
-                NET4CXX_ERROR(gGenLog, "Resolve error %d: %s", ec.value(), ec.message().c_str());
+                NET4CXX_LOG_ERROR(gGenLog, "Resolve error %d: %s", ec.value(), ec.message().c_str());
             } else {
                 ResolverIterator end;
                 while (iterator != end) {

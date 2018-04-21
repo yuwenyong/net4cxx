@@ -133,9 +133,9 @@ void Reactor::startRunning(bool installSignalHandlers) {
         try {
             _ioService.run();
         } catch (std::exception &e) {
-            NET4CXX_ERROR(gAppLog, "Unexpected Exception:%s", e.what());
+            NET4CXX_LOG_ERROR(gAppLog, "Unexpected Exception:%s", e.what());
         } catch (...) {
-            NET4CXX_ERROR(gAppLog, "Unknown Exception:%s");
+            NET4CXX_LOG_ERROR(gAppLog, "Unknown Exception:%s");
         }
     }
 }
@@ -176,22 +176,22 @@ void Reactor::onSignal(const boost::system::error_code &ec, int signalNumber) {
 }
 
 void Reactor::sigInt() {
-    NET4CXX_INFO(gGenLog, "Received SIGINT, shutting down.");
+    NET4CXX_LOG_INFO(gGenLog, "Received SIGINT, shutting down.");
     stop();
 }
 
 void Reactor::sigTerm() {
-    NET4CXX_INFO(gGenLog, "Received SIGINT, shutting down.");
+    NET4CXX_LOG_INFO(gGenLog, "Received SIGINT, shutting down.");
     stop();
 }
 
 void Reactor::sigBreak() {
-    NET4CXX_INFO(gGenLog, "Received SIGBREAK, shutting down.");
+    NET4CXX_LOG_INFO(gGenLog, "Received SIGBREAK, shutting down.");
     stop();
 }
 
 void Reactor::sigQuit() {
-    NET4CXX_INFO(gGenLog, "Received SIGQUIT, shutting down.");
+    NET4CXX_LOG_INFO(gGenLog, "Received SIGQUIT, shutting down.");
     stop();
 }
 

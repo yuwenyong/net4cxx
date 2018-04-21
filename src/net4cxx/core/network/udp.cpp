@@ -17,7 +17,7 @@ UDPConnection::UDPConnection(unsigned short port, const DatagramProtocolPtr &pro
                              reactor)
         , _socket(reactor->getService())
         , _listenMultiple(listenMultiple) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
 #endif
 }
@@ -27,7 +27,7 @@ UDPConnection::UDPConnection(std::string address, unsigned short port, const Dat
         : DatagramConnection({std::move(address), port}, protocol, maxPacketSize, std::move(bindAddress), reactor)
         , _socket(reactor->getService())
         , _listenMultiple(listenMultiple) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
 #endif
 }
@@ -35,10 +35,10 @@ UDPConnection::UDPConnection(std::string address, unsigned short port, const Dat
 void UDPConnection::write(const Byte *datagram, size_t length, const Address &address) {
     try {
         if (_connectedAddress) {
-            BOOST_ASSERT(!address || address == _connectedAddress);
+            NET4CXX_ASSERT(!address || address == _connectedAddress);
             _socket.send(boost::asio::buffer(datagram, length));
         } else {
-            BOOST_ASSERT(address);
+            NET4CXX_ASSERT(address);
             EndpointType receiver(AddressType::from_string(address.getAddress()), address.getPort());
             if (!_socket.is_open()) {
                 _socket.open(receiver.protocol());
@@ -46,7 +46,7 @@ void UDPConnection::write(const Byte *datagram, size_t length, const Address &ad
             _socket.send_to(boost::asio::buffer(datagram, length), receiver);
         }
     } catch (boost::system::system_error &e) {
-        NET4CXX_INFO(gGenLog, "Write error %d: %s", e.code().value(), e.code().message().c_str());
+        NET4CXX_LOG_INFO(gGenLog, "Write error %d: %s", e.code().value(), e.code().message().c_str());
         if (_connectedAddress) {
             connectionRefused();
         }
@@ -113,14 +113,14 @@ void UDPConnection::startListening() {
 
 void UDPConnection::connectToProtocol() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->makeConnection(shared_from_this());
     startReading();
 }
 
 void UDPConnection::doRead() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _reading = true;
     _socket.async_receive_from(boost::asio::buffer(_readBuffer.data(), _readBuffer.size()), _sender,
                             [protocol, self = shared_from_this()](const boost::system::error_code &ec,
@@ -132,7 +132,7 @@ void UDPConnection::doRead() {
 void UDPConnection::handleRead(const boost::system::error_code &ec, size_t transferredBytes) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
             if (_connectedAddress) {
                 connectionRefused();
             }
@@ -154,10 +154,10 @@ void UDPConnection::bindSocket() {
             _socket.set_option(boost::asio::socket_base::reuse_address(true));
         }
         _socket.bind(endpoint);
-        NET4CXX_INFO(gGenLog, "UDPConnection starting on %s: %u", _bindAddress.getAddress().c_str(),
-                     _bindAddress.getPort());
+        NET4CXX_LOG_INFO(gGenLog, "UDPConnection starting on %s: %u", _bindAddress.getAddress().c_str(),
+                         _bindAddress.getPort());
     } catch (boost::system::system_error &e) {
-        NET4CXX_ERROR(gGenLog, "Bind error %d: %s", e.code().value(), e.code().message().c_str());
+        NET4CXX_LOG_ERROR(gGenLog, "Bind error %d: %s", e.code().value(), e.code().message().c_str());
         throw;
     }
 }
@@ -167,7 +167,7 @@ void UDPConnection::connectSocket() {
         EndpointType endpoint{AddressType::from_string(_connectedAddress.getAddress()), _connectedAddress.getPort()};
         _socket.connect(endpoint);
     } catch (boost::system::system_error &e) {
-        NET4CXX_ERROR(gGenLog, "Connect error %d: %s", e.code().value(), e.code().message().c_str());
+        NET4CXX_LOG_ERROR(gGenLog, "Connect error %d: %s", e.code().value(), e.code().message().c_str());
         throw;
     }
 }

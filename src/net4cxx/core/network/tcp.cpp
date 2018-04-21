@@ -82,7 +82,7 @@ void TCPConnection::closeSocket() {
 
 void TCPConnection::doRead() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _readBuffer.normalize();
     _readBuffer.ensureFreeSpace();
     _reading = true;
@@ -96,11 +96,11 @@ void TCPConnection::doRead() {
 void TCPConnection::handleRead(const boost::system::error_code &ec, size_t transferredBytes) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof) {
-            NET4CXX_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
             if (ec == boost::asio::error::operation_aborted) {
-                BOOST_ASSERT(_error);
+                NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
                 _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
             } else {
@@ -130,7 +130,7 @@ void TCPConnection::doWrite() {
             if (ec == boost::asio::error::would_block || ec == boost::asio::error::try_again) {
                 break;
             } else {
-                NET4CXX_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
+                NET4CXX_LOG_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
             }
             _error = std::make_exception_ptr(boost::system::system_error(ec));
             _disconnecting = true;
@@ -167,7 +167,7 @@ void TCPConnection::doWrite() {
     }
 #endif
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     _writing = true;
     _socket.async_write_some(boost::asio::buffer(buffer.getReadPointer(), buffer.getActiveSize()),
                              [protocol, self = shared_from_this()](const boost::system::error_code &ec,
@@ -179,11 +179,11 @@ void TCPConnection::doWrite() {
 void TCPConnection::handleWrite(const boost::system::error_code &ec, size_t transferredBytes) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
             if (ec == boost::asio::error::operation_aborted) {
-                BOOST_ASSERT(_error);
+                NET4CXX_ASSERT(_error);
             } else {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             }
@@ -238,7 +238,7 @@ TCPListener::TCPListener(std::string port, std::unique_ptr<Factory> &&factory, s
         , _factory(std::move(factory))
         , _interface(std::move(interface))
         , _acceptor(reactor->getService()) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_TCPListener_COUNT);
 #endif
     if (_interface.empty()) {
@@ -260,7 +260,7 @@ void TCPListener::startListening() {
     _acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
     _acceptor.bind(endpoint);
     _acceptor.listen();
-    NET4CXX_INFO(gGenLog, "TCPListener starting on %s", _port.c_str());
+    NET4CXX_LOG_INFO(gGenLog, "TCPListener starting on %s", _port.c_str());
     _factory->doStart();
     _connected = true;
     doAccept();
@@ -271,7 +271,7 @@ void TCPListener::stopListening() {
         _connected = false;
         _acceptor.close();
         _factory->doStop();
-        NET4CXX_INFO(gGenLog, "TCPListener closed on %s", _port.c_str());
+        NET4CXX_LOG_INFO(gGenLog, "TCPListener closed on %s", _port.c_str());
     }
 }
 
@@ -286,7 +286,7 @@ void TCPListener::cbAccept(const boost::system::error_code &ec) {
 void TCPListener::handleAccept(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
         }
     } else {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
@@ -308,7 +308,7 @@ TCPConnector::TCPConnector(std::string host, std::string port, std::unique_ptr<C
         , _timeout(timeout)
         , _bindAddress(std::move(bindAddress))
         , _resolver(reactor->getService()) {
-#ifndef NET4CXX_NDEBUG
+#ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_TCPConnector_COUNT);
 #endif
 }
@@ -392,7 +392,7 @@ void TCPConnector::doResolve() {
 void TCPConnector::handleResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Resolve error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Resolve error %d :%s", ec.value(), ec.message().c_str());
             _error = std::make_exception_ptr(boost::system::system_error(ec));
         }
         connectionFailed();
@@ -419,7 +419,7 @@ void TCPConnector::doConnect(ResolverIterator iterator) {
 void TCPConnector::handleConnect(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
-            NET4CXX_ERROR(gGenLog, "Connect error %d :%s", ec.value(), ec.message().c_str());
+            NET4CXX_LOG_ERROR(gGenLog, "Connect error %d :%s", ec.value(), ec.message().c_str());
             _error = std::make_exception_ptr(boost::system::system_error(ec));
         }
         connectionFailed();
@@ -437,7 +437,7 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
 }
 
 void TCPConnector::handleTimeout() {
-    NET4CXX_ERROR(gGenLog, "Connect error : Timeout");
+    NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = NET4CXX_EXCEPTION_PTR(TimeoutError, "");
     connectionFailed();
 }

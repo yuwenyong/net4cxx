@@ -14,14 +14,14 @@ static inline char getDecimalPoint() {
     return lc ? *(lc->decimal_point) : '\0';
 }
 
-static inline void fixNumericLocale(char* begin, char* end) {
-    while (begin < end) {
-        if (*begin == ',') {
-            *begin = '.';
-        }
-        ++begin;
-    }
-}
+//static inline void fixNumericLocale(char* begin, char* end) {
+//    while (begin < end) {
+//        if (*begin == ',') {
+//            *begin = '.';
+//        }
+//        ++begin;
+//    }
+//}
 
 static void fixNumericLocaleInput(char* begin, char* end) {
     char decimalPoint = getDecimalPoint();
@@ -240,11 +240,11 @@ JSONValue::JSONValue(JSONType type) {
             break;
         }
         case JSONType::intValue: {
-            _value = 0L;
+            _value = (int64_t)0;
             break;
         }
         case JSONType::uintValue: {
-            _value = 0UL;
+            _value = (uint64_t)0;
             break;
         }
         case JSONType::realValue: {
@@ -898,7 +898,7 @@ bool JSONValue::isConvertibleTo(JSONType other) const {
             return _value.type() == typeid(ObjectType) || _value.type() == typeid(NullValue);
         }
     }
-    BOOST_ASSERT(false);
+    NET4CXX_ASSERT(false);
     return false; // unreachable
 }
 
@@ -1199,7 +1199,7 @@ void BuiltStyledStreamWriter::writeArrayValue(const JSONValue &value) {
             unindent();
             writeWithIndent("]");
         } else {
-            BOOST_ASSERT(_childValues.size() == size);
+            NET4CXX_ASSERT(_childValues.size() == size);
             *_sout << "[";
             if (!_indentation.empty()) {
                 *_sout << " ";
@@ -2111,10 +2111,10 @@ std::string BuiltReader::getLocationLineAndColumn(const char *location) const {
 }
 
 void BuiltReader::addComment(const char *begin, const char *end, CommentPlacement placement) {
-    BOOST_ASSERT(_collectComments);
+    NET4CXX_ASSERT(_collectComments);
     std::string normalized = normalizeEOL(begin, end);
     if (placement == COMMENT_ON_SAME_LINE) {
-        BOOST_ASSERT(_lastValue);
+        NET4CXX_ASSERT(_lastValue);
         _lastValue->setComment(normalized, placement);
     } else {
         _commentsBefore += normalized;

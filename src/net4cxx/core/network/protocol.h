@@ -82,7 +82,7 @@ protected:
     void retry(ConnectorPtr connector);
 
     void resetDelay() {
-        BOOST_ASSERT(_callId.cancelled());
+        NET4CXX_ASSERT(_callId.cancelled());
         _delay = initialDelay;
         _retries = 0;
         _continueTrying = true;
@@ -127,7 +127,7 @@ public:
     }
 
     void write(const Byte *data, size_t length) {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->write(data, length);
     }
 
@@ -144,52 +144,52 @@ public:
     }
 
     void loseConnection() {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->loseConnection();
     }
 
     void abortConnection() {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->abortConnection();
     }
 
     bool getNoDelay() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getNoDelay();
     }
 
     void setNoDelay(bool enabled) {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->setNoDelay(enabled);
     }
 
     bool getKeepAlive() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getKeepAlive();
     }
 
     void setKeepAlive(bool enabled) {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->setKeepAlive(enabled);
     }
 
     std::string getLocalAddress() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getLocalAddress();
     }
 
     unsigned short getLocalPort() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getLocalPort();
     }
 
     std::string getRemoteAddress() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getRemoteAddress();
     }
 
     unsigned short getRemotePort() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getRemotePort();
     }
 protected:
@@ -215,7 +215,7 @@ public:
     virtual void connectionFailed(std::exception_ptr reason);
 
     void makeConnection(DatagramConnectionPtr transport) {
-        BOOST_ASSERT(!_transport);
+        NET4CXX_ASSERT(!_transport);
         _transport = std::move(transport);
         doStart();
     }
@@ -225,7 +225,7 @@ public:
     }
 
     void write(const Byte *datagram, size_t length, const Address &address={}) {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->write(datagram, length, address);
     }
 
@@ -242,42 +242,42 @@ public:
     }
 
     void connect(const Address &address) {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->connect(address);
     }
 
     void loseConnection() {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->loseConnection();
     }
 
     bool getBroadcastAllowed() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getBroadcastAllowed();
     }
 
     void setBroadcastAllowed(bool enabled) {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         _transport->setBroadcastAllowed(enabled);
     }
 
     std::string getLocalAddress() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getLocalAddress();
     }
 
     unsigned short getLocalPort() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getLocalPort();
     }
 
     std::string getRemoteAddress() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getRemoteAddress();
     }
 
     unsigned short getRemotePort() const {
-        BOOST_ASSERT(_transport);
+        NET4CXX_ASSERT(_transport);
         return _transport->getRemotePort();
     }
 protected:
@@ -289,7 +289,7 @@ protected:
     }
 
     void doStop() {
-        BOOST_ASSERT(_numPorts > 0);
+        NET4CXX_ASSERT(_numPorts > 0);
         --_numPorts;
         if (_numPorts == 0) {
             stopProtocol();

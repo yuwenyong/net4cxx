@@ -89,7 +89,7 @@ void Watcher::addSetCallback(const char *key, const SetCallback &callback) {
     } else {
         sig = iter->second;
     }
-    BOOST_ASSERT(sig != nullptr);
+    NET4CXX_ASSERT(sig != nullptr);
     sig->connect(callback);
 }
 
@@ -104,7 +104,7 @@ void Watcher::addIncCallback(const char *key, const IncCallback &callback) {
     } else {
         sig = iter->second;
     }
-    BOOST_ASSERT(sig != nullptr);
+    NET4CXX_ASSERT(sig != nullptr);
     sig->connect(callback);
 }
 
@@ -119,7 +119,7 @@ void Watcher::addDecCallback(const char *key, const DecCallback &callback) {
     } else {
         sig = iter->second;
     }
-    BOOST_ASSERT(sig != nullptr);
+    NET4CXX_ASSERT(sig != nullptr);
     sig->connect(callback);
 }
 

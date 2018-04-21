@@ -315,7 +315,7 @@ const std::map<char, std::string> URLParse::_safeMap = {
 URLParseResult URLParse::urlParse(std::string url, std::string scheme, bool allowFragments) {
     std::string netloc, query, fragment, params;
     URLSplitResult split = urlSplit(url, scheme, allowFragments);
-    std::tie(scheme, netloc, url, query, fragment) = split;
+    std::tie(scheme, netloc, url, query, fragment) = (const URLSplitResultBase &)split;
     if (_usesParams.find(scheme) != _usesParams.end() && url.find(';') != std::string::npos) {
         std::tie(url, params) = splitParams(url);
     }
@@ -404,7 +404,7 @@ std::string URLParse::urlUnparse(const URLParseResult &data) {
 
 std::string URLParse::urlUnsplit(const URLSplitResult &data) {
     std::string scheme, netloc, query, fragment, url;
-    std::tie(scheme, netloc, url, query, fragment) = data;
+    std::tie(scheme, netloc, url, query, fragment) = (const URLSplitResultBase &)data;
     if (!netloc.empty() || (!scheme.empty() && _usesNetloc.find(scheme) != _usesNetloc.end() &&
                             !boost::starts_with(url, "//"))) {
         if (!url.empty() && url[0] != '/') {
@@ -432,9 +432,11 @@ std::string URLParse::urlJoin(const std::string &base, const std::string &url, b
         return base;
     }
     std::string bscheme, bnetloc, bpath, bparams, bquery, bfragment;
-    std::tie(bscheme, bnetloc, bpath, bparams, bquery, bfragment) = urlParse(base, "", allowFragments);
+    std::tie(bscheme, bnetloc, bpath, bparams, bquery, bfragment) = (const URLParseResultBase &)urlParse(
+            base, "", allowFragments);
     std::string scheme, netloc, path, params, query, fragment;
-    std::tie(scheme, netloc, path, params, query, fragment) = urlParse(url, bscheme, allowFragments);
+    std::tie(scheme, netloc, path, params, query, fragment) = (const URLParseResultBase &)urlParse(
+            url, bscheme, allowFragments);
     if (scheme != bscheme || _usesRelative.find(scheme) == _usesRelative.end()) {
         return url;
     }
@@ -500,7 +502,7 @@ std::string URLParse::urlJoin(const std::string &base, const std::string &url, b
 std::tuple<std::string, std::string> URLParse::urlDefrag(const std::string &url) {
     if (url.find('#') != std::string::npos) {
         std::string s, n, p, a, q, frag;
-        std::tie(s, n, p, a, q, frag) = urlParse(url);
+        std::tie(s, n, p, a, q, frag) = (const URLParseResultBase &)urlParse(url);
         std::string defrag = urlUnparse(URLParseResult(std::move(s), std::move(n), std::move(p), std::move(a),
                                                        std::move(q), ""));
         return std::make_tuple(defrag, frag);

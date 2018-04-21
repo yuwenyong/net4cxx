@@ -92,38 +92,38 @@ void DelayedCall::cancel() {
 
 void Connection::dataReceived(Byte *data, size_t length) {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->dataReceived(data, length);
 }
 
 void Connection::connectionLost(std::exception_ptr reason) {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->connectionLost(std::move(reason));
 }
 
 
 void DatagramConnection::datagramReceived(Byte *datagram, size_t length, Address address) {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->datagramReceived(datagram, length, std::move(address));
 }
 
 void DatagramConnection::connectionFailed(std::exception_ptr error) {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->connectionFailed(std::move(error));
 }
 
 void DatagramConnection::connectionRefused() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->connectionRefused();
 }
 
 void DatagramConnection::connectionLost() {
     auto protocol = _protocol.lock();
-    BOOST_ASSERT(protocol);
+    NET4CXX_ASSERT(protocol);
     protocol->doStop();
 }
 
