@@ -135,7 +135,7 @@ using QueryArgListMap = std::map<std::string, std::vector<std::string>>;
 
 class NET4CXX_COMMON_API URLParse {
 public:
-    static URLParseResult urlParse(std::string url, std::string cheme="", bool allowFragments=true);
+    static URLParseResult urlParse(std::string url, std::string scheme="", bool allowFragments=true);
 
     static URLSplitResult urlSplit(std::string url, std::string scheme="", bool allowFragments=true);
 

@@ -6,6 +6,9 @@
 #define NET4CXX_PLUGINS_WEBSOCKET_BASE_H
 
 #include "net4cxx/common/common.h"
+#include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/common/utilities/errors.h"
+#include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/common/global/loggers.h"
 
 #endif //NET4CXX_PLUGINS_WEBSOCKET_BASE_H
