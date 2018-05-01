@@ -215,7 +215,7 @@ void UNIXClientConnection::closeSocket() {
 }
 
 
-UNIXListener::UNIXListener(std::string path, std::unique_ptr<Factory> &&factory, Reactor *reactor)
+UNIXListener::UNIXListener(std::string path, std::shared_ptr<Factory> factory, Reactor *reactor)
         : Listener(reactor)
         , _path(std::move(path))
         , _factory(std::move(factory))
@@ -264,6 +264,7 @@ void UNIXListener::handleAccept(const boost::system::error_code &ec) {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
         auto protocol = _factory->buildProtocol(address);
         if (protocol) {
+            protocol->setFactory(_factory);
             _connection->cbAccept(protocol);
         }
     }
@@ -271,7 +272,7 @@ void UNIXListener::handleAccept(const boost::system::error_code &ec) {
 }
 
 
-UNIXConnector::UNIXConnector(std::string path, std::unique_ptr<ClientFactory> &&factory, double timeout,
+UNIXConnector::UNIXConnector(std::string path, std::shared_ptr<ClientFactory> factory, double timeout,
                              Reactor *reactor)
         : Connector(reactor)
         , _path(std::move(path))
@@ -366,6 +367,7 @@ void UNIXConnector::handleConnect(const boost::system::error_code &ec) {
             _connection.reset();
             connectionLost();
         } else {
+            protocol->setFactory(_factory);
             auto connection = std::move(_connection);
             connection->cbConnect(protocol, shared_from_this());
         }

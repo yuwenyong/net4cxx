@@ -29,7 +29,7 @@ int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
     TCPServerEndpoint endpoint(&reactor, "28001");
-    endpoint.listen(std::make_unique<EchoFactory>());
+    endpoint.listen(std::make_shared<EchoFactory>());
     reactor.run();
     return 0;
 }
@@ -71,9 +71,9 @@ public:
 int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
-    serverFromString(&reactor, "tcp:28001")->listen(std::make_unique<EchoFactory>());
-    serverFromString(&reactor, "ssl:28002:privateKey=test.key:certKey=test.crt")->listen(std::make_unique<EchoFactory>());
-    serverFromString(&reactor, "unix:/var/foo/bar")->listen(std::make_unique<EchoFactory>());
+    serverFromString(&reactor, "tcp:28001")->listen(std::make_shared<EchoFactory>());
+    serverFromString(&reactor, "ssl:28002:privateKey=test.key:certKey=test.crt")->listen(std::make_shared<EchoFactory>());
+    serverFromString(&reactor, "unix:/var/foo/bar")->listen(std::make_shared<EchoFactory>());
     reactor.run();
     return 0;
 }
@@ -108,7 +108,7 @@ public:
 int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
-    reactor.connectTCP("localhost", "28001", std::make_unique<WelcomeFactory>());
+    reactor.connectTCP("localhost", "28001", std::make_shared<WelcomeFactory>());
     reactor.run();
     return 0;
 }
@@ -124,7 +124,7 @@ int main(int argc, char **argv) {
 int main(int argc, char **argv) {
     NET4CXX_PARSE_COMMAND_LINE(argc, argv);
     Reactor reactor;
-    reactor.connectTCP("localhost", "28001", std::make_unique<OneShotFactory>(std::make_shared<WelcomeMessage>()));
+    reactor.connectTCP("localhost", "28001", std::make_shared<OneShotFactory>(std::make_shared<WelcomeMessage>()));
     reactor.run();
     return 0;
 }
@@ -278,7 +278,7 @@ void addStopCallback(CallbackT &&callback);
 ##### 启动一个tcp服务器
 
 ```c++
-ListenerPtr listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory, const std::string &interface={});
+ListenerPtr listenTCP(const std::string &port, std::shared_ptr<Factory> factory, const std::string &interface={});
 ```
 
 * port: 端口号或服务名称
@@ -288,7 +288,7 @@ ListenerPtr listenTCP(const std::string &port, std::unique_ptr<Factory> &&factor
 ##### 启动一个tcp客户端
 
 ```c++
-ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
+ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::shared_ptr<ClientFactory> factory,
                         double timeout=30.0, const Address &bindAddress={});
 ```
 
@@ -301,7 +301,7 @@ ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::u
 ##### 启动一个ssl服务器
 
 ```c++
-ListenerPtr listenSSL(const std::string &port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption,
+ListenerPtr listenSSL(const std::string &port, std::shared_ptr<Factory> factory, SSLOptionPtr sslOption,
                       const std::string &interface={});
 ```
 
@@ -313,7 +313,7 @@ ListenerPtr listenSSL(const std::string &port, std::unique_ptr<Factory> &&factor
 ##### 启动一个ssl客户端
 
 ```c++
-ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
+ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::shared_ptr<ClientFactory> factory,
                         SSLOptionPtr sslOption, double timeout=30.0, const Address &bindAddress={});
 ```
 
@@ -356,7 +356,7 @@ DatagramConnectionPtr connectUDP(const std::string &address, unsigned short port
 ##### 启动一个unix服务器
 
 ```c++
-ListenerPtr listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory);
+ListenerPtr listenUNIX(const std::string &path, std::shared_ptr<Factory> factory);
 ```
 
 * path: 监听的文件路经
@@ -365,7 +365,7 @@ ListenerPtr listenUNIX(const std::string &path, std::unique_ptr<Factory> &&facto
 ##### 启动一个unix客户端
 
 ```c++
-ConnectorPtr connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout=30.0);
+ConnectorPtr connectUNIX(const std::string &path, std::shared_ptr<ClientFactory> factory, double timeout=30.0);
 ```
 
 * path: 服务器的文件路经
@@ -876,6 +876,13 @@ std::string getRemoteAddress() const;
 unsigned short getRemotePort() const;
 ```
 
+##### 获取关联的Factory
+
+```c++
+template <typename FactoryT>
+std::shared_ptr<FactoryT> getFactory() const;
+```
+
 #### Listener
 
 ```c++
@@ -953,7 +960,7 @@ class ServerEndpoint: public Endpoint;
 ##### 开始监听
 
 ```c++
-virtual ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const = 0;
+virtual ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const = 0;
 ```
 
 * protocolFactory: 协议工厂
@@ -1015,7 +1022,7 @@ class ClientEndpoint: public Endpoint;
 ##### 开始连接
 
 ```c++
-virtual ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const = 0;
+virtual ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const = 0;
 ```
 
 * protocolFactory: 协议工厂
@@ -1086,7 +1093,7 @@ UNIXClientEndpoint(Reactor *reactor, std::string path, double timeout=30.0);
 ///     ssl:443:privateKey=key.pem:certKey=crt.pem
 ///     unix:/var/run/finger
 /// \return
-std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::string &description);
+ServerEndpointPtr serverFromString(Reactor *reactor, const std::string &description);
 ```
 
 ##### 连接客户端
@@ -1106,7 +1113,7 @@ std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::st
 ///     unix:/var/foo/bar
 ///     unix:/var/foo/bar:timeout=9
 /// \return
-std::unique_ptr<ClientEndpoint> clientFromString(Reactor *reactor, const std::string &description);
+ClientEndpointPtr clientFromString(Reactor *reactor, const std::string &description);
 ```
 
 ##### 在指定的协议处理器上连接客户端

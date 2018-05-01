@@ -231,7 +231,7 @@ void TCPClientConnection::closeSocket() {
 }
 
 
-TCPListener::TCPListener(std::string port, std::unique_ptr<Factory> &&factory, std::string interface,
+TCPListener::TCPListener(std::string port, std::shared_ptr<Factory> factory, std::string interface,
                          Reactor *reactor)
         : Listener(reactor)
         , _port(std::move(port))
@@ -292,6 +292,7 @@ void TCPListener::handleAccept(const boost::system::error_code &ec) {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
         auto protocol = _factory->buildProtocol(address);
         if (protocol) {
+            protocol->setFactory(_factory);
             _connection->cbAccept(protocol);
         }
     }
@@ -299,7 +300,7 @@ void TCPListener::handleAccept(const boost::system::error_code &ec) {
 }
 
 
-TCPConnector::TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
+TCPConnector::TCPConnector(std::string host, std::string port, std::shared_ptr<ClientFactory> factory, double timeout,
                            Address bindAddress, Reactor *reactor)
         : Connector(reactor)
         , _host(std::move(host))
@@ -430,6 +431,7 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
             _connection.reset();
             connectionLost();
         } else {
+            protocol->setFactory(_factory);
             auto connection = std::move(_connection);
             connection->cbConnect(protocol, shared_from_this());
         }

@@ -168,7 +168,7 @@ public:
     using SocketType = boost::asio::local::stream_protocol::socket;
     using EndpointType = boost::asio::local::stream_protocol::endpoint;
 
-    UNIXListener(std::string path, std::unique_ptr<Factory> &&factory, Reactor *reactor);
+    UNIXListener(std::string path, std::shared_ptr<Factory> factory, Reactor *reactor);
 
 #ifdef NET4CXX_DEBUG
     ~UNIXListener() override {
@@ -200,7 +200,7 @@ protected:
     }
 
     std::string _path;
-    std::unique_ptr<Factory> _factory;
+    std::shared_ptr<Factory> _factory;
     AcceptorType _acceptor;
     bool _connected{false};
     std::shared_ptr<UNIXServerConnection> _connection;
@@ -212,7 +212,7 @@ public:
     using SocketType = boost::asio::local::stream_protocol::socket;
     using EndpointType = boost::asio::local::stream_protocol::endpoint;
 
-    UNIXConnector(std::string path, std::unique_ptr<ClientFactory> &&factory, double timeout, Reactor *reactor);
+    UNIXConnector(std::string path, std::shared_ptr<ClientFactory> factory, double timeout, Reactor *reactor);
 
 #ifdef NET4CXX_DEBUG
     ~UNIXConnector() override {
@@ -259,7 +259,7 @@ protected:
     };
 
     std::string _path;
-    std::unique_ptr<ClientFactory> _factory;
+    std::shared_ptr<ClientFactory> _factory;
     double _timeout{0.0};
     std::shared_ptr<UNIXClientConnection> _connection;
     State _state{kDisconnected};

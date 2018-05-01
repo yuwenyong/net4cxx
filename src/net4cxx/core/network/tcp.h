@@ -173,7 +173,7 @@ public:
     using EndpointType = boost::asio::ip::tcp::endpoint;
     using ResolverIterator = ResolverType::iterator;
 
-    TCPListener(std::string port, std::unique_ptr<Factory> &&factory, std::string interface, Reactor *reactor);
+    TCPListener(std::string port, std::shared_ptr<Factory> factory, std::string interface, Reactor *reactor);
 
 #ifdef NET4CXX_DEBUG
     ~TCPListener() override {
@@ -206,7 +206,7 @@ protected:
     }
 
     std::string _port;
-    std::unique_ptr<Factory> _factory;
+    std::shared_ptr<Factory> _factory;
     std::string _interface;
     AcceptorType _acceptor;
     bool _connected{false};
@@ -222,7 +222,7 @@ public:
     using ResolverIterator = ResolverType::iterator;
     using EndpointType = boost::asio::ip::tcp::endpoint;
 
-    TCPConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, double timeout,
+    TCPConnector(std::string host, std::string port, std::shared_ptr<ClientFactory> factory, double timeout,
                  Address bindAddress, Reactor *reactor);
 
 #ifdef NET4CXX_DEBUG
@@ -284,7 +284,7 @@ protected:
 
     std::string _host;
     std::string _port;
-    std::unique_ptr<ClientFactory> _factory;
+    std::shared_ptr<ClientFactory> _factory;
     double _timeout{0.0};
     Address _bindAddress;
     ResolverType _resolver;

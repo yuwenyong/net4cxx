@@ -49,7 +49,7 @@ void Reactor::stop() {
     _ioService.stop();
 }
 
-ListenerPtr Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory,
+ListenerPtr Reactor::listenTCP(const std::string &port, std::shared_ptr<Factory> factory,
                                const std::string &interface) {
     auto l = std::make_shared<TCPListener>(port, std::move(factory), interface, this);
     l->startListening();
@@ -57,13 +57,13 @@ ListenerPtr Reactor::listenTCP(const std::string &port, std::unique_ptr<Factory>
 }
 
 ConnectorPtr Reactor::connectTCP(const std::string &host, const std::string &port,
-                                 std::unique_ptr<ClientFactory> &&factory, double timeout, const Address &bindAddress) {
+                                 std::shared_ptr<ClientFactory> factory, double timeout, const Address &bindAddress) {
     auto c = std::make_shared<TCPConnector>(host, port, std::move(factory), timeout, bindAddress, this);
     c->startConnecting();
     return c;
 }
 
-ListenerPtr Reactor::listenSSL(const std::string &port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption,
+ListenerPtr Reactor::listenSSL(const std::string &port, std::shared_ptr<Factory> factory, SSLOptionPtr sslOption,
                                const std::string &interface) {
     auto l = std::make_shared<SSLListener>(port, std::move(factory), std::move(sslOption), interface, this);
     l->startListening();
@@ -71,7 +71,7 @@ ListenerPtr Reactor::listenSSL(const std::string &port, std::unique_ptr<Factory>
 }
 
 ConnectorPtr Reactor::connectSSL(const std::string &host, const std::string &port,
-                                 std::unique_ptr<ClientFactory> &&factory, SSLOptionPtr sslOption, double timeout,
+                                 std::shared_ptr<ClientFactory> factory, SSLOptionPtr sslOption, double timeout,
                                  const Address &bindAddress) {
     auto c = std::make_shared<SSLConnector>(host, port, std::move(factory), std::move(sslOption), timeout, bindAddress,
                                             this);
@@ -95,13 +95,13 @@ DatagramConnectionPtr Reactor::connectUDP(const std::string &address, unsigned s
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 
-ListenerPtr Reactor::listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory) {
+ListenerPtr Reactor::listenUNIX(const std::string &path, std::shared_ptr<Factory> factory) {
     auto l = std::make_shared<UNIXListener>(path, std::move(factory), this);
     l->startListening();
     return l;
 }
 
-ConnectorPtr Reactor::connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout) {
+ConnectorPtr Reactor::connectUNIX(const std::string &path, std::shared_ptr<ClientFactory> factory, double timeout) {
     auto c = std::make_shared<UNIXConnector>(path, std::move(factory), timeout, this);
     c->startConnecting();
     return c;

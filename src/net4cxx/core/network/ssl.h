@@ -216,7 +216,7 @@ public:
     using EndpointType = boost::asio::ip::tcp::endpoint;
     using ResolverIterator = ResolverType::iterator;
 
-    SSLListener(std::string port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption, std::string interface,
+    SSLListener(std::string port, std::shared_ptr<Factory> factory, SSLOptionPtr sslOption, std::string interface,
                 Reactor *reactor);
 
 #ifdef NET4CXX_DEBUG
@@ -250,7 +250,7 @@ protected:
     }
 
     std::string _port;
-    std::unique_ptr<Factory> _factory;
+    std::shared_ptr<Factory> _factory;
     SSLOptionPtr _sslOption;
     std::string _interface;
     AcceptorType _acceptor;
@@ -267,7 +267,7 @@ public:
     using ResolverIterator = ResolverType::iterator;
     using EndpointType = boost::asio::ip::tcp::endpoint;
 
-    SSLConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory, SSLOptionPtr sslOption,
+    SSLConnector(std::string host, std::string port, std::shared_ptr<ClientFactory> factory, SSLOptionPtr sslOption,
                  double timeout, Address bindAddress, Reactor *reactor);
 
 #ifdef NET4CXX_DEBUG
@@ -329,7 +329,7 @@ protected:
 
     std::string _host;
     std::string _port;
-    std::unique_ptr<ClientFactory> _factory;
+    std::shared_ptr<ClientFactory> _factory;
     SSLOptionPtr _sslOption;
     double _timeout{0.0};
     Address _bindAddress;

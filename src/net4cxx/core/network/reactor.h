@@ -76,15 +76,15 @@ public:
         _stopCallbacks.connect(std::forward<CallbackT>(callback));
     }
 
-    ListenerPtr listenTCP(const std::string &port, std::unique_ptr<Factory> &&factory, const std::string &interface={});
+    ListenerPtr listenTCP(const std::string &port, std::shared_ptr<Factory> factory, const std::string &interface={});
 
-    ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
+    ConnectorPtr connectTCP(const std::string &host, const std::string &port, std::shared_ptr<ClientFactory> factory,
                             double timeout=30.0, const Address &bindAddress={});
 
-    ListenerPtr listenSSL(const std::string &port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption,
+    ListenerPtr listenSSL(const std::string &port, std::shared_ptr<Factory> factory, SSLOptionPtr sslOption,
                           const std::string &interface={});
 
-    ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::unique_ptr<ClientFactory> &&factory,
+    ConnectorPtr connectSSL(const std::string &host, const std::string &port, std::shared_ptr<ClientFactory> factory,
                             SSLOptionPtr sslOption, double timeout=30.0, const Address &bindAddress={});
 
     DatagramConnectionPtr listenUDP(unsigned short port, DatagramProtocolPtr protocol, const std::string &interface="",
@@ -95,9 +95,9 @@ public:
                                      bool listenMultiple=false);
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
-    ListenerPtr listenUNIX(const std::string &path, std::unique_ptr<Factory> &&factory);
+    ListenerPtr listenUNIX(const std::string &path, std::shared_ptr<Factory> factory);
 
-    ConnectorPtr connectUNIX(const std::string &path, std::unique_ptr<ClientFactory> &&factory, double timeout=30.0);
+    ConnectorPtr connectUNIX(const std::string &path, std::shared_ptr<ClientFactory> factory, double timeout=30.0);
 
     DatagramConnectionPtr listenUNIXDatagram(const std::string &path, DatagramProtocolPtr protocol,
                                              size_t maxPacketSize=8192);

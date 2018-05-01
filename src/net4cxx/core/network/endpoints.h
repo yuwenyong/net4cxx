@@ -37,9 +37,10 @@ class NET4CXX_COMMON_API ServerEndpoint: public Endpoint {
 public:
     using Endpoint::Endpoint;
 
-    virtual ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const = 0;
+    virtual ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const = 0;
 };
 
+using ServerEndpointPtr = std::shared_ptr<ServerEndpoint>;
 
 class NET4CXX_COMMON_API TCPServerEndpoint: public ServerEndpoint {
 public:
@@ -50,7 +51,7 @@ public:
 
     }
 
-    ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const override;
+    ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
 protected:
     std::string _port;
     std::string _interface;
@@ -67,7 +68,7 @@ public:
 
     }
 
-    ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const override;
+    ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
 protected:
     std::string _port;
     std::string _interface;
@@ -85,7 +86,7 @@ public:
 
     }
 
-    ListenerPtr listen(std::unique_ptr<Factory> &&protocolFactory) const override;
+    ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
 protected:
     std::string _path;
 };
@@ -101,16 +102,17 @@ protected:
 ///     ssl:443:privateKey=key.pem:certKey=crt.pem
 ///     unix:/var/run/finger
 /// \return
-NET4CXX_COMMON_API std::unique_ptr<ServerEndpoint> serverFromString(Reactor *reactor, const std::string &description);
+NET4CXX_COMMON_API ServerEndpointPtr serverFromString(Reactor *reactor, const std::string &description);
 
 
 class NET4CXX_COMMON_API ClientEndpoint: public Endpoint {
 public:
     using Endpoint::Endpoint;
 
-    virtual ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const = 0;
+    virtual ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const = 0;
 };
 
+using ClientEndpointPtr = std::shared_ptr<ClientEndpoint>;
 
 class NET4CXX_COMMON_API TCPClientEndpoint: public ClientEndpoint {
 public:
@@ -123,7 +125,7 @@ public:
 
     }
 
-    ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+    ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
 protected:
     std::string _host;
     std::string _port;
@@ -145,7 +147,7 @@ public:
 
     }
 
-    ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+    ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
 protected:
     std::string _host;
     std::string _port;
@@ -165,7 +167,7 @@ public:
 
     }
 
-    ConnectorPtr connect(std::unique_ptr<ClientFactory> &&protocolFactory) const override;
+    ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
 protected:
     std::string _path;
     double _timeout;
@@ -187,7 +189,7 @@ protected:
 ///     unix:/var/foo/bar
 ///     unix:/var/foo/bar:timeout=9
 /// \return
-NET4CXX_COMMON_API std::unique_ptr<ClientEndpoint> clientFromString(Reactor *reactor, const std::string &description);
+NET4CXX_COMMON_API ClientEndpointPtr clientFromString(Reactor *reactor, const std::string &description);
 
 
 NET4CXX_COMMON_API ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);

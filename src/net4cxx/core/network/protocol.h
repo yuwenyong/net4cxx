@@ -192,9 +192,19 @@ public:
         NET4CXX_ASSERT(_transport);
         return _transport->getRemotePort();
     }
+
+    void setFactory(const std::shared_ptr<Factory> &factory) {
+        _factory = factory;
+    }
+
+    template <typename FactoryT>
+    std::shared_ptr<FactoryT> getFactory() const {
+        return std::static_pointer_cast<FactoryT>(_factory.lock());
+    }
 protected:
     bool _connected{false};
     ConnectionPtr _transport;
+    std::weak_ptr<Factory> _factory;
 };
 
 

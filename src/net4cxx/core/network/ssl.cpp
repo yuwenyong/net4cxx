@@ -278,7 +278,7 @@ void SSLClientConnection::closeSocket() {
 }
 
 
-SSLListener::SSLListener(std::string port, std::unique_ptr<Factory> &&factory, SSLOptionPtr sslOption,
+SSLListener::SSLListener(std::string port, std::shared_ptr<Factory> factory, SSLOptionPtr sslOption,
                          std::string interface, Reactor *reactor)
         : Listener(reactor)
         , _port(std::move(port))
@@ -340,6 +340,7 @@ void SSLListener::handleAccept(const boost::system::error_code &ec) {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
         auto protocol = _factory->buildProtocol(address);
         if (protocol) {
+            protocol->setFactory(_factory);
             _connection->cbAccept(protocol);
         }
     }
@@ -347,7 +348,7 @@ void SSLListener::handleAccept(const boost::system::error_code &ec) {
 }
 
 
-SSLConnector::SSLConnector(std::string host, std::string port, std::unique_ptr<ClientFactory> &&factory,
+SSLConnector::SSLConnector(std::string host, std::string port, std::shared_ptr<ClientFactory> factory,
                            SSLOptionPtr sslOption, double timeout, Address bindAddress, Reactor *reactor)
         : Connector(reactor)
         , _host(std::move(host))
@@ -481,6 +482,7 @@ void SSLConnector::handleConnect(const boost::system::error_code &ec) {
             _connection.reset();
             connectionLost();
         } else {
+            protocol->setFactory(_factory);
             auto connection = std::move(_connection);
             connection->cbConnect(protocol, shared_from_this());
         }
