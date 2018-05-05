@@ -166,16 +166,17 @@ std::string URLParseResult::getURL() const {
 const StringSet URLParse::_usesRelative = {"ftp", "http", "gopher", "nntp", "imap",
                                            "wais", "file", "https", "shttp", "mms",
                                            "prospero", "rtsp", "rtspu", "", "sftp",
-                                           "svn", "svn+ssh"};
+                                           "svn", "svn+ssh", "ws", "wss"};
 
 const StringSet URLParse::_usesNetloc = {"ftp", "http", "gopher", "nntp", "telnet",
                                          "imap", "wais", "file", "mms", "https", "shttp",
                                          "snews", "prospero", "rtsp", "rtspu", "rsync", "",
-                                         "svn", "svn+ssh", "sftp", "nfs", "git", "git+ssh"};
+                                         "svn", "svn+ssh", "sftp", "nfs", "git", "git+ssh",
+                                         "ws", "wss"};
 
 const StringSet URLParse::_usesParams = {"ftp", "hdl", "prospero", "http", "imap",
                                          "https", "shttp", "rtsp", "rtspu", "sip", "sips",
-                                         "mms", "", "sftp", "tel"};
+                                         "mms", "", "sftp", "tel", "ws", "wss"};
 
 const char * URLParse::_schemeChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789+-.";
 

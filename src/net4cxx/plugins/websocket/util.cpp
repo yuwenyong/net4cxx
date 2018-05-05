@@ -7,6 +7,57 @@
 
 NS_BEGIN
 
+boost::optional<Duration> Timings::diffDura(const std::string &startKey, const std::string &endKey) {
+    boost::optional<Duration> d;
+    auto start = _timings.find(startKey);
+    auto end = _timings.find(endKey);
+    if (start != _timings.end() && end != _timings.end()) {
+        d = end->second - start->second;
+    }
+    return d;
+}
+
+boost::optional<double> Timings::diff(const std::string &startKey, const std::string &endKey) {
+    auto duration = diffDura(startKey, endKey);
+    boost::optional<double> d;
+    if (duration) {
+        auto seconds = std::chrono::duration_cast<std::chrono::seconds>(*duration);
+        *duration -= seconds;
+        auto milliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(*duration);
+        *duration -= milliseconds;
+        auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(*duration);
+        *duration -= microseconds;
+        auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(*duration);
+        d = 1.0 * seconds.count() + 0.001 * milliseconds.count() + 0.000001 * microseconds.count() +
+            0.000000001 * nanoseconds.count();
+    }
+    return d;
+}
+
+std::string Timings::diffFormatted(const std::string &startKey, const std::string &endKey) {
+    auto d = diff(startKey, endKey);
+    std::string s;
+    if (d) {
+        if (*d < 0.00001) {
+            // < 10us
+            s = std::to_string((long long int)std::round(*d * 1000000000.)) + " ns";
+        } else if (*d < 0.01) {
+            // < 10ms
+            s = std::to_string((long long int)std::round(*d * 1000000.)) + " us";
+        } else if (*d < 10) {
+            // < 10s
+            s = std::to_string((long long int)std::round(*d * 1000.)) + " ms";
+        } else {
+            s = std::to_string((long long int)std::round(*d)) + " s";
+        }
+    } else {
+        s = "n.a.";
+    }
+    StrUtil::rjustInplace(s, 8);
+    return s;
+}
+
+
 WebSocketUtil::ParseResult WebSocketUtil::parseUrl(const std::string &url) {
     auto parsed = URLParse::urlParse(url);
     const auto &scheme = parsed.getScheme();

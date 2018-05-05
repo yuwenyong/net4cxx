@@ -10,6 +10,7 @@
 #include <boost/regex.hpp>
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/network/protocol.h"
+#include "net4cxx/plugins/websocket/compress.h"
 
 
 NS_BEGIN
@@ -54,11 +55,35 @@ NS_BEGIN
 
 class NET4CXX_COMMON_API WebSocketProtocol: public Protocol {
 public:
+    void connectionMade() override;
+
     static const std::vector<int> SUPPORTED_SPEC_VERSIONS;
 
     static const std::vector<int> SUPPORTED_PROTOCOL_VERSIONS;
 
     static constexpr int DEFAULT_SPEC_VERSION = 18;
+protected:
+    std::string getPeerName() const;
+
+    std::string _peer{"<never connected>"};
+    bool _isServer{false};
+
+    bool _logOctets{false};
+    bool _logFrames{false};
+    bool _trackTimings{false};
+    bool _utf8validateIncomming{false};
+    bool _applyMask{false};
+    size_t _maxFramePayloadSize{0};
+    size_t _maxMessagePayloadSize{0};
+    size_t _autoFragmentSize{0};
+    bool _failByDrop{false};
+    bool _echoCloseCodeReason{false};
+    double _openHandshakeTimeout{0.0};
+    double _closeHandshakeTimeout{0.0};
+    bool _tcpNoDelay{false};
+    double _autoPingInterval{0.0};
+    double _autoPingTimeout{0.0};
+    size_t _autoPingSize{0};
 };
 
 
@@ -79,68 +104,162 @@ public:
 
     void resetProtocolOptions();
 
+    void setLogOctets(bool logOctets) {
+        _logOctets = logOctets;
+    }
+
+    bool getLogOctets() const {
+        return _logOctets;
+    }
+
+    void setLogFrames(bool logFrames) {
+        _logFrames = logFrames;
+    }
+
+    bool getLogFrames() const {
+        return _logFrames;
+    }
+
+    void setTrackTimings(bool trackTimings) {
+        _trackTimings = trackTimings;
+    }
+
+    bool getTrackTimings() const {
+        return _trackTimings;
+    }
+
     void setVersions(std::vector<int> versions);
+
+    std::vector<int> getVersions() const {
+        return _versions;
+    }
 
     void setWebStatus(bool webStatus) {
         _webStatus = webStatus;
+    }
+
+    bool getWebStatus() const {
+        return _webStatus;
     }
 
     void setUtf8ValidateIncoming(bool utf8validateIncoming) {
         _utf8validateIncoming = utf8validateIncoming;
     }
 
+    bool getUtf8ValidateIncoming() const {
+        return _utf8validateIncoming;
+    }
+
     void setRequireMaskedClientFrames(bool requireMaskedClientFrames) {
         _requireMaskedClientFrames = requireMaskedClientFrames;
+    }
+
+    bool getRequireMaskedClientFrames() const {
+        return _requireMaskedClientFrames;
     }
 
     void setMaskServerFrames(bool maskServerFrames) {
         _maskServerFrames = maskServerFrames;
     }
 
+    bool getMaskServerFrames() const {
+        return _maskServerFrames;
+    }
+
     void setApplyMask(bool applyMask) {
         _applyMask = applyMask;
+    }
+
+    bool getApplyMask() const {
+        return _applyMask;
     }
 
     void setMaxFramePayloadSize(size_t maxFramePayloadSize) {
         _maxFramePayloadSize = maxFramePayloadSize;
     }
 
+    size_t getMaxFramePayloadSize() const {
+        return _maxFramePayloadSize;
+    }
+
     void setMaxMessagePayloadSize(size_t maxMessagePayloadSize) {
         _maxMessagePayloadSize = maxMessagePayloadSize;
+    }
+
+    size_t getMaxMessagePayloadSize() const {
+        return _maxMessagePayloadSize;
     }
 
     void setAutoFragmentSize(size_t autoFragmentSize) {
         _autoFragmentSize = autoFragmentSize;
     }
 
+    size_t getAutoFragmentSize() const {
+        return _autoFragmentSize;
+    }
+
     void setFailByDrop(bool failByDrop) {
         _failByDrop = failByDrop;
+    }
+
+    bool getFailByDrop() const {
+        return _failByDrop;
     }
 
     void setEchoCloseCodeReason(bool echoCloseCodeReason) {
         _echoCloseCodeReason = echoCloseCodeReason;
     }
 
+    bool getEchoCloseCodeReason() const {
+        return _echoCloseCodeReason;
+    }
+
     void setOpenHandshakeTimeout(double openHandshakeTimeout) {
         _openHandshakeTimeout = openHandshakeTimeout;
     }
 
-    void setCloseHandshaeTimeout(double closeHandshakeTimeout) {
+    double getOpenHandshakeTimeout() const {
+        return _openHandshakeTimeout;
+    }
+
+    void setCloseHandshakeTimeout(double closeHandshakeTimeout) {
         _closeHandshakeTimeout = closeHandshakeTimeout;
+    }
+
+    double getCloseHandshakeTimeout() const {
+        return _closeHandshakeTimeout;
     }
 
     void setTcpNoDelay(bool tcpNoDelay) {
         _tcpNoDelay = tcpNoDelay;
     }
 
-    // perMessageCompressionAccept
+    bool getTcpNoDelay() const {
+        return _tcpNoDelay;
+    }
+
+    void setPerMessageCompressionAccept(PerMessageCompressionAccept4Server perMessageCompressionAccept) {
+        _perMessageCompressionAccept = std::move(perMessageCompressionAccept);
+    }
+
+    PerMessageCompressionAccept4Server getPerMessageCompressionAccept() const {
+        return _perMessageCompressionAccept;
+    }
 
     void setAutoPingInterval(double autoPingInterval) {
         _autoPingInterval = autoPingInterval;
     }
 
+    double getAutoPingInterval() const {
+        return _autoPingInterval;
+    }
+
     void setAutoPingTimeout(double autoPingTimeout) {
         _autoPingTimeout = autoPingTimeout;
+    }
+
+    double getAutoPingTimeout() const {
+        return _autoPingTimeout;
     }
 
     void setAutoPingSize(size_t autoPingSize) {
@@ -148,26 +267,58 @@ public:
         _autoPingSize = autoPingSize;
     }
 
+    size_t getAutoPingSize() const {
+        return _autoPingSize;
+    }
+
     void setServerFlashSocketPolicy(bool serverFlashSocketPolicy) {
         _serveFlashSocketPolicy = serverFlashSocketPolicy;
+    }
+
+    bool getServerFlashSocketPolicy() const {
+        return _serveFlashSocketPolicy;
     }
 
     void setFlashSocketPolicy(std::string flashSocketPolicy) {
         _flashSocketPolicy = std::move(flashSocketPolicy);
     }
 
+    std::string getFlashSocketPolicy() const {
+        return _flashSocketPolicy;
+    }
+
     void setAllowedOrigins(StringVector allowedOrigins);
+
+    StringVector getAllowedOrigins() const {
+        return _allowedOrigins;
+    }
+
+    std::vector<boost::regex> getAllowedOriginsPatterns() const {
+        return _allowedOriginsPatterns;
+    }
 
     void setAllowNullOrigin(bool allowNullOrigin) {
         _allowNullOrigin = allowNullOrigin;
+    }
+
+    bool getAllowNullOrigin() const {
+        return _allowNullOrigin;
     }
 
     void setMaxConnections(size_t maxConnections) {
         _maxConnections = maxConnections;
     }
 
+    size_t getMaxConnections() const {
+        return _maxConnections;
+    }
+
     void setTrustXForwardedFor(size_t trustXForwardedFor) {
         _trustXForwardedFor = trustXForwardedFor;
+    }
+
+    size_t getTrustXForwardedFor() const {
+        return _trustXForwardedFor;
     }
 
     size_t getConnectionCount() const {
@@ -204,7 +355,7 @@ protected:
     bool _tcpNoDelay{false};
     bool _serveFlashSocketPolicy{false};
     std::string _flashSocketPolicy;
-    // perMessageCompressionAccept
+    PerMessageCompressionAccept4Server _perMessageCompressionAccept;
     double _autoPingInterval{0.0};
     double _autoPingTimeout{0.0};
     size_t _autoPingSize{0};
@@ -233,70 +384,179 @@ public:
 
     void resetProtocolOptions();
 
+    void setLogOctets(bool logOctets) {
+        _logOctets = logOctets;
+    }
+
+    bool getLogOctets() const {
+        return _logOctets;
+    }
+
+    void setLogFrames(bool logFrames) {
+        _logFrames = logFrames;
+    }
+
+    bool getLogFrames() const {
+        return _logFrames;
+    }
+
+    void setTrackTimings(bool trackTimings) {
+        _trackTimings = trackTimings;
+    }
+
+    bool getTrackTimings() const {
+        return _trackTimings;
+    }
+
     void setVersion(int version);
+
+    int getVersion() const {
+        return _version;
+    }
 
     void setUtf8ValidateIncoming(bool utf8validateIncoming) {
         _utf8validateIncoming = utf8validateIncoming;
+    }
+
+    bool getUtf8ValidateIncoming() const {
+        return _utf8validateIncoming;
+    }
+
+    void setAcceptMaskedServerFrames(bool acceptMaskedServerFrames) {
+        _acceptMaskedServerFrames = acceptMaskedServerFrames;
+    }
+
+    bool getAcceptMaskedServerFrames() const {
+        return _acceptMaskedServerFrames;
     }
 
     void setMaskClientFrames(bool maskClientFrames) {
         _maskClientFrames = maskClientFrames;
     }
 
+    bool getMaskClientFrames() const {
+        return _maskClientFrames;
+    }
+
     void setApplyMask(bool applyMask) {
         _applyMask = applyMask;
+    }
+
+    bool getApplyMask() const {
+        return _applyMask;
     }
 
     void setMaxFramePayloadSize(size_t maxFramePayloadSize) {
         _maxFramePayloadSize = maxFramePayloadSize;
     }
 
+    size_t getMaxFramePayloadSize() const {
+        return _maxFramePayloadSize;
+    }
+
     void setMaxMessagePayloadSize(size_t maxMessagePayloadSize) {
         _maxMessagePayloadSize = maxMessagePayloadSize;
+    }
+
+    size_t getMaxMessagePayloadSize() const {
+        return _maxMessagePayloadSize;
     }
 
     void setAutoFragmentSize(size_t autoFragmentSize) {
         _autoFragmentSize = autoFragmentSize;
     }
 
+    size_t getAutoFragmentSize() const {
+        return _autoFragmentSize;
+    }
+
     void setFailByDrop(bool failByDrop) {
         _failByDrop = failByDrop;
+    }
+
+    bool getFailByDrop() const {
+        return _failByDrop;
     }
 
     void setEchoCloseCodeReason(bool echoCloseCodeReason) {
         _echoCloseCodeReason = echoCloseCodeReason;
     }
 
+    bool getEchoCloseCodeReason() const {
+        return _echoCloseCodeReason;
+    }
+
     void setServerConnectionDropTimeout(double serverConnectionDropTimeout) {
         _serverConnectionDropTimeout = serverConnectionDropTimeout;
+    }
+
+    double getServerConnectionDropTimeout() const {
+        return _serverConnectionDropTimeout;
     }
 
     void setOpenHandshakeTimeout(double openHandshakeTimeout) {
         _openHandshakeTimeout = openHandshakeTimeout;
     }
 
+    double getOpenHandshakeTimeout() const {
+        return _openHandshakeTimeout;
+    }
+
     void setCloseHandshaeTimeout(double closeHandshakeTimeout) {
         _closeHandshakeTimeout = closeHandshakeTimeout;
+    }
+
+    double getCloseHandshakeTimeout() const {
+        return _closeHandshakeTimeout;
     }
 
     void setTcpNoDelay(bool tcpNoDelay) {
         _tcpNoDelay = tcpNoDelay;
     }
 
-    // perMessageCompressionOffers
-    // perMessageCompressionAccept
+    bool getTcpNoDelay() const {
+        return _tcpNoDelay;
+    }
+
+    void setPerMessageCompressionOffers(std::vector<PerMessageCompressOfferPtr> perMessageCompressionOffers) {
+        _perMessageCompressionOffers = std::move(perMessageCompressionOffers);
+    }
+
+    std::vector<PerMessageCompressOfferPtr> getPerMessageCompressOffers() const {
+        return _perMessageCompressionOffers;
+    }
+
+    void setPerMessageCompressionAccept(PerMessageCompressionAccept4Client perMessageCompressionAccept) {
+        _perMessageCompressionAccept = std::move(perMessageCompressionAccept);
+    }
+
+    PerMessageCompressionAccept4Client getPerMessageCompressionAccept() const {
+        return _perMessageCompressionAccept;
+    }
 
     void setAutoPingInterval(double autoPingInterval) {
         _autoPingInterval = autoPingInterval;
+    }
+
+    double getAutoPingInterval() const {
+        return _autoPingInterval;
     }
 
     void setAutoPingTimeout(double autoPingTimeout) {
         _autoPingTimeout = autoPingTimeout;
     }
 
+    double getAutoPingTimeout() const {
+        return _autoPingTimeout;
+    }
+
     void setAutoPingSize(size_t autoPingSize) {
         NET4CXX_ASSERT(4 <= autoPingSize && autoPingSize <= 125);
         _autoPingSize = autoPingSize;
+    }
+
+    size_t getAutoPingSize() const {
+        return _autoPingSize;
     }
 protected:
     bool _logOctets{false};
@@ -328,8 +588,8 @@ protected:
     double _openHandshakeTimeout{0.0};
     double _closeHandshakeTimeout{0.0};
     bool _tcpNoDelay{false};
-    // perMessageCompressionOffers
-    // perMessageCompressionAccept
+    std::vector<PerMessageCompressOfferPtr> _perMessageCompressionOffers;
+    PerMessageCompressionAccept4Client _perMessageCompressionAccept;
     double _autoPingInterval{0.0};
     double _autoPingTimeout{0.0};
     size_t _autoPingSize{0};

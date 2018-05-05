@@ -14,12 +14,54 @@ const std::vector<int> WebSocketProtocol::SUPPORTED_PROTOCOL_VERSIONS = {8, 13};
 
 constexpr int WebSocketProtocol::DEFAULT_SPEC_VERSION;
 
-//void WebSocketProtocol::connectionMade() {
-//    _peer = getPeerName();
-//    NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
-//    setNoDelay(_tcpNoDelay);
-//}
-//
+void WebSocketProtocol::connectionMade() {
+    _peer = getPeerName();
+
+    _isServer = std::dynamic_pointer_cast<WebSocketServerFactory>(_factory.lock()) ? true: false;
+    if (_isServer) {
+        auto factory = getFactory<WebSocketServerFactory>();
+        NET4CXX_ASSERT(factory);
+        _logOctets = factory->getLogOctets();
+        _logFrames = factory->getLogFrames();
+        _trackTimings = factory->getTrackTimings();
+        _utf8validateIncomming = factory->getUtf8ValidateIncoming();
+        _applyMask = factory->getApplyMask();
+        _maxFramePayloadSize = factory->getMaxFramePayloadSize();
+        _maxMessagePayloadSize = factory->getMaxMessagePayloadSize();
+        _autoFragmentSize = factory->getAutoFragmentSize();
+        _failByDrop = factory->getFailByDrop();
+        _echoCloseCodeReason = factory->getEchoCloseCodeReason();
+        _openHandshakeTimeout = factory->getOpenHandshakeTimeout();
+        _closeHandshakeTimeout = factory->getCloseHandshakeTimeout();
+        _tcpNoDelay = factory->getTcpNoDelay();
+        _autoPingInterval = factory->getAutoPingInterval();
+        _autoPingTimeout = factory->getAutoPingTimeout();
+        _autoPingSize = factory->getAutoPingSize();
+    } else {
+        auto factory = getFactory<WebSocketClientFactory>();
+        NET4CXX_ASSERT(factory);
+        _logOctets = factory->getLogOctets();
+        _logFrames = factory->getLogFrames();
+        _trackTimings = factory->getTrackTimings();
+        _utf8validateIncomming = factory->getUtf8ValidateIncoming();
+        _applyMask = factory->getApplyMask();
+        _maxFramePayloadSize = factory->getMaxFramePayloadSize();
+        _maxMessagePayloadSize = factory->getMaxMessagePayloadSize();
+        _autoFragmentSize = factory->getAutoFragmentSize();
+        _failByDrop = factory->getFailByDrop();
+        _echoCloseCodeReason = factory->getEchoCloseCodeReason();
+        _openHandshakeTimeout = factory->getOpenHandshakeTimeout();
+        _closeHandshakeTimeout = factory->getCloseHandshakeTimeout();
+        _tcpNoDelay = factory->getTcpNoDelay();
+        _autoPingInterval = factory->getAutoPingInterval();
+        _autoPingTimeout = factory->getAutoPingTimeout();
+        _autoPingSize = factory->getAutoPingSize();
+    }
+
+    NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
+    setNoDelay(_tcpNoDelay);
+}
+
 //void WebSocketProtocol::dataReceived(Byte *data, size_t length) {
 //
 //}
@@ -27,21 +69,21 @@ constexpr int WebSocketProtocol::DEFAULT_SPEC_VERSION;
 //void WebSocketProtocol::connectionLost(std::exception_ptr reason) {
 //
 //}
-//
-//std::string WebSocketProtocol::getPeerName() const {
-//    std::string res;
-//    auto address = getRemoteAddress();
-//    if (NetUtil::isValidIPv4(address)) {
-//        res = "tcp4:" + address + std::to_string(getRemotePort());
-//    } else if (NetUtil::isValidIPv6(address)) {
-//        res = "tcp6:" + address + std::to_string(getRemotePort());
-//    } else if (!address.empty()) {
-//        res = "unix:" + address;
-//    } else {
-//        res = "?:";
-//    }
-//    return res;
-//}
+
+std::string WebSocketProtocol::getPeerName() const {
+    std::string res;
+    auto address = getRemoteAddress();
+    if (NetUtil::isValidIPv4(address)) {
+        res = "tcp4:" + address + std::to_string(getRemotePort());
+    } else if (NetUtil::isValidIPv6(address)) {
+        res = "tcp6:" + address + std::to_string(getRemotePort());
+    } else if (!address.empty()) {
+        res = "unix:" + address;
+    } else {
+        res = "?:";
+    }
+    return res;
+}
 
 
 void WebSocketServerFactory::setSessionParameters(std::string url, StringVector protocols, std::string server,
@@ -101,7 +143,7 @@ void WebSocketServerFactory::resetProtocolOptions() {
 </cross-domain-policy>)";
     _flashSocketPolicy.append(1, '\0');
 
-// perMessageCompressionAccept
+    _perMessageCompressionAccept = nullptr;
 
     _autoPingInterval = 0.0;
     _autoPingTimeout = 0.0;
@@ -175,8 +217,8 @@ void WebSocketClientFactory::resetProtocolOptions() {
     _closeHandshakeTimeout = 1.0f;
     _tcpNoDelay = true;
 
-    // perMessageCompressionOffers
-    // perMessageCompressionAccept
+    _perMessageCompressionOffers.clear();
+    _perMessageCompressionAccept = nullptr;
 
     _autoPingInterval = 0.0f;
     _autoPingTimeout = 0.0f;

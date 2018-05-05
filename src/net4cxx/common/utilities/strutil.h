@@ -24,6 +24,30 @@ public:
         return result;
     }
 
+    static void ljustInplace(std::string &s, size_t width, char fillchar=' ') {
+        if (width > s.length()) {
+            s.append(width - s.length(), fillchar);
+        }
+    }
+
+    static std::string ljust(const std::string &s, size_t width, char fillchar=' ') {
+        std::string result(s);
+        ljustInplace(result, width, fillchar);
+        return result;
+    }
+
+    static void rjustInplace(std::string &s, size_t width, char fillchar=' ') {
+        if (width > s.length()) {
+            s.insert(s.begin(), width - s.length(), fillchar);
+        }
+    }
+
+    static std::string rjust(const std::string &s, size_t width, char fillchar=' ') {
+        std::string result(s);
+        rjustInplace(result, width, fillchar);
+        return result;
+    }
+
     static size_t count(const std::string &s, char c, size_t start=0, size_t len=0);
 
     static size_t count(const std::string &s, const std::string &sub, size_t start=0, size_t len=0);
@@ -64,7 +88,7 @@ public:
     static StringVector splitLines(const std::string &s, bool keepends=false);
 
     static std::string translate(const std::string &s, const std::array<char, 256> &table,
-    const std::vector<char> &deleteChars);
+                                 const std::vector<char> &deleteChars);
 
     static std::string translate(const std::string &s, const std::array<char, 256> &table) {
         std::vector<char> deleteChars;
