@@ -11,51 +11,34 @@
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/plugins/websocket/compress.h"
+#include "net4cxx/plugins/websocket/util.h"
 
 
 NS_BEGIN
 
 
-//class NET4CXX_COMMON_API WebSocketProtocol: public Protocol {
-//public:
-//    enum class State {
-//        CLOSED = 0,
-//        CONNECTING,
-//        CLOSING,
-//        OPEN,
-//        PROXY_CONNECTING,
-//    };
-//
-//    enum class SendState {
-//        GROUND = 0,
-//        MESSAGE_BEGIN,
-//        INSIDE_MESSAGE,
-//        INSIDE_MESSAGE_FRAME,
-//    };
-//
-//    explicit WebSocketProtocol(WebSocketOptions *options)
-//            : _options(options) {
-//
-//    }
-//
-//    void connectionMade() override;
-//
+class NET4CXX_COMMON_API WebSocketProtocol: public Protocol {
+public:
+    enum class State {
+        CLOSED = 0,
+        CONNECTING,
+        CLOSING,
+        OPEN,
+        PROXY_CONNECTING,
+    };
+
+    enum class SendState {
+        GROUND = 0,
+        MESSAGE_BEGIN,
+        INSIDE_MESSAGE,
+        INSIDE_MESSAGE_FRAME,
+    };
+
+    void connectionMade() override;
+
 //    void dataReceived(Byte *data, size_t length) override;
 //
 //    void connectionLost(std::exception_ptr reason) override;
-//
-//protected:
-//    std::string getPeerName() const;
-//
-//    WebSocketOptions *_options{nullptr};
-//    std::string _peer{"<never connected>"};
-//    bool _tcpNoDelay{false};
-//};
-
-
-class NET4CXX_COMMON_API WebSocketProtocol: public Protocol {
-public:
-    void connectionMade() override;
 
     static const std::vector<int> SUPPORTED_SPEC_VERSIONS;
 
@@ -65,9 +48,11 @@ public:
 protected:
     std::string getPeerName() const;
 
+    void setTrackTimings(bool enable);
+
     std::string _peer{"<never connected>"};
     bool _isServer{false};
-
+    // common
     bool _logOctets{false};
     bool _logFrames{false};
     bool _trackTimings{false};
@@ -84,6 +69,35 @@ protected:
     double _autoPingInterval{0.0};
     double _autoPingTimeout{0.0};
     size_t _autoPingSize{0};
+    // server
+    std::vector<int> _versions;
+    bool _webStatus{false};
+    bool _requireMaskedClientFrames{false};
+    bool _maskServerFrames{false};
+    PerMessageCompressionAccept4Server _perMessageCompressionAccept4Server;
+    bool _serverFlashSocketPolicy{false};
+    std::string _flashSocketPolicy;
+    StringVector _allowedOrigins;
+    std::vector<boost::regex> _allowedOriginsPatterns;
+    bool _allowNullOrigin{false};
+    size_t _maxConnections{0};
+    size_t _trustXForwardedFor{0};
+    // client
+    int _version{0};
+    bool _acceptMaskedServerFrames{false};
+    bool _maskClientFrames{false};
+    double _serverConnectionDropTimeout{0.0};
+    std::vector<PerMessageCompressOfferPtr> _perMessageCompressionOffers;
+    PerMessageCompressionAccept4Client _perMessageCompressionAccept4Client;
+    // extra
+    PerMessageCompressPtr _perMessageCompress;
+    boost::optional<Timings> _trackedTimings;
+    TrafficStats _trafficStats;
+    State _state;
+    SendState _sendState;
+    ByteArray _data;
+    std::deque<std::pair<ByteArray, bool>> _sendQueue;
+    bool _triggered{false};
 };
 
 
@@ -408,6 +422,10 @@ public:
         return _trackTimings;
     }
 
+    std::string getProxy() const {
+        return _proxy;
+    }
+
     void setVersion(int version);
 
     int getVersion() const {
@@ -522,7 +540,7 @@ public:
         _perMessageCompressionOffers = std::move(perMessageCompressionOffers);
     }
 
-    std::vector<PerMessageCompressOfferPtr> getPerMessageCompressOffers() const {
+    std::vector<PerMessageCompressOfferPtr> getPerMessageCompressionOffers() const {
         return _perMessageCompressionOffers;
     }
 

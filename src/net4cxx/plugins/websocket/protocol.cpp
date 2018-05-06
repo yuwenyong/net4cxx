@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/plugins/websocket/protocol.h"
-#include "net4cxx/plugins/websocket/util.h"
 
 
 NS_BEGIN
@@ -37,6 +36,21 @@ void WebSocketProtocol::connectionMade() {
         _autoPingInterval = factory->getAutoPingInterval();
         _autoPingTimeout = factory->getAutoPingTimeout();
         _autoPingSize = factory->getAutoPingSize();
+
+        _versions = factory->getVersions();
+        _webStatus = factory->getWebStatus();
+        _requireMaskedClientFrames = factory->getRequireMaskedClientFrames();
+        _maskServerFrames = factory->getMaskServerFrames();
+        _perMessageCompressionAccept4Server = factory->getPerMessageCompressionAccept();
+        _serverFlashSocketPolicy = factory->getServerFlashSocketPolicy();
+        _flashSocketPolicy = factory->getFlashSocketPolicy();
+        _allowedOrigins = factory->getAllowedOrigins();
+        _allowedOriginsPatterns = factory->getAllowedOriginsPatterns();
+        _allowNullOrigin = factory->getAllowNullOrigin();
+        _maxConnections = factory->getMaxConnections();
+        _trustXForwardedFor = factory->getTrustXForwardedFor();
+
+        _state = State::CONNECTING;
     } else {
         auto factory = getFactory<WebSocketClientFactory>();
         NET4CXX_ASSERT(factory);
@@ -56,7 +70,23 @@ void WebSocketProtocol::connectionMade() {
         _autoPingInterval = factory->getAutoPingInterval();
         _autoPingTimeout = factory->getAutoPingTimeout();
         _autoPingSize = factory->getAutoPingSize();
+
+        _version = factory->getVersion();
+        _acceptMaskedServerFrames = factory->getAcceptMaskedServerFrames();
+        _maskClientFrames = factory->getMaskClientFrames();
+        _serverConnectionDropTimeout = factory->getServerConnectionDropTimeout();
+        _perMessageCompressionAccept4Client = factory->getPerMessageCompressionAccept();
+        _perMessageCompressionOffers = factory->getPerMessageCompressionOffers();
+
+        if (factory->getProxy().empty()) {
+            _state = State::CONNECTING;
+        } else {
+            _state = State::PROXY_CONNECTING;
+        }
     }
+
+    setTrackTimings(_trackTimings);
+    _sendState = SendState::GROUND;
 
     NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
     setNoDelay(_tcpNoDelay);
@@ -83,6 +113,14 @@ std::string WebSocketProtocol::getPeerName() const {
         res = "?:";
     }
     return res;
+}
+
+void WebSocketProtocol::setTrackTimings(bool enable) {
+    if (enable) {
+        _trackedTimings = Timings{};
+    } else {
+        _trackedTimings = boost::none;
+    }
 }
 
 
