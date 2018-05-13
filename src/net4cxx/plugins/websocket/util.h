@@ -99,6 +99,8 @@ public:
 
 class TrafficStats {
 public:
+    friend class WebSocketProtocol;
+
     void reset();
 
     JSONValue toJson() const;

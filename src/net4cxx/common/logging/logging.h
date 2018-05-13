@@ -399,7 +399,7 @@ NS_END
 #define NET4CXX_LOG_DEBUG(...)
 #endif
 #define NET4CXX_LOG_INFO(...)       net4cxx::LoggingHelper::info(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
-#define NET4CXX_LOG_WARN(...)       net4cxx::LoggingHelper::warning(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_LOG_WARN(...)       net4cxx::LoggingHelper::warn(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #define NET4CXX_LOG_ERROR(...)      net4cxx::LoggingHelper::error(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 #define NET4CXX_LOG_FATAL(...)      net4cxx::LoggingHelper::fatal(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
 

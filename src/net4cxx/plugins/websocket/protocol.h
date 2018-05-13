@@ -11,13 +11,14 @@
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/plugins/websocket/compress.h"
+#include "net4cxx/plugins/websocket/utf8validator.h"
 #include "net4cxx/plugins/websocket/util.h"
 
 
 NS_BEGIN
 
 
-class NET4CXX_COMMON_API WebSocketProtocol: public Protocol {
+class NET4CXX_COMMON_API WebSocketProtocol: public Protocol, public std::enable_shared_from_this<WebSocketProtocol> {
 public:
     enum class State {
         CLOSED = 0,
@@ -36,9 +37,14 @@ public:
 
     void connectionMade() override;
 
-//    void dataReceived(Byte *data, size_t length) override;
-//
+    void dataReceived(Byte *data, size_t length) override;
+
 //    void connectionLost(std::exception_ptr reason) override;
+
+    template <typename SelfT>
+    std::shared_ptr<SelfT> getSelf() const {
+        return std::static_pointer_cast<SelfT>(shared_from_this());
+    }
 
     static const std::vector<int> SUPPORTED_SPEC_VERSIONS;
 
@@ -49,6 +55,25 @@ protected:
     std::string getPeerName() const;
 
     void setTrackTimings(bool enable);
+
+    void onOpenHandshakeTimeout();
+
+    void dropConnection(bool abort=false);
+
+    void closeConnection(bool abort=false) {
+        if (abort) {
+            abortConnection();
+        } else {
+            loseConnection();
+        }
+    }
+
+    void consumeData();
+
+    void logRxOctets(const Byte *data, size_t len) {
+        NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s:", _peer.c_str());
+        NET4CXX_LOG_DEBUG(gGenLog, data, len);
+    }
 
     std::string _peer{"<never connected>"};
     bool _isServer{false};
@@ -98,6 +123,29 @@ protected:
     ByteArray _data;
     std::deque<std::pair<ByteArray, bool>> _sendQueue;
     bool _triggered{false};
+    Utf8Validator _utf8validator;
+    bool _wasMaxFramePayloadSizeExceeded{false};
+    bool _wasMaxMessagePayloadSizeExceeded{false};
+    bool _closedByMe{false};
+    bool _failedByMe{false};
+    bool _droppedByMe{false};
+    bool _wasClean{false};
+    boost::optional<std::string> _wasNotCleanReason;
+    bool _wasServerConnectionDropTimeout{false};
+    bool _wasOpenHandshakeTimeout{false};
+    bool _wasCloseHandshakeTimeout{false};
+    bool _wasServingFlashSocketPolicyFile{false};
+    boost::optional<unsigned short> _localCloseCode;
+    boost::optional<std::string> _localCloseReason;
+    boost::optional<unsigned short> _remoteCloseCode;
+    boost::optional<std::string> _remoteCloseReason;
+    // timers
+    DelayedCall _serverConnectionDropTimeoutCall;
+    DelayedCall _openHandshakeTimeoutCall;
+    DelayedCall _closeHandshakeTimeoutCall;
+    DelayedCall _autoPingTimeoutCall;
+    boost::optional<std::string> _autoPingPending;
+    DelayedCall _autoPingPendingCall;
 };
 
 

@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/plugins/websocket/protocol.h"
+#include "net4cxx/core/network/reactor.h"
 
 
 NS_BEGIN
@@ -90,12 +91,28 @@ void WebSocketProtocol::connectionMade() {
 
     NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
     setNoDelay(_tcpNoDelay);
+
+    if (_openHandshakeTimeout > 0.0) {
+        _openHandshakeTimeoutCall = reactor()->callLater(_openHandshakeTimeout, [self = shared_from_this(), this](){
+            onOpenHandshakeTimeout();
+        });
+    }
 }
 
-//void WebSocketProtocol::dataReceived(Byte *data, size_t length) {
-//
-//}
-//
+void WebSocketProtocol::dataReceived(Byte *data, size_t length) {
+    if (_state == State::OPEN) {
+        _trafficStats._incomingOctetsWireLevel += length;
+    } else if (_state == State::CONNECTING || _state == State::PROXY_CONNECTING) {
+        _trafficStats._preopenIncomingOctetsWireLevel += length;
+    }
+
+    if (_logOctets) {
+        logRxOctets(data, length);
+    }
+    _data.insert(_data.end(), data, data + length);
+    consumeData();
+}
+
 //void WebSocketProtocol::connectionLost(std::exception_ptr reason) {
 //
 //}
@@ -121,6 +138,45 @@ void WebSocketProtocol::setTrackTimings(bool enable) {
     } else {
         _trackedTimings = boost::none;
     }
+}
+
+void WebSocketProtocol::onOpenHandshakeTimeout() {
+    if (_state == State::CONNECTING || _state == State::PROXY_CONNECTING) {
+        _wasClean = false;
+        _wasNotCleanReason = "WebSocket opening handshake timeout (peer did not finish the opening handshake in time)";
+        _wasOpenHandshakeTimeout = true;
+        dropConnection(true);
+    } else if (_state == State::OPEN){
+        NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake timeout: WebSocket connection is open "
+                                   "(opening handshake already finished)");
+    } else if (_state == State::CLOSING) {
+        NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake timeout: WebSocket connection is already closing ..");
+    } else if (_state == State::CLOSED) {
+        NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake timeout: WebSocket connection is already closed");
+    } else {
+        NET4CXX_ASSERT_MSG(false, "logic error");
+    }
+}
+
+void WebSocketProtocol::dropConnection(bool abort) {
+    if (_state != State::CLOSED) {
+        if (_wasClean) {
+            NET4CXX_LOG_DEBUG(gGenLog, "dropping connection to peer %s with abort=%s", _peer.c_str(),
+                              abort ? "true" : "false");
+        } else {
+            NET4CXX_LOG_WARN(gGenLog, "dropping connection to peer %s with abort=%s: %s", _peer.c_str(),
+                             abort ? "true" : "false", _wasNotCleanReason ? _wasNotCleanReason->c_str() : "None");
+        }
+        _droppedByMe = true;
+        _state = State::CLOSED;
+        closeConnection(abort);
+    } else {
+        NET4CXX_LOG_DEBUG(gGenLog, "dropping connection to peer %s skipped - connection already closed", _peer.c_str());
+    }
+}
+
+void WebSocketProtocol::consumeData() {
+
 }
 
 

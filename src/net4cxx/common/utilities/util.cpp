@@ -46,7 +46,7 @@ DateTime DateTimeUtil::parseUTCDate(const std::string &date) {
 }
 
 
-std::string BinAscii::b2aHex(const ByteArray &s, bool reverse) {
+std::string BinAscii::hexlify(const ByteArray &s, bool reverse) {
     int init = 0;
     int end = (int)s.size();
     int op = 1;
@@ -64,7 +64,7 @@ std::string BinAscii::b2aHex(const ByteArray &s, bool reverse) {
     return ss.str();
 }
 
-ByteArray BinAscii::a2bHex(const std::string &s, bool reverse) {
+ByteArray BinAscii::unhexlify(const std::string &s, bool reverse) {
     ByteArray out;
     if (s.length() & 1) {
         return out;

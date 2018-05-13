@@ -66,9 +66,9 @@ public:
 
 class BinAscii {
 public:
-    static std::string b2aHex(const ByteArray &s, bool reverse= false);
+    static std::string hexlify(const ByteArray &s, bool reverse= false);
 
-    static ByteArray a2bHex(const std::string &s, bool reverse= false);
+    static ByteArray unhexlify(const std::string &s, bool reverse= false);
 };
 
 
