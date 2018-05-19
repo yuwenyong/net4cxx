@@ -10,6 +10,7 @@
 #include <boost/regex.hpp>
 #include "net4cxx/common/configuration/json.h"
 #include "net4cxx/common/httputils/urlparse.h"
+#include "net4cxx/common/utilities/util.h"
 
 
 NS_BEGIN
@@ -94,6 +95,15 @@ public:
     static ParseResult parseUrl(const std::string &url);
 
     static std::vector<boost::regex> wildcardsToPatterns(const StringVector &wildcards);
+
+    static std::string truncate(const std::string &text, size_t limit) {
+        if (text.size() > limit) {
+            std::string result(text.begin(), text.begin() + limit);
+            return result;
+        } else {
+            return text;
+        }
+    }
 };
 
 
@@ -121,6 +131,58 @@ protected:
 
     size_t _preopenOutgoingOctetsWireLevel{0};
     size_t _preopenIncomingOctetsWireLevel{0};
+};
+
+
+class FrameHeader {
+public:
+    friend class WebSocketProtocol;
+
+    FrameHeader(Byte opcode, bool fin, Byte rsv, uint64_t length, const boost::optional<WebSocketMask> &mask)
+            : _opcode(opcode)
+            , _fin(fin)
+            , _rsv(rsv)
+            , _length(length)
+            , _mask(mask) {
+
+    }
+protected:
+    Byte _opcode;
+    bool _fin;
+    Byte _rsv;
+    uint64_t _length;
+    boost::optional<WebSocketMask> _mask;
+};
+
+
+class NET4CXX_COMMON_API HexFormatter {
+public:
+    template <size_t ArrayLen>
+    HexFormatter(const std::array<Byte, ArrayLen> &data)
+            : HexFormatter(data.data(), ArrayLen) {
+
+    }
+
+    HexFormatter(const Byte *data, size_t length)
+            : _data(data, data + length) {
+
+    }
+
+    HexFormatter(const ByteArray &data)
+            : _data(data) {
+
+    }
+
+    HexFormatter(ByteArray &&data)
+            : _data(std::move(data)) {
+
+    }
+
+    std::string toString() const {
+        return BinAscii::hexlify(_data);
+    }
+protected:
+    ByteArray _data;
 };
 
 

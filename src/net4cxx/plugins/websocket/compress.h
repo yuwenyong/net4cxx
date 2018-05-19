@@ -7,10 +7,12 @@
 
 #include "net4cxx/plugins/websocket/base.h"
 
+
 NS_BEGIN
 
 class PerMessageCompressOffer {
 public:
+    virtual std::string getExtensionString() const = 0;
     virtual ~PerMessageCompressOffer();
 };
 
@@ -43,6 +45,7 @@ using PerMessageCompressResponseAcceptPtr = std::shared_ptr<PerMessageCompressRe
 
 class PerMessageCompress {
 public:
+    virtual std::string getExtensionName() const = 0;
     virtual ~PerMessageCompress();
 };
 
@@ -53,6 +56,34 @@ using PerMessageCompressionAccept4Server = std::function<
 
 using PerMessageCompressionAccept4Client = std::function<
         PerMessageCompressResponseAcceptPtr (PerMessageCompressResponsePtr)>;
+
+
+class PerMessageDeflate {
+public:
+    static const char * EXTENSION_NAME;
+    static const std::vector<size_t> WINDOW_SIZE_PERMISSIBLE_VALUES;
+    static const std::vector<int> MEM_LEVEL_PERMISSIBLE_VALUES;
+};
+
+
+class PerMessageDeflateOffer: public PerMessageCompressOffer {
+public:
+    PerMessageDeflateOffer(bool acceptNoContextTakeover, bool acceptMaxWindowBits, bool requestNoContextTakeover,
+                           size_t requestMaxWindowBits)
+            : _acceptNoContextTakeover(acceptNoContextTakeover)
+            , _acceptMaxWindowBits(acceptMaxWindowBits)
+            , _requestNoContextTakeover(requestNoContextTakeover)
+            , _requestMaxWindowBits(requestMaxWindowBits) {
+
+    }
+
+    std::string getExtensionString() const override;
+protected:
+    bool _acceptNoContextTakeover;
+    bool _acceptMaxWindowBits;
+    bool _requestNoContextTakeover;
+    size_t _requestMaxWindowBits;
+};
 
 NS_END
 

@@ -13,6 +13,7 @@
 #include "net4cxx/plugins/websocket/compress.h"
 #include "net4cxx/plugins/websocket/utf8validator.h"
 #include "net4cxx/plugins/websocket/util.h"
+#include "net4cxx/plugins/websocket/xormasker.h"
 
 
 NS_BEGIN
@@ -35,11 +36,35 @@ public:
         INSIDE_MESSAGE_FRAME,
     };
 
+    enum CloseStatus: unsigned short {
+        CLOSE_STATUS_CODE_NONE = 0,
+        CLOSE_STATUS_CODE_NORMAL = 1000,
+        CLOSE_STATUS_CODE_GOING_AWAY = 1001,
+        CLOSE_STATUS_CODE_PROTOCOL_ERROR = 1002,
+        CLOSE_STATUS_CODE_UNSUPPORTED_DATA = 1003,
+        CLOSE_STATUS_CODE_RESERVED1 = 1004,
+        CLOSE_STATUS_CODE_NULL = 1005,
+        CLOSE_STATUS_CODE_ABNORMAL_CLOSE = 1006,
+        CLOSE_STATUS_CODE_INVALID_PAYLOAD = 1007,
+        CLOSE_STATUS_CODE_POLICY_VIOLATION = 1008,
+        CLOSE_STATUS_CODE_MESSAGE_TOO_BIG = 1009,
+        CLOSE_STATUS_CODE_MANDATORY_EXTENSION = 1010,
+        CLOSE_STATUS_CODE_INTERNAL_ERROR = 1011,
+        CLOSE_STATUS_CODE_SERVICE_RESTART = 1012,
+        CLOSE_STATUS_CODE_TRY_AGAIN_LATER = 1013,
+        CLOSE_STATUS_CODE_UNASSIGNED1 = 1014,
+        CLOSE_STATUS_CODE_TLS_HANDSHAKE_FAILED = 1015
+    };
+
     void connectionMade() override;
 
     void dataReceived(Byte *data, size_t length) override;
 
 //    void connectionLost(std::exception_ptr reason) override;
+
+    virtual void processProxyConnect() = 0;
+
+    virtual void processHandshake() = 0;
 
     template <typename SelfT>
     std::shared_ptr<SelfT> getSelf() const {
@@ -58,6 +83,10 @@ protected:
 
     void onOpenHandshakeTimeout();
 
+    void onCloseHandshakeTimeout() {
+
+    }
+
     void dropConnection(bool abort=false);
 
     void closeConnection(bool abort=false) {
@@ -70,9 +99,70 @@ protected:
 
     void consumeData();
 
+    bool processData();
+
+    bool protocolViolation(const std::string &reason) {
+        NET4CXX_LOG_DEBUG(gGenLog, "Protocol violation: %s", reason.c_str());
+        failConnection(CLOSE_STATUS_CODE_PROTOCOL_ERROR, reason);
+        return _failByDrop;
+    }
+
+    void failConnection(CloseStatus code=CLOSE_STATUS_CODE_GOING_AWAY, const std::string &reason="going away");
+
+    void sendCloseFrame(CloseStatus code=CLOSE_STATUS_CODE_NONE, const std::string &reason="", bool isReply=false);
+
+    void sendFrame(Byte opcode, const ByteArray &payload={}, bool fin=true, Byte rsv=0u,
+                   boost::optional<WebSocketMask> mask={}, size_t payloadLen=0, size_t chopsize=0, bool sync=false);
+
+    void sendData(const ByteArray &data, bool sync=false, size_t chopsize=0);
+
+    void trigger() {
+        if (!_triggered) {
+            _triggered = true;
+            send();
+        }
+    }
+
+    void send();
+
+    bool onFrameBegin() {
+        return true;
+    }
+
+    bool onFrameData(ByteArray payload) {
+        return true;
+    }
+
+    bool onFrameEnd() {
+        return true;
+    }
+
     void logRxOctets(const Byte *data, size_t len) {
-        NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s:", _peer.c_str());
-        NET4CXX_LOG_DEBUG(gGenLog, data, len);
+        NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s: octets = %s", _peer.c_str(),
+                          HexFormatter(data, len).toString().c_str());
+    }
+
+    void logTxOctets(const ByteArray &data, bool sync) {
+        NET4CXX_LOG_DEBUG(gGenLog, "TxOctets to %s: sync = %s, octets = %s", _peer.c_str(), sync ? "true" : "false",
+                          HexFormatter(data).toString().c_str());
+    }
+
+    void logTxFrame(const FrameHeader &frameHeader, const ByteArray &payload, size_t repeatLength, size_t chopsize,
+                    bool sync) {
+        NET4CXX_LOG_DEBUG(gGenLog, "TX Frame to %s: fin = %s, rsv = %u, opcode = %u, mask = %s, length = %llu, "
+                                   "repeat_length = %llu, chopsize = %llu, sync = %s, payload = %s",
+                          _peer.c_str(),
+                          frameHeader._fin ? "true" : "false",
+                          (unsigned)frameHeader._rsv,
+                          (unsigned)frameHeader._opcode,
+                          frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
+                          frameHeader._length,
+                          (uint64)repeatLength,
+                          (uint64_t)chopsize,
+                          sync ? "true" : "false",
+                          frameHeader._opcode == 1u ?
+                          BytesToString(payload).c_str() :
+                          HexFormatter(payload).toString().c_str());
     }
 
     std::string _peer{"<never connected>"};
@@ -135,7 +225,7 @@ protected:
     bool _wasOpenHandshakeTimeout{false};
     bool _wasCloseHandshakeTimeout{false};
     bool _wasServingFlashSocketPolicyFile{false};
-    boost::optional<unsigned short> _localCloseCode;
+    CloseStatus _localCloseCode{CLOSE_STATUS_CODE_NONE};
     boost::optional<std::string> _localCloseReason;
     boost::optional<unsigned short> _remoteCloseCode;
     boost::optional<std::string> _remoteCloseReason;
@@ -146,6 +236,12 @@ protected:
     DelayedCall _autoPingTimeoutCall;
     boost::optional<std::string> _autoPingPending;
     DelayedCall _autoPingPendingCall;
+    // runtime
+    bool _insideMessage{false};
+    boost::optional<FrameHeader> _currentFrame;
+    std::unique_ptr<XorMasker> _currentFrameMasker;
+
+    static const double QUEUED_WRITE_DELAY;
 };
 
 

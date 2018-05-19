@@ -9,7 +9,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
-#include <boost/ptr_container/ptr_vector.hpp>
 
 
 NS_BEGIN
@@ -69,34 +68,6 @@ public:
     static std::string hexlify(const ByteArray &s, bool reverse= false);
 
     static ByteArray unhexlify(const std::string &s, bool reverse= false);
-};
-
-
-template <typename T>
-class PtrVector: public boost::ptr_vector<T> {
-public:
-    typedef boost::ptr_vector<T> BaseType;
-    using boost::ptr_vector<T>::ptr_vector;
-
-    PtrVector() = default;
-
-    PtrVector(std::initializer_list<T*> il)
-            : BaseType() {
-        for (auto p: il) {
-            BaseType::push_back(p);
-        }
-    }
-
-    PtrVector(PtrVector &&r) noexcept
-            : BaseType() {
-        BaseType::swap(r);
-    }
-
-    PtrVector& operator=(PtrVector &&r) noexcept {
-        BaseType::clear();
-        BaseType::swap(r);
-        return *this;
-    }
 };
 
 NS_END

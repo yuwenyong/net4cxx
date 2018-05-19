@@ -11,4 +11,10 @@
 #include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/common/global/loggers.h"
 
+NS_BEGIN
+
+using WebSocketMask = std::array<Byte, 4>;
+
+NS_END
+
 #endif //NET4CXX_PLUGINS_WEBSOCKET_BASE_H
