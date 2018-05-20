@@ -76,6 +76,10 @@ public:
     static const std::vector<int> SUPPORTED_PROTOCOL_VERSIONS;
 
     static constexpr int DEFAULT_SPEC_VERSION = 18;
+
+    static constexpr unsigned MESSAGE_TYPE_TEXT = 1;
+
+    static constexpr unsigned MESSAGE_TYPE_BINARY = 2;
 protected:
     std::string getPeerName() const;
 
@@ -83,9 +87,7 @@ protected:
 
     void onOpenHandshakeTimeout();
 
-    void onCloseHandshakeTimeout() {
-
-    }
+    void onCloseHandshakeTimeout();
 
     void dropConnection(bool abort=false);
 
@@ -107,6 +109,12 @@ protected:
         return _failByDrop;
     }
 
+    bool invalidPayload(const std::string &reason) {
+        NET4CXX_LOG_DEBUG(gGenLog, "Invalid payload: %s", reason.c_str());
+        failConnection(CLOSE_STATUS_CODE_INVALID_PAYLOAD, reason);
+        return _failByDrop;
+    }
+
     void failConnection(CloseStatus code=CLOSE_STATUS_CODE_GOING_AWAY, const std::string &reason="going away");
 
     void sendCloseFrame(CloseStatus code=CLOSE_STATUS_CODE_NONE, const std::string &reason="", bool isReply=false);
@@ -125,17 +133,21 @@ protected:
 
     void send();
 
-    bool onFrameBegin() {
-        return true;
+    bool onFrameBegin();
+
+    void onMessageBegin(bool isBinary) {
+        _messageIsBinary = isBinary;
+        _messageData.clear();
+        _messageDataTotalLength = 0;
     }
 
-    bool onFrameData(ByteArray payload) {
-        return true;
-    }
+    void onMessageFrameBegin(uint64_t length);
 
-    bool onFrameEnd() {
-        return true;
-    }
+    bool onFrameData(ByteArray payload);
+
+    void onMessageFrameData(ByteArray payload);
+
+    bool onFrameEnd(); // todo
 
     void logRxOctets(const Byte *data, size_t len) {
         NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s: octets = %s", _peer.c_str(),
@@ -145,6 +157,20 @@ protected:
     void logTxOctets(const ByteArray &data, bool sync) {
         NET4CXX_LOG_DEBUG(gGenLog, "TxOctets to %s: sync = %s, octets = %s", _peer.c_str(), sync ? "true" : "false",
                           HexFormatter(data).toString().c_str());
+    }
+
+    void logRxFrame(const FrameHeader &frameHeader, const ByteArray &payload) {
+        NET4CXX_LOG_DEBUG(gGenLog, "RX Frame from %s: fin = %s, rsv = %u, opcode = %u, mask = %s, length = %llu, "
+                                   "payload = %s",
+                          _peer.c_str(),
+                          frameHeader._fin ? "true" : "false",
+                          (unsigned)frameHeader._rsv,
+                          (unsigned)frameHeader._opcode,
+                          frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
+                          frameHeader._length,
+                          frameHeader._opcode == 1u ?
+                          BytesToString(payload).c_str() :
+                          HexFormatter(payload).toString().c_str());
     }
 
     void logTxFrame(const FrameHeader &frameHeader, const ByteArray &payload, size_t repeatLength, size_t chopsize,
@@ -238,8 +264,18 @@ protected:
     DelayedCall _autoPingPendingCall;
     // runtime
     bool _insideMessage{false};
+    bool _isMessageCompressed{false};
+    bool _utf8validateIncomingCurrentMessage{false};
+    bool _messageIsBinary{false};
+    int _websocketVersion{0};
+    uint64_t _messageDataTotalLength{0};
+    uint64_t _frameLength{0};
     boost::optional<FrameHeader> _currentFrame;
     std::unique_ptr<XorMasker> _currentFrameMasker;
+    ByteArray _controlFrameData;
+    ByteArray _messageData;
+    ByteArray _frameData;
+    Utf8Validator::ValidateResult _utf8validateLast;
 
     static const double QUEUED_WRITE_DELAY;
 };

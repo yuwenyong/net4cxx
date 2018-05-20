@@ -32,6 +32,14 @@ inline bool IsIntegral(double d) {
     return modf(d, &integralPart) == 0.0;
 }
 
+inline void ConcatBuffer(ByteArray &b1, ByteArray &&b2) {
+    if (b1.empty()) {
+        b1 = std::move(b2);
+    } else {
+        b1.insert(b1.end(), b2.begin(), b2.end());
+    }
+}
+
 
 class JsonUtil {
 public:

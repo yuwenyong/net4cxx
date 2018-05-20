@@ -158,8 +158,8 @@ protected:
 class NET4CXX_COMMON_API HexFormatter {
 public:
     template <size_t ArrayLen>
-    HexFormatter(const std::array<Byte, ArrayLen> &data)
-            : HexFormatter(data.data(), ArrayLen) {
+    explicit HexFormatter(const std::array<Byte, ArrayLen> &data)
+            : HexFormatter(data.data(), data.size()) {
 
     }
 
@@ -168,12 +168,12 @@ public:
 
     }
 
-    HexFormatter(const ByteArray &data)
+    explicit HexFormatter(const ByteArray &data)
             : _data(data) {
 
     }
 
-    HexFormatter(ByteArray &&data)
+    explicit HexFormatter(ByteArray &&data)
             : _data(std::move(data)) {
 
     }

@@ -16,6 +16,10 @@ const std::vector<int> WebSocketProtocol::SUPPORTED_PROTOCOL_VERSIONS = {8, 13};
 
 constexpr int WebSocketProtocol::DEFAULT_SPEC_VERSION;
 
+constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_TEXT;
+
+constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_BINARY;
+
 const double WebSocketProtocol::QUEUED_WRITE_DELAY = 0.00001;
 
 void WebSocketProtocol::connectionMade() {
@@ -159,6 +163,17 @@ void WebSocketProtocol::onOpenHandshakeTimeout() {
         NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake timeout: WebSocket connection is already closed");
     } else {
         NET4CXX_ASSERT_MSG(false, "logic error");
+    }
+}
+
+void WebSocketProtocol::onCloseHandshakeTimeout() {
+    if (_state != State::CLOSED) {
+        _wasClean = false;
+        _wasNotCleanReason = "WebSocket closing handshake timeout (peer did not finish the opening handshake in time)";
+        _wasCloseHandshakeTimeout = true;
+        dropConnection(true);
+    } else {
+        NET4CXX_LOG_DEBUG(gGenLog, "skipping closing handshake timeout: WebSocket connection is already closed");
     }
 }
 
@@ -508,13 +523,13 @@ void WebSocketProtocol::sendData(const ByteArray &data, bool sync, size_t chopsi
                 done = true;
                 j = n;
             }
-            _sendQueue.push_back(std::make_pair(ByteArray(data.begin() + i, data.begin() + j), true));
+            _sendQueue.emplace_back(std::make_pair(ByteArray(data.begin() + i, data.begin() + j), true));
             i += chopsize;
         }
         trigger();
     } else {
-        if (sync || _sendQueue.size() > 0) {
-            _sendQueue.push_back(std::make_pair(data, sync));
+        if (sync || !_sendQueue.empty()) {
+            _sendQueue.emplace_back(std::make_pair(data, sync));
             trigger();
         } else {
             write(data);
@@ -558,6 +573,114 @@ void WebSocketProtocol::send() {
     } else {
         _triggered = false;
     }
+}
+
+bool WebSocketProtocol::onFrameBegin() {
+    if (_currentFrame->_opcode > 7u) {
+        _controlFrameData.clear();
+    } else {
+        if (!_insideMessage) {
+            _insideMessage = true;
+
+            if (_perMessageCompress && _currentFrame->_rsv == 4u) {
+                _isMessageCompressed = true;
+                _perMessageCompress->startCompressMessage();
+            } else {
+                _isMessageCompressed = false;
+            }
+
+            if (_currentFrame->_opcode == MESSAGE_TYPE_TEXT && _utf8validateIncomming) {
+                _utf8validator.reset();
+                _utf8validateIncomingCurrentMessage = true;
+                _utf8validateLast = std::make_tuple(true, true, 0, 0);
+            } else {
+                _utf8validateIncomingCurrentMessage = false;
+            }
+
+            if (_trackedTimings) {
+                _trackedTimings->track("onMessageBegin");
+            }
+            onMessageBegin(_currentFrame->_opcode == MESSAGE_TYPE_BINARY);
+        }
+        onMessageFrameBegin(_currentFrame->_length);
+    }
+    return true;
+}
+
+void WebSocketProtocol::onMessageFrameBegin(uint64_t length) {
+    _frameLength = length;
+    _frameData.clear();
+    _messageDataTotalLength += length;
+    if (!_failedByMe) {
+        if (0 < _maxMessagePayloadSize && _maxMessagePayloadSize < _messageDataTotalLength) {
+            _wasMaxMessagePayloadSizeExceeded = true;
+            failConnection(CLOSE_STATUS_CODE_MESSAGE_TOO_BIG, "message exceeds payload limit of " +
+                                                              std::to_string(_maxMessagePayloadSize) + " octets");
+        } else if (0 < _maxFramePayloadSize && _maxFramePayloadSize < length) {
+            _wasMaxFramePayloadSizeExceeded = true;
+            failConnection(CLOSE_STATUS_CODE_POLICY_VIOLATION, "frame exceeds payload limit of " +
+                                                               std::to_string(_maxFramePayloadSize) + " octets");
+        }
+    }
+}
+
+bool WebSocketProtocol::onFrameData(ByteArray payload) {
+    if (_currentFrame->_opcode > 7u) {
+        ConcatBuffer(_controlFrameData, std::move(payload));
+    } else {
+        size_t compressedLen, uncompressedLen;
+        if (_isMessageCompressed) {
+            compressedLen = payload.size();
+            NET4CXX_LOG_DEBUG(gGenLog, "RX compressed %llu octets", (uint64_t)compressedLen);
+            payload = _perMessageCompress->decompressMessageData(payload);
+            uncompressedLen = payload.size();
+        } else {
+            compressedLen = payload.size();
+            uncompressedLen = compressedLen;
+        }
+
+        if (_state == State::OPEN) {
+            _trafficStats._incomingOctetsWebSocketLevel += compressedLen;
+            _trafficStats._incomingOctetsAppLevel += uncompressedLen;
+        }
+
+        if (_utf8validateIncomingCurrentMessage) {
+            _utf8validateLast = _utf8validator.validate(payload.data(), payload.size());
+            if (!std::get<0>(_utf8validateLast)) {
+                if (invalidPayload("encountered invalid UTF-8 while processing text message at payload octet index " +
+                                   std::to_string(std::get<3>(_utf8validateLast)))) {
+                    return false;
+                }
+            }
+        }
+        onMessageFrameData(std::move(payload));
+    }
+    return true;
+}
+
+void WebSocketProtocol::onMessageFrameData(ByteArray payload) {
+    if (!_failedByMe) {
+        if (_websocketVersion == 0) {
+            _messageDataTotalLength += payload.size();
+            if (0 < _maxMessagePayloadSize && _maxMessagePayloadSize < _messageDataTotalLength) {
+                _wasMaxMessagePayloadSizeExceeded = true;
+                failConnection(CLOSE_STATUS_CODE_MESSAGE_TOO_BIG, "message exceeds payload limit of " +
+                                                                  std::to_string(_maxMessagePayloadSize) + " octets");
+            }
+            ConcatBuffer(_messageData, std::move(payload));
+        } else {
+            ConcatBuffer(_frameData, std::move(payload));
+        }
+    }
+}
+
+bool WebSocketProtocol::onFrameEnd() {
+    if (_currentFrame->_opcode > 7u) {
+        if (_logFrames) {
+            logRxFrame(*_currentFrame, _controlFrameData);
+        }
+    }
+    return true;
 }
 
 
