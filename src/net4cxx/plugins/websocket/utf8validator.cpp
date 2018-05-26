@@ -36,7 +36,7 @@ Byte Utf8Validator::decode(Byte b) {
 
 }
 
-Utf8Validator::ValidateResult Utf8Validator::validate(Byte *ba, size_t len) {
+Utf8Validator::ValidateResult Utf8Validator::validate(const Byte *ba, size_t len) {
     Byte state = _state;
     for (size_t i = 0; i < len; ++i) {
         state = UTF8VALIDATOR_DFA[256 + (state << 4u) + UTF8VALIDATOR_DFA[ba[i]]];

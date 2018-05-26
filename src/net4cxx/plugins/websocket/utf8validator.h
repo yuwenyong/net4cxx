@@ -22,7 +22,19 @@ public:
         _index = 0;
     }
 
-    ValidateResult validate(Byte *ba, size_t len);
+    ValidateResult validate(const Byte *ba, size_t len);
+
+    ValidateResult validate(const ByteArray &ba) {
+        return validate(ba.data(), ba.size());
+    }
+
+    ValidateResult validate(const std::string &s) {
+        return validate((const Byte *)s.data(), s.size());
+    }
+
+    ValidateResult validate(const char *s) {
+        return validate((const Byte *)s, strlen(s));
+    }
 protected:
     unsigned int _codepoint{0};
     Byte _state{0};

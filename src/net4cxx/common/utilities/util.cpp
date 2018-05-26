@@ -46,12 +46,12 @@ DateTime DateTimeUtil::parseUTCDate(const std::string &date) {
 }
 
 
-std::string BinAscii::hexlify(const ByteArray &s, bool reverse) {
+std::string BinAscii::hexlify(const Byte *s, size_t len, bool reverse) {
     int init = 0;
-    int end = (int)s.size();
+    auto end = (int)len;
     int op = 1;
     if (reverse) {
-        init = (int)s.size() - 1;
+        init = (int)len - 1;
         end = -1;
         op = -1;
     }
@@ -64,22 +64,22 @@ std::string BinAscii::hexlify(const ByteArray &s, bool reverse) {
     return ss.str();
 }
 
-ByteArray BinAscii::unhexlify(const std::string &s, bool reverse) {
+ByteArray BinAscii::unhexlify(const char *s, size_t len, bool reverse) {
     ByteArray out;
-    if (s.length() & 1) {
+    if (len & 1u) {
         return out;
     }
     int init = 0;
-    int end = (int)s.length();
+    auto end = (int)len;
     int op = 1;
     if (reverse) {
-        init = (int)s.length() - 2;
+        init = (int)len - 2;
         end = -2;
         op = -1;
     }
     for (int i = init; i != end; i += 2 * op) {
         char buffer[3] = { s[i], s[i + 1], '\0' };
-        out.push_back((Byte)strtoul(buffer, NULL, 16));
+        out.push_back((Byte)strtoul(buffer, nullptr, 16));
     }
     return out;
 }

@@ -56,6 +56,16 @@ public:
         CLOSE_STATUS_CODE_TLS_HANDSHAKE_FAILED = 1015
     };
 
+    virtual void onMessage(ByteArray payload, bool isBinary);
+
+    virtual void onPing(ByteArray payload);
+
+    virtual void onPong(ByteArray payload);
+
+    void sendPing(const ByteArray &payload={});
+
+    void sendPong(const ByteArray &payload={});
+
     void connectionMade() override;
 
     void dataReceived(Byte *data, size_t length) override;
@@ -66,6 +76,7 @@ public:
 
     virtual void processHandshake() = 0;
 
+
     template <typename SelfT>
     std::shared_ptr<SelfT> getSelf() const {
         return std::static_pointer_cast<SelfT>(shared_from_this());
@@ -74,6 +85,8 @@ public:
     static const std::vector<int> SUPPORTED_SPEC_VERSIONS;
 
     static const std::vector<int> SUPPORTED_PROTOCOL_VERSIONS;
+
+    static const std::vector<CloseStatus> CLOSE_STATUS_CODES_ALLOWED;
 
     static constexpr int DEFAULT_SPEC_VERSION = 18;
 
@@ -84,6 +97,8 @@ protected:
     std::string getPeerName() const;
 
     void setTrackTimings(bool enable);
+
+    void onServerConnectionDropTimeout();
 
     void onOpenHandshakeTimeout();
 
@@ -147,16 +162,37 @@ protected:
 
     void onMessageFrameData(ByteArray payload);
 
-    bool onFrameEnd(); // todo
+    bool onFrameEnd();
+
+    void onMessageFrameEnd() {
+        if (!_failedByMe) {
+            onMessageFrame(std::move(_frameData));
+        }
+        _frameData.clear();
+    }
+
+    void onMessageFrame(ByteArray payload) {
+        if (_failedByMe) {
+            ConcatBuffer(_messageData, std::move(payload));
+        }
+    }
+
+    void onMessageEnd();
+
+    bool processControlFrame();
+
+    bool onCloseFrame(boost::optional<CloseStatus> code, boost::optional<std::string> reasonRaw);
+
+    void sendAutoPing();
 
     void logRxOctets(const Byte *data, size_t len) {
         NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s: octets = %s", _peer.c_str(),
                           HexFormatter(data, len).toString().c_str());
     }
 
-    void logTxOctets(const ByteArray &data, bool sync) {
+    void logTxOctets(const Byte *data, size_t len, bool sync) {
         NET4CXX_LOG_DEBUG(gGenLog, "TxOctets to %s: sync = %s, octets = %s", _peer.c_str(), sync ? "true" : "false",
-                          HexFormatter(data).toString().c_str());
+                          HexFormatter(data, len).toString().c_str());
     }
 
     void logRxFrame(const FrameHeader &frameHeader, const ByteArray &payload) {
@@ -253,7 +289,7 @@ protected:
     bool _wasServingFlashSocketPolicyFile{false};
     CloseStatus _localCloseCode{CLOSE_STATUS_CODE_NONE};
     boost::optional<std::string> _localCloseReason;
-    boost::optional<unsigned short> _remoteCloseCode;
+    CloseStatus _remoteCloseCode{CLOSE_STATUS_CODE_NONE};
     boost::optional<std::string> _remoteCloseReason;
     // timers
     DelayedCall _serverConnectionDropTimeoutCall;

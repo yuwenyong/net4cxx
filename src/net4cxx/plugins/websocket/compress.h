@@ -47,6 +47,7 @@ class PerMessageCompress {
 public:
     virtual void startCompressMessage() = 0;
     virtual ByteArray decompressMessageData(const ByteArray &data) = 0;
+    virtual void endDecompressMessage() = 0;
     virtual std::string getExtensionName() const = 0;
     virtual ~PerMessageCompress();
 };

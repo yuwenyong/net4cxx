@@ -104,6 +104,13 @@ public:
             return text;
         }
     }
+
+    static std::string truncate(const boost::optional<std::string> &text, size_t limit) {
+        if (!text) {
+            return "";
+        }
+        return truncate(*text, limit);
+    }
 };
 
 
@@ -164,25 +171,22 @@ public:
     }
 
     HexFormatter(const Byte *data, size_t length)
-            : _data(data, data + length) {
+            : _data(data)
+            , _length(length) {
 
     }
 
     explicit HexFormatter(const ByteArray &data)
-            : _data(data) {
-
-    }
-
-    explicit HexFormatter(ByteArray &&data)
-            : _data(std::move(data)) {
+            : HexFormatter(data.data(), data.size()) {
 
     }
 
     std::string toString() const {
-        return BinAscii::hexlify(_data);
+        return BinAscii::hexlify(_data, _length);
     }
 protected:
-    ByteArray _data;
+    const Byte* _data;
+    size_t _length;
 };
 
 

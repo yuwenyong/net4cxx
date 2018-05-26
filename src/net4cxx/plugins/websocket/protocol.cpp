@@ -14,6 +14,20 @@ const std::vector<int> WebSocketProtocol::SUPPORTED_SPEC_VERSIONS = {10, 11, 12,
 
 const std::vector<int> WebSocketProtocol::SUPPORTED_PROTOCOL_VERSIONS = {8, 13};
 
+const std::vector<WebSocketProtocol::CloseStatus> WebSocketProtocol::CLOSE_STATUS_CODES_ALLOWED = {
+        CLOSE_STATUS_CODE_NORMAL,
+        CLOSE_STATUS_CODE_GOING_AWAY,
+        CLOSE_STATUS_CODE_PROTOCOL_ERROR,
+        CLOSE_STATUS_CODE_UNSUPPORTED_DATA,
+        CLOSE_STATUS_CODE_INVALID_PAYLOAD,
+        CLOSE_STATUS_CODE_POLICY_VIOLATION,
+        CLOSE_STATUS_CODE_MESSAGE_TOO_BIG,
+        CLOSE_STATUS_CODE_MANDATORY_EXTENSION,
+        CLOSE_STATUS_CODE_INTERNAL_ERROR,
+        CLOSE_STATUS_CODE_SERVICE_RESTART,
+        CLOSE_STATUS_CODE_TRY_AGAIN_LATER
+};
+
 constexpr int WebSocketProtocol::DEFAULT_SPEC_VERSION;
 
 constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_TEXT;
@@ -21,6 +35,55 @@ constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_TEXT;
 constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_BINARY;
 
 const double WebSocketProtocol::QUEUED_WRITE_DELAY = 0.00001;
+
+
+void WebSocketProtocol::onMessage(ByteArray payload, bool isBinary) {
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onMessage(payload=<%llu bytes)>, isBinary=%s",
+                      (uint64_t)payload.size(), isBinary ? "true" : "false");
+}
+
+void WebSocketProtocol::onPing(ByteArray payload) {
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPing(payload=<%llu bytes>)", (uint64_t)payload.size());
+    if (_state == State::OPEN) {
+        sendPong(payload);
+    }
+}
+
+void WebSocketProtocol::onPong(ByteArray payload) {
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPong(payload=<%llu bytes>)", (uint64_t)payload.size());
+}
+
+void WebSocketProtocol::sendPing(const ByteArray &payload) {
+    if (_state != State::OPEN) {
+        return;
+    }
+    if (!payload.empty()) {
+        uint64_t l = payload.size();
+        if (l > 125u) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid payload for PING (payload length must "
+                                                               "be <= 125, was %llu)", l));
+        }
+        sendFrame(9u, payload);
+    } else {
+        sendFrame(9u);
+    }
+}
+
+void WebSocketProtocol::sendPong(const ByteArray &payload) {
+    if (_state != State::OPEN) {
+        return;
+    }
+    if (!payload.empty()) {
+        uint64_t l = payload.size();
+        if (l > 125u) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid payload for PONG (payload length must "
+                                                               "be <= 125, was %llu)", l));
+        }
+        sendFrame(10u, payload);
+    } else {
+        sendFrame(10u);
+    }
+}
 
 void WebSocketProtocol::connectionMade() {
     _peer = getPeerName();
@@ -145,6 +208,17 @@ void WebSocketProtocol::setTrackTimings(bool enable) {
         _trackedTimings = Timings{};
     } else {
         _trackedTimings = boost::none;
+    }
+}
+
+void WebSocketProtocol::onServerConnectionDropTimeout() {
+    if (_state != State::CLOSED) {
+        _wasClean = false;
+        _wasNotCleanReason = "WebSocket closing handshake timeout (server did not drop TCP connection in time)";
+        _wasServerConnectionDropTimeout = true;
+        dropConnection(true);
+    } else {
+        NET4CXX_LOG_DEBUG(gGenLog, "skipping closing handshake timeout: server did indeed drop the connection in time");
     }
 }
 
@@ -540,14 +614,14 @@ void WebSocketProtocol::sendData(const ByteArray &data, bool sync, size_t chopsi
             }
 
             if (_logOctets) {
-                logTxOctets(data, false);
+                logTxOctets(data.data(), data.size(), false);
             }
         }
     }
 }
 
 void WebSocketProtocol::send() {
-    if (_sendQueue.size() > 0) {
+    if (!_sendQueue.empty()) {
         auto e = std::move(_sendQueue.front());
         _sendQueue.pop_front();
 
@@ -561,7 +635,7 @@ void WebSocketProtocol::send() {
             }
 
             if (_logOctets) {
-                logTxOctets(e.first, e.second);
+                logTxOctets(e.first.data(), e.first.size(), e.second);
             }
         } else {
             NET4CXX_LOG_DEBUG(gGenLog, "skipped delayed write, since connection is closed");
@@ -679,8 +753,180 @@ bool WebSocketProtocol::onFrameEnd() {
         if (_logFrames) {
             logRxFrame(*_currentFrame, _controlFrameData);
         }
+        processControlFrame();
+    } else {
+        if (_state == State::OPEN) {
+            _trafficStats._incomingWebSocketFrames += 1;
+        }
+        if (_logFrames) {
+            logRxFrame(*_currentFrame, _frameData);
+        }
+        onMessageFrameEnd();
+        if (_currentFrame->_fin) {
+            if (_isMessageCompressed) {
+                _perMessageCompress->endDecompressMessage();
+            }
+
+            if (_utf8validateIncomingCurrentMessage) {
+                if (!std::get<1>(_utf8validateLast)) {
+                    if (invalidPayload("UTF-8 text message payload ended within Unicode code point at payload octet "
+                                       "index " + std::to_string(std::get<3>(_utf8validateLast)))) {
+                        return false;
+                    }
+                }
+            }
+
+            if (_state == State::OPEN) {
+                _trafficStats._incomingWebSocketMessages += 1;
+            }
+
+            onMessageEnd();
+            _insideMessage = false;
+        }
+
+    }
+    _currentFrame = boost::none;
+    return true;
+}
+
+void WebSocketProtocol::onMessageEnd() {
+    if (!_failedByMe) {
+        if (_trackedTimings) {
+            _trackedTimings->track("onMessage");
+        }
+        onMessage(std::move(_messageData), _messageIsBinary);
+    }
+    _messageData.clear();
+}
+
+bool WebSocketProtocol::processControlFrame() {
+    ByteArray payload = std::move(_controlFrameData);
+    if (_currentFrame->_opcode == 0) {
+        boost::optional<CloseStatus> code;
+        boost::optional<std::string> reasonRaw;
+        auto ll = payload.size();
+        if (ll > 1) {
+            code = (CloseStatus)boost::endian::big_to_native(*(uint16_t *)payload.data());
+            if (ll > 2) {
+                reasonRaw.emplace((const char *)payload.data() + 2, payload.size() - 2);
+            }
+        }
+        if (onCloseFrame(code, std::move(reasonRaw))) {
+            return false;
+        }
+    } else if (_currentFrame->_opcode == 9u) {
+        onPing(std::move(payload));
+    } else if (_currentFrame->_opcode == 10u) {
+        if (_autoPingPending) {
+            try {
+                if (payload.size() == _autoPingPending->size() &&
+                    memcmp(payload.data(), _autoPingPending->data(), payload.size()) == 0) {
+                    NET4CXX_LOG_DEBUG(gGenLog, "Auto ping/pong: received pending pong for auto-ping/pong");
+
+                    if (!_autoPingTimeoutCall.cancelled()) {
+                        _autoPingTimeoutCall.cancel();
+                    }
+
+                    _autoPingPending = boost::none;
+
+                    if (_autoPingInterval != 0.0) {
+                        _autoPingPendingCall = reactor()->callLater(_autoPingInterval,
+                                                                    [self = shared_from_this(), this](){
+                            sendAutoPing();
+                        });
+                    }
+                } else {
+                    NET4CXX_LOG_DEBUG(gGenLog, "Auto ping/pong: received non-pending pong");
+                }
+            } catch (std::exception &e) {
+                NET4CXX_LOG_DEBUG(gGenLog, "Auto ping/pong: received non-pending pong");
+            }
+        }
+
+        onPong(std::move(payload));
+    } else {
+
     }
     return true;
+}
+
+bool WebSocketProtocol::onCloseFrame(boost::optional<CloseStatus> code, boost::optional<std::string> reasonRaw) {
+    _remoteCloseCode = CLOSE_STATUS_CODE_NONE;
+    _remoteCloseReason = boost::none;
+
+    if (code && ((unsigned)*code < 1000u ||
+                 (1000u <= (unsigned)*code && (unsigned)*code <= 2999u &&
+                  !std::binary_search(CLOSE_STATUS_CODES_ALLOWED.begin(), CLOSE_STATUS_CODES_ALLOWED.end(), *code)) ||
+                 (unsigned)*code >= 5000u)) {
+        if (protocolViolation("invalid close code " + std::to_string((unsigned)*code))) {
+            return true;
+        } else {
+            _remoteCloseCode = CLOSE_STATUS_CODE_NORMAL;
+        }
+    } else {
+        if (code) {
+            _remoteCloseCode = *code;
+        }
+    }
+
+    if (reasonRaw) {
+        Utf8Validator u;
+        auto val = u.validate(*reasonRaw);
+
+        if (!(std::get<0>(val) && std::get<1>(val))) {
+            if (invalidPayload("invalid close reason (non-UTF8 payload)")) {
+                return true;
+            }
+        } else {
+            _remoteCloseReason = std::move(reasonRaw);
+        }
+    }
+
+    if (_state == State::CLOSING) {
+        if (!_closeHandshakeTimeoutCall.cancelled()) {
+            NET4CXX_LOG_DEBUG(gGenLog, "connection closed properly: canceling closing handshake timeout");
+            _closeHandshakeTimeoutCall.cancel();
+        }
+
+        _wasClean = true;
+
+        if (_isMessageCompressed) {
+            dropConnection(true);
+        } else {
+            if (_serverConnectionDropTimeout > 0.0) {
+                _serverConnectionDropTimeoutCall = reactor()->callLater(_serverConnectionDropTimeout,
+                                                                        [self = shared_from_this(), this](){
+                    onServerConnectionDropTimeout();
+                });
+            }
+        }
+    } else if (_state == State::OPEN) {
+        _wasClean = true;
+
+        if (_websocketVersion == 0) {
+            sendCloseFrame(CLOSE_STATUS_CODE_NONE, "", true);
+        } else {
+            if (_echoCloseCodeReason) {
+                sendCloseFrame(_remoteCloseCode, WebSocketUtil::truncate(_remoteCloseReason, 123), true);
+            } else {
+                sendCloseFrame(CLOSE_STATUS_CODE_NORMAL, "", true);
+            }
+        }
+
+        if (_isServer) {
+            dropConnection(false);
+        }
+    } else if (_state == State::CLOSED) {
+        _wasClean = false;
+    } else {
+        NET4CXX_THROW_EXCEPTION(Exception, "logic error");
+    }
+    return false;
+}
+
+void WebSocketProtocol::sendAutoPing() {
+    NET4CXX_LOG_DEBUG(gGenLog, "Auto ping/pong: sending ping auto-ping/pong");
+
 }
 
 

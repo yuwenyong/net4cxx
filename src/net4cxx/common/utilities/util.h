@@ -40,6 +40,10 @@ inline void ConcatBuffer(ByteArray &b1, ByteArray &&b2) {
     }
 }
 
+inline void ConcatBuffer(ByteArray &b1, const ByteArray &b2) {
+    b1.insert(b1.end(), b2.begin(), b2.end());
+}
+
 
 class JsonUtil {
 public:
@@ -73,9 +77,17 @@ public:
 
 class BinAscii {
 public:
-    static std::string hexlify(const ByteArray &s, bool reverse= false);
+    static std::string hexlify(const ByteArray &s, bool reverse= false) {
+        return hexlify(s.data(), s.size(), reverse);
+    }
 
-    static ByteArray unhexlify(const std::string &s, bool reverse= false);
+    static std::string hexlify(const Byte *s, size_t len, bool reverse= false);
+
+    static ByteArray unhexlify(const std::string &s, bool reverse= false) {
+        return unhexlify(s.c_str(), s.length(), reverse);
+    }
+
+    static ByteArray unhexlify(const char *s, size_t len, bool reverse= false);
 };
 
 NS_END
