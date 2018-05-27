@@ -316,6 +316,10 @@ public:
     }
 
     void cancel();
+
+    void reset() {
+        _timeout.reset();
+    }
 protected:
     std::weak_ptr<Timeout> _timeout;
 };

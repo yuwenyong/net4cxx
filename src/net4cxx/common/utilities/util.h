@@ -17,8 +17,16 @@ inline std::string BytesToString(const ByteArray &bytes) {
     return {(const char *)bytes.data(), bytes.size()};
 }
 
+inline std::string BytesToString(const Byte *bytes, size_t length) {
+    return {(const char *)bytes, length};
+}
+
 inline ByteArray StringToBytes(const std::string &s) {
     return ByteArray((const Byte *)s.data(), (const Byte *)s.data() + s.size());
+}
+
+inline ByteArray StringToBytes(const char *s) {
+    return ByteArray((const Byte *)s, (const Byte *)s + strlen(s));
 }
 
 inline bool StringToBool(const std::string &s) {

@@ -14,7 +14,7 @@ const std::vector<int> WebSocketProtocol::SUPPORTED_SPEC_VERSIONS = {10, 11, 12,
 
 const std::vector<int> WebSocketProtocol::SUPPORTED_PROTOCOL_VERSIONS = {8, 13};
 
-const std::vector<WebSocketProtocol::CloseStatus> WebSocketProtocol::CLOSE_STATUS_CODES_ALLOWED = {
+const std::vector<unsigned short> WebSocketProtocol::CLOSE_STATUS_CODES_ALLOWED = {
         CLOSE_STATUS_CODE_NORMAL,
         CLOSE_STATUS_CODE_GOING_AWAY,
         CLOSE_STATUS_CODE_PROTOCOL_ERROR,
@@ -36,6 +36,9 @@ constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_BINARY;
 
 const double WebSocketProtocol::QUEUED_WRITE_DELAY = 0.00001;
 
+void WebSocketProtocol::onOpen() {
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onOpen");
+}
 
 void WebSocketProtocol::onMessage(ByteArray payload, bool isBinary) {
     NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onMessage(payload=<%llu bytes)>, isBinary=%s",
@@ -45,7 +48,7 @@ void WebSocketProtocol::onMessage(ByteArray payload, bool isBinary) {
 void WebSocketProtocol::onPing(ByteArray payload) {
     NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPing(payload=<%llu bytes>)", (uint64_t)payload.size());
     if (_state == State::OPEN) {
-        sendPong(payload);
+        sendPong(payload.data(), payload.size());
     }
 }
 
@@ -53,36 +56,82 @@ void WebSocketProtocol::onPong(ByteArray payload) {
     NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPong(payload=<%llu bytes>)", (uint64_t)payload.size());
 }
 
-void WebSocketProtocol::sendPing(const ByteArray &payload) {
+void WebSocketProtocol::onClose(bool wasClean, boost::optional<unsigned short> code,
+                                boost::optional<std::string> reason) {
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onClose(wasClean=%s, code=%u, reason=%s)",
+                      wasClean ? "true" : "false", code ? *code : 0u, reason ? reason->c_str() : "None");
+}
+
+void WebSocketProtocol::sendMessage(const Byte *payload, size_t length, bool isBinary, size_t fragmentSize, bool sync,
+                                    bool doNotCompress) {
     if (_state != State::OPEN) {
         return;
     }
-    if (!payload.empty()) {
-        uint64_t l = payload.size();
+
+    if (_trackedTimings) {
+        _trackedTimings->track("sendMessage");
+    }
+
+    // Byte opcode = isBinary ? 2 : 1;
+    // bool sendCompressed;
+
+    _trafficStats._outgoingWebSocketMessages += 1;
+
+    if (_perMessageCompress && !doNotCompress) {
+        _perMessageCompress->startCompressMessage();
+        _trafficStats._outgoingOctetsAppLevel += length;
+
+
+    }
+}
+
+void WebSocketProtocol::sendPing(const Byte *payload, size_t length) {
+    if (_state != State::OPEN) {
+        return;
+    }
+    if (length != 0) {
+        uint64_t l = length;
         if (l > 125u) {
             NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid payload for PING (payload length must "
                                                                "be <= 125, was %llu)", l));
         }
-        sendFrame(9u, payload);
+        sendFrame(9u, payload, length);
     } else {
         sendFrame(9u);
     }
 }
 
-void WebSocketProtocol::sendPong(const ByteArray &payload) {
+void WebSocketProtocol::sendPong(const Byte *payload, size_t length) {
     if (_state != State::OPEN) {
         return;
     }
-    if (!payload.empty()) {
-        uint64_t l = payload.size();
+    if (length != 0) {
+        uint64_t l = length;
         if (l > 125u) {
             NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid payload for PONG (payload length must "
                                                                "be <= 125, was %llu)", l));
         }
-        sendFrame(10u, payload);
+        sendFrame(10u, payload, length);
     } else {
         sendFrame(10u);
     }
+}
+
+void WebSocketProtocol::sendClose(boost::optional<unsigned short> code, boost::optional<std::string> reason) {
+    if (code) {
+        if (*code != 1000u && !(3000u <= *code && *code <= 4999u)) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid close code %u (must be "
+                                                               "1000 or from [3000, 4999])", *code));
+        }
+    }
+    boost::optional<std::string> reasonUtf8;
+    if (reason) {
+        if (!code) {
+            NET4CXX_THROW_EXCEPTION(Exception, "close reason without close code");
+        }
+        reasonUtf8 = WebSocketUtil::truncate(reason, 123);
+    }
+    sendCloseFrame(code, std::move(reasonUtf8), false);
 }
 
 void WebSocketProtocol::connectionMade() {
@@ -184,9 +233,46 @@ void WebSocketProtocol::dataReceived(Byte *data, size_t length) {
     consumeData();
 }
 
-//void WebSocketProtocol::connectionLost(std::exception_ptr reason) {
-//
-//}
+void WebSocketProtocol::connectionLost(std::exception_ptr reason) {
+    try {
+        std::rethrow_exception(reason);
+    } catch (ConnectionDone &e) {
+        NET4CXX_LOG_DEBUG(gGenLog, "Connection to/from %s was closed cleanly", _peer.c_str());
+    } catch (ConnectionAbort &e) {
+        NET4CXX_LOG_DEBUG(gGenLog, "Connection to/from %s was aborted locally", _peer.c_str());
+    } catch (std::exception &e) {
+        NET4CXX_LOG_DEBUG(gGenLog, "Connection to/from %s lost: %s", _peer.c_str(), e.what());
+    }
+
+    if (!_isServer && !_serverConnectionDropTimeoutCall.cancelled()) {
+        NET4CXX_LOG_DEBUG(gGenLog, "serverConnectionDropTimeoutCall.cancel");
+        _serverConnectionDropTimeoutCall.cancel();
+    }
+
+    if (!_autoPingPendingCall.cancelled()) {
+        NET4CXX_LOG_DEBUG(gGenLog,"Auto ping/pong: canceling autoPingPendingCall upon lost connection");
+        _autoPingPendingCall.cancel();
+    }
+
+    if (_state != State::CLOSED) {
+        _state = State::CLOSED;
+        // todo: trigger close event
+    }
+
+    if (_wasServingFlashSocketPolicyFile) {
+        NET4CXX_LOG_DEBUG(gGenLog, "connection dropped after serving Flash Socket Policy File");
+    } else {
+        if (!_wasClean) {
+            if (!_droppedByMe && !_wasNotCleanReason) {
+                _wasNotCleanReason = "peer dropped the TCP connection without previous WebSocket closing handshake";
+            }
+            onClose(_wasClean, CLOSE_STATUS_CODE_ABNORMAL_CLOSE, StrUtil::format("connection was closed uncleanly (%s)",
+                                                                                 _wasNotCleanReason->c_str()));
+        } else {
+            onClose(_wasClean, _remoteCloseCode, *_remoteCloseReason);
+        }
+    }
+}
 
 std::string WebSocketProtocol::getPeerName() const {
     std::string res;
@@ -212,6 +298,8 @@ void WebSocketProtocol::setTrackTimings(bool enable) {
 }
 
 void WebSocketProtocol::onServerConnectionDropTimeout() {
+    _serverConnectionDropTimeoutCall.reset();
+
     if (_state != State::CLOSED) {
         _wasClean = false;
         _wasNotCleanReason = "WebSocket closing handshake timeout (server did not drop TCP connection in time)";
@@ -223,6 +311,8 @@ void WebSocketProtocol::onServerConnectionDropTimeout() {
 }
 
 void WebSocketProtocol::onOpenHandshakeTimeout() {
+    _openHandshakeTimeoutCall.reset();
+
     if (_state == State::CONNECTING || _state == State::PROXY_CONNECTING) {
         _wasClean = false;
         _wasNotCleanReason = "WebSocket opening handshake timeout (peer did not finish the opening handshake in time)";
@@ -241,6 +331,8 @@ void WebSocketProtocol::onOpenHandshakeTimeout() {
 }
 
 void WebSocketProtocol::onCloseHandshakeTimeout() {
+    _closeHandshakeTimeoutCall.reset();
+
     if (_state != State::CLOSED) {
         _wasClean = false;
         _wasNotCleanReason = "WebSocket closing handshake timeout (peer did not finish the opening handshake in time)";
@@ -249,6 +341,13 @@ void WebSocketProtocol::onCloseHandshakeTimeout() {
     } else {
         NET4CXX_LOG_DEBUG(gGenLog, "skipping closing handshake timeout: WebSocket connection is already closed");
     }
+}
+
+void WebSocketProtocol::onAutoPingTimeout() {
+    _wasClean = false;
+    _wasNotCleanReason = "WebSocket ping timeout (peer did not respond with pong in time)";
+    _autoPingTimeoutCall.reset();
+    dropConnection(true);
 }
 
 void WebSocketProtocol::dropConnection(bool abort) {
@@ -459,9 +558,9 @@ bool WebSocketProtocol::processData() {
     }
 }
 
-void WebSocketProtocol::failConnection(CloseStatus code, const std::string &reason) {
+void WebSocketProtocol::failConnection(unsigned short code, const std::string &reason) {
     if (_state != State::CLOSED) {
-        NET4CXX_LOG_DEBUG(gGenLog, "failing connection: %d: %s", (int)code, reason.c_str());
+        NET4CXX_LOG_DEBUG(gGenLog, "failing connection: %u: %s", code, reason.c_str());
         _failedByMe = true;
         if (_failByDrop) {
             _wasClean = false;
@@ -479,7 +578,8 @@ void WebSocketProtocol::failConnection(CloseStatus code, const std::string &reas
     }
 }
 
-void WebSocketProtocol::sendCloseFrame(CloseStatus code, const std::string &reason, bool isReply) {
+void WebSocketProtocol::sendCloseFrame(boost::optional<unsigned short> code, boost::optional<std::string> reason,
+                                       bool isReply) {
     if (_state == State::CLOSING) {
         NET4CXX_LOG_DEBUG(gGenLog, "ignoring sendCloseFrame since connection is closing");
     } else if (_state == State::CLOSED) {
@@ -488,19 +588,19 @@ void WebSocketProtocol::sendCloseFrame(CloseStatus code, const std::string &reas
         NET4CXX_THROW_EXCEPTION(Exception, "cannot close a connection not yet connected");
     } else if (_state == State::OPEN) {
         ByteArray payload;
-        if (code != CLOSE_STATUS_CODE_NONE) {
-            unsigned short closeCode = boost::endian::native_to_big((unsigned short)code);
+        if (code) {
+            unsigned short closeCode = boost::endian::native_to_big(*code);
             payload.insert(payload.end(), (Byte *)&closeCode, (Byte *)&closeCode + sizeof(closeCode));
         }
-        if (!reason.empty()) {
-            payload.insert(payload.end(), (Byte *)reason.data(), (Byte *)reason.data() + reason.size());
+        if (reason) {
+            payload.insert(payload.end(), (Byte *)reason->data(), (Byte *)reason->data() + reason->size());
         }
-        sendFrame(8u, payload);
+        sendFrame(8u, payload.data(), payload.size());
         _state = State::CLOSING;
         _closedByMe = !isReply;
 
         _localCloseCode = code;
-        _localCloseReason = reason;
+        _localCloseReason = std::move(reason);
         if (_closedByMe && _closeHandshakeTimeout > 0.0) {
             _closeHandshakeTimeoutCall = reactor()->callLater(_closeHandshakeTimeout,
                                                               [self = shared_from_this(), this](){
@@ -512,23 +612,23 @@ void WebSocketProtocol::sendCloseFrame(CloseStatus code, const std::string &reas
     }
 }
 
-void WebSocketProtocol::sendFrame(Byte opcode, const ByteArray &payload, bool fin, Byte rsv,
+void WebSocketProtocol::sendFrame(Byte opcode, const Byte *payload, size_t length, bool fin, Byte rsv,
                                   boost::optional<WebSocketMask> mask, size_t payloadLen, size_t chopsize, bool sync) {
     ByteArray pl;
     size_t l;
     if (payloadLen > 0) {
-        if (payload.empty()) {
+        if (length == 0) {
             NET4CXX_THROW_EXCEPTION(Exception, "cannot construct repeated payload with length " +
                                                std::to_string(payloadLen) + " from payload of length 0");
         }
         l = payloadLen;
-        for (size_t i = 0; i < payloadLen / payload.size(); ++i) {
-            pl.insert(pl.end(), payload.begin(), payload.end());
+        for (size_t i = 0; i < payloadLen / length; ++i) {
+            pl.insert(pl.end(), payload, payload + length);
         }
-        pl.insert(pl.end(), payload.begin(), payload.begin() + payloadLen % payload.size());
+        pl.insert(pl.end(), payload, payload + payloadLen % length);
     } else {
-        l = payload.size();
-        pl = payload;
+        l = length;
+        pl.assign(payload, payload + length);
     }
 
     Byte b0 = 0u;
@@ -581,7 +681,7 @@ void WebSocketProtocol::sendFrame(Byte opcode, const ByteArray &payload, bool fi
 
     if (_logFrames) {
         FrameHeader frameHeader(opcode, fin, rsv, l, mask);
-        logTxFrame(frameHeader, payload, payloadLen, chopsize, sync);
+        logTxFrame(frameHeader, payload, length, payloadLen, chopsize, sync);
     }
     sendData(raw, sync, chopsize);
 }
@@ -658,7 +758,7 @@ bool WebSocketProtocol::onFrameBegin() {
 
             if (_perMessageCompress && _currentFrame->_rsv == 4u) {
                 _isMessageCompressed = true;
-                _perMessageCompress->startCompressMessage();
+                _perMessageCompress->startDecompressMessage();
             } else {
                 _isMessageCompressed = false;
             }
@@ -719,7 +819,7 @@ bool WebSocketProtocol::onFrameData(ByteArray payload) {
         }
 
         if (_utf8validateIncomingCurrentMessage) {
-            _utf8validateLast = _utf8validator.validate(payload.data(), payload.size());
+            _utf8validateLast = _utf8validator.validate(payload);
             if (!std::get<0>(_utf8validateLast)) {
                 if (invalidPayload("encountered invalid UTF-8 while processing text message at payload octet index " +
                                    std::to_string(std::get<3>(_utf8validateLast)))) {
@@ -751,7 +851,7 @@ void WebSocketProtocol::onMessageFrameData(ByteArray payload) {
 bool WebSocketProtocol::onFrameEnd() {
     if (_currentFrame->_opcode > 7u) {
         if (_logFrames) {
-            logRxFrame(*_currentFrame, _controlFrameData);
+            logRxFrame(*_currentFrame, _controlFrameData.data(), _controlFrameData.size());
         }
         processControlFrame();
     } else {
@@ -759,7 +859,7 @@ bool WebSocketProtocol::onFrameEnd() {
             _trafficStats._incomingWebSocketFrames += 1;
         }
         if (_logFrames) {
-            logRxFrame(*_currentFrame, _frameData);
+            logRxFrame(*_currentFrame, _frameData.data(), _frameData.size());
         }
         onMessageFrameEnd();
         if (_currentFrame->_fin) {
@@ -802,11 +902,11 @@ void WebSocketProtocol::onMessageEnd() {
 bool WebSocketProtocol::processControlFrame() {
     ByteArray payload = std::move(_controlFrameData);
     if (_currentFrame->_opcode == 0) {
-        boost::optional<CloseStatus> code;
+        boost::optional<unsigned short> code;
         boost::optional<std::string> reasonRaw;
         auto ll = payload.size();
         if (ll > 1) {
-            code = (CloseStatus)boost::endian::big_to_native(*(uint16_t *)payload.data());
+            code = boost::endian::big_to_native(*(uint16_t *)payload.data());
             if (ll > 2) {
                 reasonRaw.emplace((const char *)payload.data() + 2, payload.size() - 2);
             }
@@ -817,17 +917,16 @@ bool WebSocketProtocol::processControlFrame() {
     } else if (_currentFrame->_opcode == 9u) {
         onPing(std::move(payload));
     } else if (_currentFrame->_opcode == 10u) {
-        if (_autoPingPending) {
+        if (!_autoPingPending.empty()) {
             try {
-                if (payload.size() == _autoPingPending->size() &&
-                    memcmp(payload.data(), _autoPingPending->data(), payload.size()) == 0) {
+                if (payload == _autoPingPending) {
                     NET4CXX_LOG_DEBUG(gGenLog, "Auto ping/pong: received pending pong for auto-ping/pong");
 
                     if (!_autoPingTimeoutCall.cancelled()) {
                         _autoPingTimeoutCall.cancel();
                     }
 
-                    _autoPingPending = boost::none;
+                    _autoPingPending.clear();
 
                     if (_autoPingInterval != 0.0) {
                         _autoPingPendingCall = reactor()->callLater(_autoPingInterval,
@@ -850,23 +949,21 @@ bool WebSocketProtocol::processControlFrame() {
     return true;
 }
 
-bool WebSocketProtocol::onCloseFrame(boost::optional<CloseStatus> code, boost::optional<std::string> reasonRaw) {
-    _remoteCloseCode = CLOSE_STATUS_CODE_NONE;
+bool WebSocketProtocol::onCloseFrame(boost::optional<unsigned short> code, boost::optional<std::string> reasonRaw) {
+    _remoteCloseCode = boost::none;
     _remoteCloseReason = boost::none;
 
-    if (code && ((unsigned)*code < 1000u ||
-                 (1000u <= (unsigned)*code && (unsigned)*code <= 2999u &&
+    if (code && ((*code < 1000u ||
+                 (1000u <= *code && *code <= 2999u &&
                   !std::binary_search(CLOSE_STATUS_CODES_ALLOWED.begin(), CLOSE_STATUS_CODES_ALLOWED.end(), *code)) ||
-                 (unsigned)*code >= 5000u)) {
-        if (protocolViolation("invalid close code " + std::to_string((unsigned)*code))) {
+                 *code >= 5000u))) {
+        if (protocolViolation("invalid close code " + std::to_string(*code))) {
             return true;
         } else {
             _remoteCloseCode = CLOSE_STATUS_CODE_NORMAL;
         }
     } else {
-        if (code) {
-            _remoteCloseCode = *code;
-        }
+        _remoteCloseCode = code;
     }
 
     if (reasonRaw) {
@@ -904,12 +1001,12 @@ bool WebSocketProtocol::onCloseFrame(boost::optional<CloseStatus> code, boost::o
         _wasClean = true;
 
         if (_websocketVersion == 0) {
-            sendCloseFrame(CLOSE_STATUS_CODE_NONE, "", true);
+            sendCloseFrame(boost::none, boost::none, true);
         } else {
             if (_echoCloseCodeReason) {
                 sendCloseFrame(_remoteCloseCode, WebSocketUtil::truncate(_remoteCloseReason, 123), true);
             } else {
-                sendCloseFrame(CLOSE_STATUS_CODE_NORMAL, "", true);
+                sendCloseFrame(CLOSE_STATUS_CODE_NORMAL, boost::none, true);
             }
         }
 
@@ -927,6 +1024,17 @@ bool WebSocketProtocol::onCloseFrame(boost::optional<CloseStatus> code, boost::o
 void WebSocketProtocol::sendAutoPing() {
     NET4CXX_LOG_DEBUG(gGenLog, "Auto ping/pong: sending ping auto-ping/pong");
 
+    _autoPingPendingCall.reset();
+    _autoPingPending = WebSocketUtil::newid(_autoPingSize);
+
+    sendPing(_autoPingPending);
+
+    if (_autoPingTimeout != 0.0) {
+        NET4CXX_LOG_DEBUG(gGenLog, "Expecting ping in %lf seconds for auto-ping/pong", _autoPingTimeout);
+        _autoPingTimeoutCall = reactor()->callLater(_autoPingTimeout, [self = shared_from_this(), this](){
+            onAutoPingTimeout();
+        });
+    }
 }
 
 

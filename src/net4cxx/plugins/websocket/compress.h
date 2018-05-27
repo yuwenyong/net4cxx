@@ -46,6 +46,7 @@ using PerMessageCompressResponseAcceptPtr = std::shared_ptr<PerMessageCompressRe
 class PerMessageCompress {
 public:
     virtual void startCompressMessage() = 0;
+    virtual void startDecompressMessage() = 0;
     virtual ByteArray decompressMessageData(const ByteArray &data) = 0;
     virtual void endDecompressMessage() = 0;
     virtual std::string getExtensionName() const = 0;

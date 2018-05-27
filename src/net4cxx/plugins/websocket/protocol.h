@@ -19,6 +19,26 @@
 NS_BEGIN
 
 
+enum CloseStatus: unsigned short {
+    CLOSE_STATUS_CODE_NORMAL = 1000,
+    CLOSE_STATUS_CODE_GOING_AWAY = 1001,
+    CLOSE_STATUS_CODE_PROTOCOL_ERROR = 1002,
+    CLOSE_STATUS_CODE_UNSUPPORTED_DATA = 1003,
+    CLOSE_STATUS_CODE_RESERVED1 = 1004,
+    CLOSE_STATUS_CODE_NULL = 1005,
+    CLOSE_STATUS_CODE_ABNORMAL_CLOSE = 1006,
+    CLOSE_STATUS_CODE_INVALID_PAYLOAD = 1007,
+    CLOSE_STATUS_CODE_POLICY_VIOLATION = 1008,
+    CLOSE_STATUS_CODE_MESSAGE_TOO_BIG = 1009,
+    CLOSE_STATUS_CODE_MANDATORY_EXTENSION = 1010,
+    CLOSE_STATUS_CODE_INTERNAL_ERROR = 1011,
+    CLOSE_STATUS_CODE_SERVICE_RESTART = 1012,
+    CLOSE_STATUS_CODE_TRY_AGAIN_LATER = 1013,
+    CLOSE_STATUS_CODE_UNASSIGNED1 = 1014,
+    CLOSE_STATUS_CODE_TLS_HANDSHAKE_FAILED = 1015
+};
+
+
 class NET4CXX_COMMON_API WebSocketProtocol: public Protocol, public std::enable_shared_from_this<WebSocketProtocol> {
 public:
     enum class State {
@@ -36,25 +56,7 @@ public:
         INSIDE_MESSAGE_FRAME,
     };
 
-    enum CloseStatus: unsigned short {
-        CLOSE_STATUS_CODE_NONE = 0,
-        CLOSE_STATUS_CODE_NORMAL = 1000,
-        CLOSE_STATUS_CODE_GOING_AWAY = 1001,
-        CLOSE_STATUS_CODE_PROTOCOL_ERROR = 1002,
-        CLOSE_STATUS_CODE_UNSUPPORTED_DATA = 1003,
-        CLOSE_STATUS_CODE_RESERVED1 = 1004,
-        CLOSE_STATUS_CODE_NULL = 1005,
-        CLOSE_STATUS_CODE_ABNORMAL_CLOSE = 1006,
-        CLOSE_STATUS_CODE_INVALID_PAYLOAD = 1007,
-        CLOSE_STATUS_CODE_POLICY_VIOLATION = 1008,
-        CLOSE_STATUS_CODE_MESSAGE_TOO_BIG = 1009,
-        CLOSE_STATUS_CODE_MANDATORY_EXTENSION = 1010,
-        CLOSE_STATUS_CODE_INTERNAL_ERROR = 1011,
-        CLOSE_STATUS_CODE_SERVICE_RESTART = 1012,
-        CLOSE_STATUS_CODE_TRY_AGAIN_LATER = 1013,
-        CLOSE_STATUS_CODE_UNASSIGNED1 = 1014,
-        CLOSE_STATUS_CODE_TLS_HANDSHAKE_FAILED = 1015
-    };
+    virtual void onOpen();
 
     virtual void onMessage(ByteArray payload, bool isBinary);
 
@@ -62,15 +64,46 @@ public:
 
     virtual void onPong(ByteArray payload);
 
-    void sendPing(const ByteArray &payload={});
+    virtual void onClose(bool wasClean, boost::optional<unsigned short> code, boost::optional<std::string> reason);
 
-    void sendPong(const ByteArray &payload={});
+    void sendMessage(const Byte *payload, size_t length, bool isBinary=false, size_t fragmentSize=0, bool sync=false,
+                     bool doNotCompress=false); // todo
+
+    void sendPing(const Byte *payload, size_t length);
+
+    void sendPing(const ByteArray &payload) {
+        sendPing(payload.data(), payload.size());
+    }
+
+    void sendPing(const char *payload) {
+        sendPing((const Byte *)payload, strlen(payload));
+    }
+
+    void sendPing(const std::string &payload) {
+        sendPing((const Byte *)payload.data(), payload.size());
+    }
+
+    void sendPong(const Byte *payload, size_t length);
+
+    void sendPong(const ByteArray &payload) {
+        sendPong(payload.data(), payload.size());
+    }
+
+    void sendPong(const char *payload) {
+        sendPong((const Byte *)payload, strlen(payload));
+    }
+
+    void sendPong(const std::string &payload) {
+        sendPong((const Byte *)payload.data(), payload.size());
+    }
+
+    void sendClose(boost::optional<unsigned short> code=boost::none, boost::optional<std::string> reason=boost::none);
 
     void connectionMade() override;
 
     void dataReceived(Byte *data, size_t length) override;
 
-//    void connectionLost(std::exception_ptr reason) override;
+    void connectionLost(std::exception_ptr reason) override;
 
     virtual void processProxyConnect() = 0;
 
@@ -86,7 +119,7 @@ public:
 
     static const std::vector<int> SUPPORTED_PROTOCOL_VERSIONS;
 
-    static const std::vector<CloseStatus> CLOSE_STATUS_CODES_ALLOWED;
+    static const std::vector<unsigned short> CLOSE_STATUS_CODES_ALLOWED;
 
     static constexpr int DEFAULT_SPEC_VERSION = 18;
 
@@ -103,6 +136,8 @@ protected:
     void onOpenHandshakeTimeout();
 
     void onCloseHandshakeTimeout();
+
+    void onAutoPingTimeout();
 
     void dropConnection(bool abort=false);
 
@@ -130,11 +165,12 @@ protected:
         return _failByDrop;
     }
 
-    void failConnection(CloseStatus code=CLOSE_STATUS_CODE_GOING_AWAY, const std::string &reason="going away");
+    void failConnection(unsigned short code=CLOSE_STATUS_CODE_GOING_AWAY, const std::string &reason="going away");
 
-    void sendCloseFrame(CloseStatus code=CLOSE_STATUS_CODE_NONE, const std::string &reason="", bool isReply=false);
+    void sendCloseFrame(boost::optional<unsigned short> code=boost::none,
+                        boost::optional<std::string> reason=boost::none, bool isReply=false);
 
-    void sendFrame(Byte opcode, const ByteArray &payload={}, bool fin=true, Byte rsv=0u,
+    void sendFrame(Byte opcode, const Byte *payload=nullptr, size_t length=0, bool fin=true, Byte rsv=0u,
                    boost::optional<WebSocketMask> mask={}, size_t payloadLen=0, size_t chopsize=0, bool sync=false);
 
     void sendData(const ByteArray &data, bool sync=false, size_t chopsize=0);
@@ -181,7 +217,7 @@ protected:
 
     bool processControlFrame();
 
-    bool onCloseFrame(boost::optional<CloseStatus> code, boost::optional<std::string> reasonRaw);
+    bool onCloseFrame(boost::optional<unsigned short> code, boost::optional<std::string> reasonRaw);
 
     void sendAutoPing();
 
@@ -195,7 +231,7 @@ protected:
                           HexFormatter(data, len).toString().c_str());
     }
 
-    void logRxFrame(const FrameHeader &frameHeader, const ByteArray &payload) {
+    void logRxFrame(const FrameHeader &frameHeader, const Byte *payload, size_t len) {
         NET4CXX_LOG_DEBUG(gGenLog, "RX Frame from %s: fin = %s, rsv = %u, opcode = %u, mask = %s, length = %llu, "
                                    "payload = %s",
                           _peer.c_str(),
@@ -205,12 +241,12 @@ protected:
                           frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
                           frameHeader._length,
                           frameHeader._opcode == 1u ?
-                          BytesToString(payload).c_str() :
-                          HexFormatter(payload).toString().c_str());
+                          BytesToString(payload, len).c_str() :
+                          HexFormatter(payload, len).toString().c_str());
     }
 
-    void logTxFrame(const FrameHeader &frameHeader, const ByteArray &payload, size_t repeatLength, size_t chopsize,
-                    bool sync) {
+    void logTxFrame(const FrameHeader &frameHeader, const Byte *payload, size_t len, size_t repeatLength,
+                    size_t chopsize, bool sync) {
         NET4CXX_LOG_DEBUG(gGenLog, "TX Frame to %s: fin = %s, rsv = %u, opcode = %u, mask = %s, length = %llu, "
                                    "repeat_length = %llu, chopsize = %llu, sync = %s, payload = %s",
                           _peer.c_str(),
@@ -219,12 +255,12 @@ protected:
                           (unsigned)frameHeader._opcode,
                           frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
                           frameHeader._length,
-                          (uint64)repeatLength,
+                          (uint64_t)repeatLength,
                           (uint64_t)chopsize,
                           sync ? "true" : "false",
                           frameHeader._opcode == 1u ?
-                          BytesToString(payload).c_str() :
-                          HexFormatter(payload).toString().c_str());
+                          BytesToString(payload, len).c_str() :
+                          HexFormatter(payload, len).toString().c_str());
     }
 
     std::string _peer{"<never connected>"};
@@ -287,16 +323,16 @@ protected:
     bool _wasOpenHandshakeTimeout{false};
     bool _wasCloseHandshakeTimeout{false};
     bool _wasServingFlashSocketPolicyFile{false};
-    CloseStatus _localCloseCode{CLOSE_STATUS_CODE_NONE};
+    boost::optional<unsigned short> _localCloseCode;
     boost::optional<std::string> _localCloseReason;
-    CloseStatus _remoteCloseCode{CLOSE_STATUS_CODE_NONE};
+    boost::optional<unsigned short> _remoteCloseCode;
     boost::optional<std::string> _remoteCloseReason;
     // timers
     DelayedCall _serverConnectionDropTimeoutCall;
     DelayedCall _openHandshakeTimeoutCall;
     DelayedCall _closeHandshakeTimeoutCall;
     DelayedCall _autoPingTimeoutCall;
-    boost::optional<std::string> _autoPingPending;
+    ByteArray _autoPingPending;
     DelayedCall _autoPingPendingCall;
     // runtime
     bool _insideMessage{false};

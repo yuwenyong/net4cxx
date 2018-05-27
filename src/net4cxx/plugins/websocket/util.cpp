@@ -3,6 +3,8 @@
 //
 
 #include "net4cxx/plugins/websocket/util.h"
+#include "net4cxx/common/crypto/base64.h"
+#include "net4cxx/common/utilities/random.h"
 
 
 NS_BEGIN
@@ -107,6 +109,17 @@ std::vector<boost::regex> WebSocketUtil::wildcardsToPatterns(const StringVector 
     }
     return patterns;
 }
+
+ByteArray WebSocketUtil::newid(size_t length) {
+    ByteArray temp;
+    auto l = (size_t)ceil(length * 6.0 / 8.0);
+    temp.resize(l);
+    Random::randBytes(temp.data(), temp.size());
+    auto result = Base64::b64encode(temp);
+    result.resize(length);
+    return result;
+}
+
 
 void TrafficStats::reset() {
     _outgoingOctetsWireLevel = 0;

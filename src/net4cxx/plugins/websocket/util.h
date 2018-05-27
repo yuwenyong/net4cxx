@@ -96,21 +96,19 @@ public:
 
     static std::vector<boost::regex> wildcardsToPatterns(const StringVector &wildcards);
 
-    static std::string truncate(const std::string &text, size_t limit) {
-        if (text.size() > limit) {
-            std::string result(text.begin(), text.begin() + limit);
+    static boost::optional<std::string> truncate(const boost::optional<std::string> &text, size_t limit) {
+        if (!text) {
+            return boost::none;
+        }
+        if (text->size() > limit) {
+            std::string result(text->begin(), text->begin() + limit);
             return result;
         } else {
             return text;
         }
     }
 
-    static std::string truncate(const boost::optional<std::string> &text, size_t limit) {
-        if (!text) {
-            return "";
-        }
-        return truncate(*text, limit);
-    }
+    static ByteArray newid(size_t length=16);
 };
 
 
