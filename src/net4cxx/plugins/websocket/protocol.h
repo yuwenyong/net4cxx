@@ -67,7 +67,22 @@ public:
     virtual void onClose(bool wasClean, boost::optional<unsigned short> code, boost::optional<std::string> reason);
 
     void sendMessage(const Byte *payload, size_t length, bool isBinary=false, size_t fragmentSize=0, bool sync=false,
-                     bool doNotCompress=false); // todo
+                     bool doNotCompress=false);
+
+    void sendMessage(const ByteArray &payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false,
+                     bool doNotCompress=false) {
+        sendMessage(payload.data(), payload.size(), isBinary, fragmentSize, sync, doNotCompress);
+    }
+
+    void sendMessage(const char *payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false,
+                     bool doNotCompress=false) {
+        sendMessage((const Byte *)payload, strlen(payload), isBinary, fragmentSize, sync, doNotCompress);
+    }
+
+    void sendMessage(const std::string &payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false,
+                     bool doNotCompress=false) {
+        sendMessage((const Byte *)payload.data(), payload.size(), isBinary, fragmentSize, sync, doNotCompress);
+    }
 
     void sendPing(const Byte *payload, size_t length);
 
@@ -173,7 +188,7 @@ protected:
     void sendFrame(Byte opcode, const Byte *payload=nullptr, size_t length=0, bool fin=true, Byte rsv=0u,
                    boost::optional<WebSocketMask> mask={}, size_t payloadLen=0, size_t chopsize=0, bool sync=false);
 
-    void sendData(const ByteArray &data, bool sync=false, size_t chopsize=0);
+    void sendData(const Byte *data, size_t length, bool sync=false, size_t chopsize=0);
 
     void trigger() {
         if (!_triggered) {
@@ -241,8 +256,8 @@ protected:
                           frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
                           frameHeader._length,
                           frameHeader._opcode == 1u ?
-                          BytesToString(payload, len).c_str() :
-                          HexFormatter(payload, len).toString().c_str());
+                          BytesToString(payload, len) :
+                          HexFormatter(payload, len).toString());
     }
 
     void logTxFrame(const FrameHeader &frameHeader, const Byte *payload, size_t len, size_t repeatLength,
@@ -259,8 +274,8 @@ protected:
                           (uint64_t)chopsize,
                           sync ? "true" : "false",
                           frameHeader._opcode == 1u ?
-                          BytesToString(payload, len).c_str() :
-                          HexFormatter(payload, len).toString().c_str());
+                          BytesToString(payload, len) :
+                          HexFormatter(payload, len).toString());
     }
 
     std::string _peer{"<never connected>"};
@@ -353,6 +368,41 @@ protected:
 };
 
 
+class WebSocketServerProtocol: public WebSocketProtocol {
+public:
+    using BaseType = WebSocketProtocol;
+
+    void connectionMade() override;
+
+    void connectionLost(std::exception_ptr reason) override;
+
+    void processProxyConnect() override;
+
+    void processHandshake() override;
+protected:
+    void failHandshake(const std::string &reason, int code=400, StringMap responseHeaders={});
+
+    void sendHttpErrorResponse(int code, const std::string &reason, StringMap responseHeaders={});
+
+    void sendHtml(const std::string &html);
+
+    void sendRedirect(const std::string &url);
+
+    void sendServerStatus(const std::string &redirectUrl="", int redirectAfter=0);
+
+    std::string _httpRequestData;
+    std::string _httpStatusLine;
+    StringMap _httpHeaders;
+    std::map<std::string, int> _httpHeadersCnt;
+    std::string _httpRequestUri;
+    std::string _httpRequestPath;
+    QueryArgListMap _httpRequestParams;
+    std::string _httpRequestHost;
+
+    static const char *SERVER_STATUS_TEMPLATE;
+};
+
+
 class NET4CXX_COMMON_API WebSocketServerFactory: public Factory {
 public:
     using Headers = std::map<std::string, StringVector>;
@@ -386,12 +436,24 @@ public:
         return _logFrames;
     }
 
+    bool isSecure() const {
+        return _isSecure;
+    }
+
     void setTrackTimings(bool trackTimings) {
         _trackTimings = trackTimings;
     }
 
     bool getTrackTimings() const {
         return _trackTimings;
+    }
+
+    std::string getServer() const {
+        return _server;
+    }
+
+    unsigned short getExternalPort() const {
+        return _externalPort;
     }
 
     void setVersions(std::vector<int> versions);
@@ -589,6 +651,14 @@ public:
 
     size_t getConnectionCount() const {
         return _countConnections;
+    }
+
+    void increaseConnectionCount() {
+        ++_countConnections;
+    }
+
+    void decreaseConnectionCount() {
+        --_countConnections;
     }
 protected:
     bool _logOctets{false};

@@ -7,6 +7,22 @@
 
 NS_BEGIN
 
+std::string StringMapToString(const StringMap &m) {
+    std::stringstream ss;
+    bool first = true;
+    ss << "{";
+    for (auto &kv: m) {
+        if (first) {
+            first = false;
+        } else {
+            ss << ", ";
+        }
+        ss << '\'' << kv.first << "\': \'" << kv.second << '\'';
+    }
+    ss << "}";
+    return ss.str();
+}
+
 std::string DateTimeUtil::formatDate(const DateTime &timeval, bool usegmt) {
     std::string zone;
     if (usegmt) {

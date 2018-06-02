@@ -90,9 +90,13 @@ protected:
 
 class NET4CXX_COMMON_API WebSocketUtil {
 public:
-    using ParseResult = std::tuple<bool, std::string, unsigned short, std::string, std::string, QueryArgListMap>;
+    using ParseUrlResult = std::tuple<bool, std::string, unsigned short, std::string, std::string, QueryArgListMap>;
 
-    static ParseResult parseUrl(const std::string &url);
+    using ParseHttpHeaderResult = std::tuple<std::string, StringMap, std::map<std::string, int>>;
+
+    static ParseUrlResult parseUrl(const std::string &url);
+
+    static ParseHttpHeaderResult parseHttpHeader(const std::string &data);
 
     static std::vector<boost::regex> wildcardsToPatterns(const StringVector &wildcards);
 

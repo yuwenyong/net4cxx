@@ -34,6 +34,7 @@ inline bool StringToBool(const std::string &s) {
     return lowerStr == "1" || lowerStr == "true" || lowerStr == "yes";
 }
 
+NET4CXX_COMMON_API std::string StringMapToString(const StringMap &m);
 
 inline bool IsIntegral(double d) {
     double integralPart;
@@ -53,7 +54,7 @@ inline void ConcatBuffer(ByteArray &b1, const ByteArray &b2) {
 }
 
 
-class JsonUtil {
+class NET4CXX_COMMON_API JsonUtil {
 public:
     static std::string encode(const boost::property_tree::ptree &doc) {
         std::ostringstream buffer;
@@ -68,7 +69,7 @@ public:
 };
 
 
-class DateTimeUtil {
+class NET4CXX_COMMON_API DateTimeUtil {
 public:
     static std::string formatDate(bool usegmt=false) {
         DateTime now = boost::posix_time::second_clock::universal_time();
@@ -83,7 +84,7 @@ public:
 };
 
 
-class BinAscii {
+class NET4CXX_COMMON_API BinAscii {
 public:
     static std::string hexlify(const ByteArray &s, bool reverse= false) {
         return hexlify(s.data(), s.size(), reverse);

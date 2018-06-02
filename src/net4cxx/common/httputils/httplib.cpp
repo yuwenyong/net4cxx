@@ -6,7 +6,7 @@
 
 NS_BEGIN
 
-const std::map<int, std::string> gHTTPResponses = {
+const std::map<int, std::string> HTTP_STATUS_CODES = {
         {100, "Continue"},
         {101, "Switching Protocols"},
 

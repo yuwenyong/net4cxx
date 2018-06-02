@@ -72,16 +72,57 @@ void WebSocketProtocol::sendMessage(const Byte *payload, size_t length, bool isB
         _trackedTimings->track("sendMessage");
     }
 
-    // Byte opcode = isBinary ? 2 : 1;
-    // bool sendCompressed;
+     Byte opcode = isBinary ? 2 : 1;
+     bool sendCompressed;
+     ByteArray payload1;
 
     _trafficStats._outgoingWebSocketMessages += 1;
 
     if (_perMessageCompress && !doNotCompress) {
+        sendCompressed = true;
         _perMessageCompress->startCompressMessage();
         _trafficStats._outgoingOctetsAppLevel += length;
 
+        payload1 = _perMessageCompress->compressMessageData(payload, length);
+        auto payload2 = _perMessageCompress->endCompressMessage();
+        ConcatBuffer(payload1, std::move(payload2));
 
+        payload = payload1.data();
+        length = payload1.size();
+    } else {
+        sendCompressed = false;
+        _trafficStats._outgoingOctetsAppLevel += length;
+        _trafficStats._outgoingOctetsWebSocketLevel += length;
+    }
+
+    size_t pfs = 0;
+    if (fragmentSize) {
+        pfs = fragmentSize;
+    } else {
+        if (_autoFragmentSize > 0) {
+            pfs = _autoFragmentSize;
+        }
+    }
+
+    if (pfs == 0 || length <= pfs) {
+        sendFrame(opcode, payload, length, true, (Byte)(sendCompressed ? 4 : 0), {}, 0, 0, sync);
+    } else {
+        size_t i = 0, j = 0;
+        bool done = false, first = true;
+        while (!done) {
+            j = i + pfs;
+            if (j > length) {
+                done = true;
+                j = length;
+            }
+            if (first) {
+                sendFrame(opcode, payload + i, j - i, done, (Byte)(sendCompressed ? 4 : 0), {}, 0, 0, sync);
+                first = false;
+            } else {
+                sendFrame(0, payload + i, j - i, done, 0u, {}, 0, 0, sync);
+            }
+            i += pfs;
+        }
     }
 }
 
@@ -683,13 +724,13 @@ void WebSocketProtocol::sendFrame(Byte opcode, const Byte *payload, size_t lengt
         FrameHeader frameHeader(opcode, fin, rsv, l, mask);
         logTxFrame(frameHeader, payload, length, payloadLen, chopsize, sync);
     }
-    sendData(raw, sync, chopsize);
+    sendData(raw.data(), raw.size(), sync, chopsize);
 }
 
-void WebSocketProtocol::sendData(const ByteArray &data, bool sync, size_t chopsize) {
+void WebSocketProtocol::sendData(const Byte *data, size_t length, bool sync, size_t chopsize) {
     if (chopsize > 0) {
         size_t i = 0, j;
-        size_t n = data.size();
+        size_t n = length;
         bool done = false;
         while (!done) {
             j = i + chopsize;
@@ -697,24 +738,24 @@ void WebSocketProtocol::sendData(const ByteArray &data, bool sync, size_t chopsi
                 done = true;
                 j = n;
             }
-            _sendQueue.emplace_back(std::make_pair(ByteArray(data.begin() + i, data.begin() + j), true));
+            _sendQueue.emplace_back(std::make_pair(ByteArray(data + i, data + j), true));
             i += chopsize;
         }
         trigger();
     } else {
         if (sync || !_sendQueue.empty()) {
-            _sendQueue.emplace_back(std::make_pair(data, sync));
+            _sendQueue.emplace_back(std::make_pair(ByteArray(data, data + length), sync));
             trigger();
         } else {
-            write(data);
+            write(data, length);
             if (_state == State::OPEN) {
-                _trafficStats._outgoingOctetsWireLevel += data.size();
+                _trafficStats._outgoingOctetsWireLevel += length;
             } else if (_state == State::CONNECTING || _state == State::PROXY_CONNECTING) {
-                _trafficStats._preopenOutgoingOctetsWireLevel += data.size();
+                _trafficStats._preopenOutgoingOctetsWireLevel += length;
             }
 
             if (_logOctets) {
-                logTxOctets(data.data(), data.size(), false);
+                logTxOctets(data, length, false);
             }
         }
     }
@@ -805,8 +846,8 @@ bool WebSocketProtocol::onFrameData(ByteArray payload) {
         size_t compressedLen, uncompressedLen;
         if (_isMessageCompressed) {
             compressedLen = payload.size();
-            NET4CXX_LOG_DEBUG(gGenLog, "RX compressed %llu octets", (uint64_t)compressedLen);
-            payload = _perMessageCompress->decompressMessageData(payload);
+            NET4CXX_LOG_DEBUG(gGenLog, "RX compressed %llu octets", compressedLen);
+            payload = _perMessageCompress->decompressMessageData(payload.data(), payload.size());
             uncompressedLen = payload.size();
         } else {
             compressedLen = payload.size();
@@ -1036,6 +1077,250 @@ void WebSocketProtocol::sendAutoPing() {
         });
     }
 }
+
+
+const char* WebSocketServerProtocol::SERVER_STATUS_TEMPLATE = R"(<!DOCTYPE html>
+<html>
+    <head>
+        %s
+    </head>
+    <body>
+        <p>
+            I am not Web server, but a <b>WebSocket Endpoint</b>.
+        </p>
+    </body>
+</html>
+)";
+
+void WebSocketServerProtocol::connectionMade() {
+    BaseType::connectionMade();
+    getFactory<WebSocketServerFactory>()->increaseConnectionCount();
+    NET4CXX_LOG_DEBUG(gGenLog, "connection accepted from peer %s", _peer);
+}
+
+void WebSocketServerProtocol::connectionLost(std::exception_ptr reason) {
+    BaseType::connectionLost(reason);
+    getFactory<WebSocketServerFactory>()->decreaseConnectionCount();
+}
+
+void WebSocketServerProtocol::processProxyConnect() {
+    NET4CXX_THROW_EXCEPTION(Exception, "This isn't a proxy server");
+}
+
+void WebSocketServerProtocol::processHandshake() {
+    const char *endOfHeader = StrNStr((const char *)_data.data(), _data.size(), "\x0d\x0a\x0d\x0a");
+    if (endOfHeader != nullptr) {
+        _httpRequestData.assign((const char*)_data.data(), endOfHeader);
+        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP request:\n\n%s\n\n", _httpRequestData);
+
+        try {
+            std::tie(_httpStatusLine, _httpHeaders, _httpHeadersCnt) = WebSocketUtil::parseHttpHeader(_httpRequestData);
+        } catch (std::exception &e) {
+            failHandshake(StrUtil::format("Error during parsing of HTTP status line / request headers : %s", e.what()));
+            return;
+        }
+
+        auto xForwardedFor = _httpHeaders.find("x-forwarded-for");
+        if (xForwardedFor != _httpHeaders.end() && _trustXForwardedFor != 0) {
+            auto addresses = StrUtil::split(xForwardedFor->second, ',');
+            if (addresses.size() > _trustXForwardedFor) {
+                _peer = boost::trim_copy(addresses[addresses.size() - _trustXForwardedFor]);
+            } else {
+                _peer = boost::trim_copy(addresses.front());
+            }
+        }
+
+        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP status line in opening handshake : %s", _httpStatusLine);
+        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP headers in opening handshake : %s", StringMapToString(_httpHeaders));
+
+        auto rl = StrUtil::split(_httpStatusLine);
+        if (rl.size() != 3) {
+            failHandshake(StrUtil::format("Bad HTTP request status line '%s'", _httpStatusLine));
+            return;
+        }
+        if (boost::trim_copy(rl[0]) != "GET") {
+            failHandshake(StrUtil::format("HTTP method '%s' not allowed", rl[0]), 405);
+            return;
+        }
+        auto vs = StrUtil::split(boost::trim_copy(rl[2]), '/');
+        if (vs.size() != 2 || vs[0] != "HTTP" || vs[1] != "1.1") {
+            failHandshake(StrUtil::format("Unsupported HTTP version '%s'", rl[2]), 505);
+            return;
+        }
+
+        _httpRequestUri = boost::trim_copy(rl[1]);
+        try {
+            std::string scheme, netloc, path, query, fragment;
+            std::tie(scheme, netloc, path, std::ignore, query, fragment) =
+                    (const URLParseResultBase &)URLParse::urlParse(_httpRequestUri);
+
+            if (scheme != "" or netloc != "") {
+
+            }
+
+            if (fragment != "") {
+                failHandshake(StrUtil::format("HTTP requested resource contains a fragment identifier '%s'", fragment));
+                return;
+            }
+
+            _httpRequestPath = path;
+            _httpRequestParams = URLParse::parseQS(query);
+        } catch (...) {
+            failHandshake(StrUtil::format("Bad HTTP request resource - could not parse '%s'", _httpRequestUri));
+            return;
+        }
+
+        auto hostIter = _httpHeaders.find("host");
+        if (hostIter == _httpHeaders.end()) {
+            failHandshake("TTP Host header missing in opening handshake request");
+            return;
+        }
+
+        if (_httpHeadersCnt["host"] > 1) {
+            failHandshake("HTTP Host header appears more than once in opening handshake request");
+            return;
+        }
+
+        _httpRequestHost = boost::trim_copy(hostIter->second);
+
+        if (_httpRequestHost.find(':') != std::string::npos && !boost::ends_with(_httpRequestHost, "]")) {
+            auto pos = _httpRequestHost.rfind(':');
+            std::string h(_httpRequestHost.begin(), std::next(_httpRequestHost.begin(), pos));
+            std::string p(next(_httpRequestHost.begin(), pos + 1), _httpRequestHost.end());
+            unsigned short port;
+            try {
+                boost::trim(p);
+                port = (unsigned short)std::stoul(p);
+            } catch (...) {
+                failHandshake(StrUtil::format("invalid port '%s' in HTTP Host header '%s'", p, _httpRequestHost));
+                return;
+            }
+
+            unsigned short externalPort = getFactory<WebSocketServerFactory>()->getExternalPort();
+            if (externalPort) {
+                if (port != externalPort) {
+                    failHandshake(StrUtil::format("port %u in HTTP Host header '%s' "
+                                                  "does not match server listening port %u",
+                                                  port, _httpRequestHost, externalPort));
+                    return;
+                }
+            } else {
+                NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake port checking - "
+                                           "neither WS URL nor external port set");
+            }
+
+            _httpRequestHost = std::move(h);
+        } else {
+            unsigned short externalPort = getFactory<WebSocketServerFactory>()->getExternalPort();
+            bool isSecure = getFactory<WebSocketServerFactory>()->isSecure();
+            if (externalPort) {
+                if (!((isSecure && externalPort == 443) || (!isSecure && externalPort == 80))) {
+                    failHandshake(StrUtil::format("missing port in HTTP Host header '%s' and "
+                                                  "server runs on non-standard port %u (wss = %s)",
+                                                  _httpRequestHost, externalPort, isSecure ? "true" : "false"));
+                }
+            } else {
+                NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake port checking - "
+                                           "neither WS URL nor external port set");
+            }
+        }
+
+        auto upgradeIter = _httpHeaders.find("upgrade");
+        if (upgradeIter == _httpHeaders.end()) {
+            if (_webStatus) {
+                auto redirectIter = _httpRequestParams.find("redirect");
+                if (redirectIter != _httpRequestParams.end() && !redirectIter->second.empty()) {
+                    auto &url = redirectIter->second.front();
+                    auto afterIter = _httpRequestParams.find("after");
+                    if (afterIter != _httpRequestParams.end() && !afterIter->second.empty()) {
+                        int after = std::stoi(afterIter->second.front());
+                        NET4CXX_LOG_DEBUG(gGenLog, "HTTP Upgrade header missing : render server status page and "
+                                                   "meta-refresh-redirecting to %s after %d seconds", url, after);
+                        sendServerStatus(url, after);
+                    } else {
+                        NET4CXX_LOG_DEBUG(gGenLog, "HTTP Upgrade header missing : 303-redirecting to %s", url);
+                        sendRedirect(url);
+                    }
+                } else {
+                    NET4CXX_LOG_DEBUG(gGenLog, "HTTP Upgrade header missing : render server status page");
+                    sendServerStatus();
+                }
+                dropConnection(false);
+                return;
+            } else {
+                failHandshake("HTTP Upgrade header missing", 426);
+                return;
+            }
+        }
+        bool upgradeWebSocket = false;
+        for (auto &u: StrUtil::split(upgradeIter->second, ',')) {
+            if (boost::to_lower_copy(boost::trim_copy(u)) == "websocket") {
+                upgradeWebSocket = true;
+                break;
+            }
+        }
+        if (!upgradeWebSocket) {
+            failHandshake(StrUtil::format("HTTP Upgrade headers do not include "
+                                          "'websocket' value (case-insensitive) : %s", upgradeIter->second));
+            return;
+        }
+
+        auto connectionIter = _httpHeaders.find("connection");
+        if (connectionIter == _httpHeaders.end()) {
+            failHandshake("HTTP Connection header missing");
+            return;
+        }
+    }
+}
+
+void WebSocketServerProtocol::failHandshake(const std::string &reason, int code, StringMap responseHeaders) {
+    _wasNotCleanReason = reason;
+    NET4CXX_LOG_INFO(gGenLog, "ailing WebSocket opening handshake ('%s')", reason);
+    sendHttpErrorResponse(code, reason, std::move(responseHeaders));
+    dropConnection(false);
+}
+
+void WebSocketServerProtocol::sendHttpErrorResponse(int code, const std::string &reason, StringMap responseHeaders) {
+    std::string response = StrUtil::format("HTTP/1.1 %d %s\x0d\x0a", code, reason);
+    for (auto &h: responseHeaders) {
+        response += StrUtil::format("%s: %s\x0d\x0a", h.first, h.second);
+    }
+    response += "\x0d\x0a";
+    sendData((const Byte *)response.data(), response.size());
+}
+
+void WebSocketServerProtocol::sendHtml(const std::string &html) {
+    std::string response = "HTTP/1.1 200 OK\x0d\x0a";
+    std::string server = getFactory<WebSocketServerFactory>()->getServer();
+    if (!server.empty()) {
+        response += StrUtil::format("Server: %s\x0d\x0a", server);
+    }
+    response += "Content-Type: text/html; charset=UTF-8\x0d\x0a";
+    response += StrUtil::format("Content-Length: %llu\x0d\x0a", html.size());
+    response += "\x0d\x0a";
+    sendData((const Byte *)response.data(), response.size());
+    sendData((const Byte *)html.data(), html.size());
+}
+
+void WebSocketServerProtocol::sendRedirect(const std::string &url) {
+    std::string response = "HTTP/1.1 303 OK\x0d\x0a";
+    std::string server = getFactory<WebSocketServerFactory>()->getServer();
+    if (!server.empty()) {
+        response += StrUtil::format("Server: %s\x0d\x0a", server);
+    }
+    response += StrUtil::format("Location: %s\x0d\x0a", url);
+    response += "\x0d\x0a";
+    sendData((const Byte *)response.data(), response.size());
+}
+
+void WebSocketServerProtocol::sendServerStatus(const std::string &redirectUrl, int redirectAfter) {
+    std::string redirect;
+    if (!redirectUrl.empty()) {
+        redirect = StrUtil::format("<meta http-equiv=\"refresh\" content=\"%d;URL='%s'\">", redirectAfter, redirectUrl);
+    }
+    sendHtml(StrUtil::format(SERVER_STATUS_TEMPLATE, redirect));
+}
+
 
 
 void WebSocketServerFactory::setSessionParameters(std::string url, StringVector protocols, std::string server,

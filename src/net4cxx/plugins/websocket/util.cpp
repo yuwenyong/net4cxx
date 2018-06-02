@@ -60,7 +60,7 @@ std::string Timings::diffFormatted(const std::string &startKey, const std::strin
 }
 
 
-WebSocketUtil::ParseResult WebSocketUtil::parseUrl(const std::string &url) {
+WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     auto parsed = URLParse::urlParse(url);
     const auto &scheme = parsed.getScheme();
     if (scheme != "ws" && scheme != "wss") {
@@ -97,6 +97,38 @@ WebSocketUtil::ParseResult WebSocketUtil::parseUrl(const std::string &url) {
     }
     return std::make_tuple(scheme == "wss", std::move(*hostname), *port, std::move(resource), std::move(path),
                            std::move(params));
+}
+
+WebSocketUtil::ParseHttpHeaderResult WebSocketUtil::parseHttpHeader(const std::string &data) {
+    auto raw = StrUtil::splitLines(data);
+    auto httpStatusLine = boost::trim_copy(raw[0]);
+    StringMap httpHeaders;
+    std::map<std::string, int> httpHeadersCnt;
+    std::string::size_type j;
+    std::string key, value;
+    for (auto i = 1; i != raw.size(); ++i) {
+        auto &h = raw[i];
+        j = h.find(':');
+        if (j != std::string::npos) {
+            key.assign(h.begin(), std::next(h.begin(), j));
+            boost::trim(key);
+            boost::to_lower(key);
+
+            value.assign(std::next(h.begin(), j + 1), h.end());
+            boost::trim(value);
+
+            if (httpHeaders.find(key) != httpHeaders.end()) {
+                httpHeaders[key] += ", " + value;
+                httpHeadersCnt[key] += 1;
+            } else {
+                httpHeaders[key] = std::move(value);
+                httpHeadersCnt[key] = 1;
+            }
+        } else {
+            // skip bad HTTP header
+        }
+    }
+    return std::make_tuple(httpStatusLine, httpHeaders, httpHeadersCnt);
 }
 
 std::vector<boost::regex> WebSocketUtil::wildcardsToPatterns(const StringVector &wildcards) {

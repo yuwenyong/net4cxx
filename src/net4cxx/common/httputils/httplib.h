@@ -13,7 +13,7 @@ constexpr unsigned short HTTP_PORT = 80;
 constexpr unsigned short HTTPS_PORT = 443;
 
 
-enum class HTTPStatusCode {
+enum class HttpStatusCode {
     // informational
             CONTINUE = 100,
     SWITCHING_PROTOCOLS = 101,
@@ -74,7 +74,7 @@ enum class HTTPStatusCode {
     NOT_EXTENDED = 510,
 };
 
-extern const std::map<int, std::string> gHTTPResponses;
+extern const std::map<int, std::string> HTTP_STATUS_CODES;
 
 NS_END
 
