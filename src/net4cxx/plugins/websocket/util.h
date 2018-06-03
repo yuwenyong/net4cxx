@@ -94,9 +94,16 @@ public:
 
     using ParseHttpHeaderResult = std::tuple<std::string, StringMap, std::map<std::string, int>>;
 
+    using UrlToOriginResult = std::tuple<std::string, std::string, boost::optional<unsigned short>>;
+
     static ParseUrlResult parseUrl(const std::string &url);
 
     static ParseHttpHeaderResult parseHttpHeader(const std::string &data);
+
+    static UrlToOriginResult urlToOrigin(const std::string &url);
+
+    static bool isSameOrigin(const UrlToOriginResult &websocketOrigin, const std::string &hostScheme,
+                             unsigned short hostPort, const std::vector<boost::regex> &hostPolicy);
 
     static std::vector<boost::regex> wildcardsToPatterns(const StringVector &wildcards);
 

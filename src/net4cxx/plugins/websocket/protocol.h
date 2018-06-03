@@ -393,11 +393,12 @@ protected:
     std::string _httpRequestData;
     std::string _httpStatusLine;
     StringMap _httpHeaders;
-    std::map<std::string, int> _httpHeadersCnt;
     std::string _httpRequestUri;
     std::string _httpRequestPath;
     QueryArgListMap _httpRequestParams;
     std::string _httpRequestHost;
+    StringVector _websocketProtocols;
+    std::string _websocketOrigin;
 
     static const char *SERVER_STATUS_TEMPLATE;
 };
@@ -436,16 +437,20 @@ public:
         return _logFrames;
     }
 
-    bool isSecure() const {
-        return _isSecure;
-    }
-
     void setTrackTimings(bool trackTimings) {
         _trackTimings = trackTimings;
     }
 
     bool getTrackTimings() const {
         return _trackTimings;
+    }
+
+    bool getIsSecure() const {
+        return _isSecure;
+    }
+
+    unsigned short getPort() const {
+        return _port;
     }
 
     std::string getServer() const {
@@ -653,11 +658,11 @@ public:
         return _countConnections;
     }
 
-    void increaseConnectionCount() {
+    void incConnectionCount() {
         ++_countConnections;
     }
 
-    void decreaseConnectionCount() {
+    void decConnectionCount() {
         --_countConnections;
     }
 protected:

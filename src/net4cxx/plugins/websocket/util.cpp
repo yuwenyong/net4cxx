@@ -131,6 +131,55 @@ WebSocketUtil::ParseHttpHeaderResult WebSocketUtil::parseHttpHeader(const std::s
     return std::make_tuple(httpStatusLine, httpHeaders, httpHeadersCnt);
 }
 
+WebSocketUtil::UrlToOriginResult WebSocketUtil::urlToOrigin(const std::string &url) {
+    if (boost::to_lower_copy(url) == "null") {
+        return std::make_tuple("null", "", boost::none);
+    }
+    auto res = URLParse::urlSplit(url);
+    auto scheme = boost::to_lower_copy(res.getScheme());
+    if (scheme == "file") {
+        return std::make_tuple("null", "", boost::none);
+    }
+
+    auto host = res.getHostName();
+    auto port = res.getPort();
+    if (!port) {
+        if (scheme == "http") {
+            port = 80;
+        } else if (scheme == "https") {
+            port = 443;
+        }
+    }
+
+    if (!host || host->empty()) {
+        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("No host part in Origin '%s'", url));
+    }
+    return std::make_tuple(scheme, *host, port);
+}
+
+bool WebSocketUtil::isSameOrigin(const UrlToOriginResult &websocketOrigin, const std::string &hostScheme,
+                                 unsigned short hostPort, const std::vector<boost::regex> &hostPolicy) {
+    if (std::get<0>(websocketOrigin) == "null") {
+        return false;
+    }
+    std::string originScheme, originHost;
+    boost::optional<unsigned short> originPort;
+    std::tie(originScheme, originHost, originPort) = websocketOrigin;
+    std::string originHeader;
+    if (originPort) {
+        originHeader = StrUtil::format("%s://%s:%u", originScheme, originHost, *originPort);
+    } else {
+        originHeader = StrUtil::format("%s://%s", originScheme, originHost);
+    }
+
+    for (auto &originPattern: hostPolicy) {
+        if (boost::regex_match(originHeader, originPattern)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 std::vector<boost::regex> WebSocketUtil::wildcardsToPatterns(const StringVector &wildcards) {
     std::vector<boost::regex> patterns;
     for (auto wc: wildcards) {
@@ -141,6 +190,7 @@ std::vector<boost::regex> WebSocketUtil::wildcardsToPatterns(const StringVector 
     }
     return patterns;
 }
+
 
 ByteArray WebSocketUtil::newid(size_t length) {
     ByteArray temp;

@@ -1094,13 +1094,13 @@ const char* WebSocketServerProtocol::SERVER_STATUS_TEMPLATE = R"(<!DOCTYPE html>
 
 void WebSocketServerProtocol::connectionMade() {
     BaseType::connectionMade();
-    getFactory<WebSocketServerFactory>()->increaseConnectionCount();
+    getFactory<WebSocketServerFactory>()->incConnectionCount();
     NET4CXX_LOG_DEBUG(gGenLog, "connection accepted from peer %s", _peer);
 }
 
 void WebSocketServerProtocol::connectionLost(std::exception_ptr reason) {
     BaseType::connectionLost(reason);
-    getFactory<WebSocketServerFactory>()->decreaseConnectionCount();
+    getFactory<WebSocketServerFactory>()->decConnectionCount();
 }
 
 void WebSocketServerProtocol::processProxyConnect() {
@@ -1108,13 +1108,16 @@ void WebSocketServerProtocol::processProxyConnect() {
 }
 
 void WebSocketServerProtocol::processHandshake() {
+    auto factory = getFactory<WebSocketServerFactory>();
+
     const char *endOfHeader = StrNStr((const char *)_data.data(), _data.size(), "\x0d\x0a\x0d\x0a");
     if (endOfHeader != nullptr) {
         _httpRequestData.assign((const char*)_data.data(), endOfHeader);
         NET4CXX_LOG_DEBUG(gGenLog, "received HTTP request:\n\n%s\n\n", _httpRequestData);
 
+        std::map<std::string, int> httpHeadersCnt;
         try {
-            std::tie(_httpStatusLine, _httpHeaders, _httpHeadersCnt) = WebSocketUtil::parseHttpHeader(_httpRequestData);
+            std::tie(_httpStatusLine, _httpHeaders, httpHeadersCnt) = WebSocketUtil::parseHttpHeader(_httpRequestData);
         } catch (std::exception &e) {
             failHandshake(StrUtil::format("Error during parsing of HTTP status line / request headers : %s", e.what()));
             return;
@@ -1176,7 +1179,7 @@ void WebSocketServerProtocol::processHandshake() {
             return;
         }
 
-        if (_httpHeadersCnt["host"] > 1) {
+        if (httpHeadersCnt["host"] > 1) {
             failHandshake("HTTP Host header appears more than once in opening handshake request");
             return;
         }
@@ -1196,7 +1199,7 @@ void WebSocketServerProtocol::processHandshake() {
                 return;
             }
 
-            unsigned short externalPort = getFactory<WebSocketServerFactory>()->getExternalPort();
+            unsigned short externalPort = factory->getExternalPort();
             if (externalPort) {
                 if (port != externalPort) {
                     failHandshake(StrUtil::format("port %u in HTTP Host header '%s' "
@@ -1211,8 +1214,8 @@ void WebSocketServerProtocol::processHandshake() {
 
             _httpRequestHost = std::move(h);
         } else {
-            unsigned short externalPort = getFactory<WebSocketServerFactory>()->getExternalPort();
-            bool isSecure = getFactory<WebSocketServerFactory>()->isSecure();
+            unsigned short externalPort = factory->getExternalPort();
+            bool isSecure = factory->getIsSecure();
             if (externalPort) {
                 if (!((isSecure && externalPort == 443) || (!isSecure && externalPort == 80))) {
                     failHandshake(StrUtil::format("missing port in HTTP Host header '%s' and "
@@ -1270,6 +1273,149 @@ void WebSocketServerProtocol::processHandshake() {
             failHandshake("HTTP Connection header missing");
             return;
         }
+        bool connectionUpgrade = false;
+        for (auto &c: StrUtil::split(connectionIter->second, ',')) {
+            if (boost::to_lower_copy(boost::trim_copy(c)) == "upgrade") {
+                connectionUpgrade = true;
+                break;
+            }
+        }
+        if (!connectionUpgrade) {
+            failHandshake(StrUtil::format("HTTP Connection headers do not include "
+                                          "'upgrade' value (case-insensitive) : %s", connectionIter->second));
+            return;
+        }
+
+        int version = -1;
+        auto websocketVersionIter = _httpHeaders.find("sec-websocket-version");
+        if (websocketVersionIter == _httpHeaders.end()) {
+            NET4CXX_LOG_DEBUG(gGenLog, "Hixie76 protocol detected");
+            failHandshake("WebSocket connection denied - Hixie76 protocol not supported.");
+            return;
+        } else {
+            NET4CXX_LOG_DEBUG(gGenLog, "Hybi protocol detected");
+            if (httpHeadersCnt["sec-websocket-version"] > 1) {
+                failHandshake("HTTP Sec-WebSocket-Version header appears more than once in opening handshake request");
+                return;
+            }
+            try {
+                version = std::stoi(websocketVersionIter->second);
+            } catch (...) {
+                failHandshake(StrUtil::format("could not parse HTTP Sec-WebSocket-Version header "
+                                              "'%s' in opening handshake request", websocketVersionIter->second));
+                return;
+            }
+        }
+
+        if (std::find(_versions.begin(), _versions.end(), version) == _versions.end()) {
+            auto sv = _versions;
+            std::sort(sv.begin(), sv.end(), std::greater<>());
+            std::string svs;
+            bool first = true;
+            for (auto x: sv) {
+                if (first) {
+                    first = false;
+                } else {
+                    svs += ',';
+                }
+                svs += std::to_string(x);
+            }
+            failHandshake(StrUtil::format("WebSocket version %d not supported (supported versions: %s)", version, svs),
+                          400, {{"Sec-WebSocket-Version", svs}});
+            return;
+        } else {
+            _websocketVersion = version;
+        }
+
+        auto websocketProtocolIter = _httpHeaders.find("sec-websocket-protocol");
+        if (websocketProtocolIter != _httpHeaders.end()) {
+            auto protocols = StrUtil::split(websocketProtocolIter->second, ',');
+            std::map<std::string, int> pp;
+            for (auto &p: protocols) {
+                boost::trim(p);
+                if (pp.find(p) != pp.end()) {
+                    failHandshake(StrUtil::format("duplicate protocol '%s' specified in "
+                                                  "HTTP Sec-WebSocket-Protocol header", p));
+                    return;
+                } else {
+                    pp[p] = 1;
+                }
+            }
+            _websocketProtocols = std::move(protocols);
+        }
+
+        std::string websocketOriginHeaderKey;
+        if (_websocketVersion < 13) {
+            websocketOriginHeaderKey = "sec-websocket-origin";
+        } else {
+            websocketOriginHeaderKey = "origin";
+        }
+
+        bool haveOrigin = false;
+        WebSocketUtil::UrlToOriginResult originTuple;
+        auto websocketOriginIter = _httpHeaders.find(websocketOriginHeaderKey);
+        if (websocketOriginIter != _httpHeaders.end()) {
+            if (httpHeadersCnt[websocketOriginHeaderKey] > 1) {
+                failHandshake("HTTP Origin header appears more than once in opening handshake request");
+                return;
+            }
+            _websocketOrigin = boost::trim_copy(websocketOriginIter->second);
+            try {
+                originTuple = WebSocketUtil::urlToOrigin(_websocketOrigin);
+            } catch (ValueError &e) {
+                failHandshake(StrUtil::format("HTTP Origin header invalid: %s", e.what()));
+                return;
+            }
+            haveOrigin = true;
+        }
+
+        if (haveOrigin) {
+            bool  originIsAllowed;
+            if (std::get<0>(originTuple) == "null" && factory->getAllowNullOrigin()) {
+                originIsAllowed = true;
+            } else {
+                originIsAllowed = WebSocketUtil::isSameOrigin(originTuple, factory->getIsSecure() ? "https" : "http",
+                                                              factory->getExternalPort() != 0 ?
+                                                              factory->getExternalPort() : factory->getPort(),
+                                                              _allowedOriginsPatterns);
+            }
+            if (!originIsAllowed) {
+                failHandshake(StrUtil::format("WebSocket connection denied: origin '%s' not allowed",
+                                              _websocketOrigin));
+                return;
+            }
+        }
+
+        auto websocketKeyIter = _httpHeaders.find("sec-websocket-key");
+        if (websocketKeyIter == _httpHeaders.end()) {
+            failHandshake("HTTP Sec-WebSocket-Key header missing");
+            return;
+        }
+        if (httpHeadersCnt["sec-websocket-key"] > 1) {
+            failHandshake("HTTP Sec-WebSocket-Key header appears more than once in opening handshake request");
+            return;
+        }
+        auto key = boost::trim_copy(websocketKeyIter->second);
+        if (key.length() != 24) {
+            failHandshake(StrUtil::format("bad Sec-WebSocket-Key (length must be 24 ASCII chars) '%s'", key));
+            return;
+        }
+        if (!boost::ends_with(key, "==")) {
+            failHandshake(StrUtil::format("bad Sec-WebSocket-Key (invalid base64 encoding) '%s'", key));
+            return;
+        }
+        for (size_t i = 0; i != key.length() - 2; ++i) {
+            auto c = key[i];
+            if (!(('a' <= c && c <= 'z') ||
+                  ('A' <= c && c <= 'Z') ||
+                  ('0' <= c && c <= '9') ||
+                  c == '+' ||
+                  c == '/')) {
+                failHandshake(StrUtil::format("bad character '%c' in Sec-WebSocket-Key (invalid base64 encoding) '%s'",
+                                              c, key));
+                return;
+            }
+        }
     }
 }
 
@@ -1316,7 +1462,7 @@ void WebSocketServerProtocol::sendRedirect(const std::string &url) {
 void WebSocketServerProtocol::sendServerStatus(const std::string &redirectUrl, int redirectAfter) {
     std::string redirect;
     if (!redirectUrl.empty()) {
-        redirect = StrUtil::format("<meta http-equiv=\"refresh\" content=\"%d;URL='%s'\">", redirectAfter, redirectUrl);
+        redirect = StrUtil::format(R"(<meta http-equiv="refresh" content="%d;URL='%s'">)", redirectAfter, redirectUrl);
     }
     sendHtml(StrUtil::format(SERVER_STATUS_TEMPLATE, redirect));
 }
