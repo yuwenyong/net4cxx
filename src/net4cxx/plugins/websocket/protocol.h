@@ -41,6 +41,10 @@ enum CloseStatus: unsigned short {
 
 class NET4CXX_COMMON_API WebSocketProtocol: public Protocol, public std::enable_shared_from_this<WebSocketProtocol> {
 public:
+
+    using ExtensionParams = std::map<std::string, std::vector<boost::optional<std::string>>>;
+    using ExtensionList = std::vector<std::pair<std::string, ExtensionParams>>;
+
     enum class State {
         CLOSED = 0,
         CONNECTING,
@@ -278,6 +282,8 @@ protected:
                           HexFormatter(payload, len).toString());
     }
 
+    ExtensionList parseExtensionsHeader(const std::string &header, bool removeQuotes=true);
+
     std::string _peer{"<never connected>"};
     bool _isServer{false};
     // common
@@ -399,6 +405,8 @@ protected:
     std::string _httpRequestHost;
     StringVector _websocketProtocols;
     std::string _websocketOrigin;
+    ExtensionList _websocketExtensions;
+    std::string _wskey;
 
     static const char *SERVER_STATUS_TEMPLATE;
 };

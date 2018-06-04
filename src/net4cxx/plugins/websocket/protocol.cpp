@@ -1078,6 +1078,58 @@ void WebSocketProtocol::sendAutoPing() {
     }
 }
 
+WebSocketProtocol::ExtensionList WebSocketProtocol::parseExtensionsHeader(const std::string &header,
+                                                                          bool removeQuotes) {
+    ExtensionList extensions;
+    StringVector exts, ext, p;
+    std::string extension, key;
+    ExtensionParams params;
+    boost::optional<std::string> value;
+
+    exts = StrUtil::split(header, ',');
+    for (auto &e: exts) {
+        boost::trim(e);
+        if (!e.empty()) {
+            ext = StrUtil::split(e, ';');
+            if (!ext.empty()) {
+                boost::trim(ext[0]);
+                extension = boost::to_lower_copy(ext[0]);
+                params.clear();
+                for (size_t i = 1; i != ext.size(); ++i) {
+                    boost::trim(ext[i]);
+                    p = StrUtil::split(ext[i], '=');
+                    for (auto &x: p) {
+                        boost::trim(x);
+                    }
+                    key = boost::to_lower_copy(p[0]);
+                    if (p.size() > 1) {
+                        p.erase(p.begin());
+                        value = boost::join(p, "=");
+                        if (removeQuotes) {
+                            if (!value->empty() && value->front() == '"') {
+                                value->erase(value->begin());
+                            }
+                            if (!value->empty() && value->back() == '"') {
+                                value->pop_back();
+                            }
+                        }
+                    } else {
+                        value = boost::none;
+                    }
+                    if (params.find(key) == params.end()) {
+                        params[key] = {};
+                    }
+                    params[key].emplace_back(std::move(value));
+                }
+                extensions.emplace_back(std::make_pair(std::move(extension), std::move(params)));
+            } else {
+                NET4CXX_ASSERT(false);
+            }
+        }
+    }
+    return extensions;
+}
+
 
 const char* WebSocketServerProtocol::SERVER_STATUS_TEMPLATE = R"(<!DOCTYPE html>
 <html>
@@ -1416,6 +1468,28 @@ void WebSocketServerProtocol::processHandshake() {
                 return;
             }
         }
+
+        auto websocketExtensionsIter = _httpHeaders.find("sec-websocket-extensions");
+        if (websocketExtensionsIter != _httpHeaders.end()) {
+            if (httpHeadersCnt["sec-websocket-extensions"] > 1) {
+                failHandshake("HTTP Sec-WebSocket-Extensions header appears more than once "
+                              "in opening handshake request");
+                return;
+            } else {
+                _websocketExtensions = parseExtensionsHeader(websocketExtensionsIter->second);
+            }
+        }
+
+        _data.erase(_data.begin(), std::next(_data.begin(), ((const Byte *)endOfHeader + 4 - _data.data())));
+        _wskey = std::move(key);
+
+        if (_maxConnections > 0 && factory->getConnectionCount() > _maxConnections) {
+            failHandshake("maximum number of connections reached", 503);
+        } else {
+
+        }
+    } else if (_serverFlashSocketPolicy) {
+
     }
 }
 
