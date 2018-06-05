@@ -8,55 +8,36 @@
 #include "net4cxx/common/common.h"
 #include <exception>
 #include <stdexcept>
+#include <boost/exception/all.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/stacktrace.hpp>
 
 NS_BEGIN
 
-struct tagException {
 
-};
+typedef boost::error_info<struct errinfo_message_,std::string> errinfo_message;
+typedef boost::error_info<struct errinfo_stack_trace_, boost::stacktrace::stacktrace> errinfo_stack_trace;
 
-class NET4CXX_COMMON_API Exception: public std::runtime_error {
+
+struct NET4CXX_COMMON_API Exception: virtual std::exception, virtual boost::exception {
 public:
-    Exception(const char *file, int line, const char *func, const std::string &message={})
-            : Exception(file, line, func, message, 1) {
-
-    }
-
     const char *what() const noexcept override;
 
     virtual const char *getTypeName() const {
         return "Exception";
     }
+
 protected:
-    Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames)
-            : Exception(file, line, func, message, ++skipFrames, tagException{}) {
-
-    }
-
-    Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames,
-              tagException);
-
-    const char *_file{nullptr};
-    int _line{0};
-    const char *_func{nullptr};
-    std::string _backtrace;
     mutable std::string _what;
 };
 
 
-#define NET4CXX_DECLARE_EXCEPTION(Exception, ParentException) \
-class NET4CXX_COMMON_API Exception: public ParentException { \
+#define NET4CXX_DECLARE_EXCEPTION(Exception, BaseException) \
+class NET4CXX_COMMON_API Exception: public BaseException { \
 public: \
-    Exception(const char *file, int line, const char *func, const std::string &message={}) \
-            : Exception(file, line, func, message, 1) {} \
     const char *getTypeName() const override { \
         return #Exception; \
     } \
-protected: \
-    Exception(const char *file, int line, const char *func, const std::string &message, size_t skipFrames) \
-            : ParentException(file, line, func, message, ++skipFrames) {} \
 }
 
 
@@ -78,8 +59,15 @@ NET4CXX_DECLARE_EXCEPTION(ParsingError, Exception);
 NET4CXX_DECLARE_EXCEPTION(PermissionError, Exception);
 
 
-#define NET4CXX_EXCEPTION(Exception, ...)   Exception(__FILE__, __LINE__, __FUNCTION__, ##__VA_ARGS__)
+#define NET4CXX_EXCEPTION(Exception, msg, ...)   Exception(##__VA_ARGS__) << \
+    boost::throw_function(BOOST_THROW_EXCEPTION_CURRENT_FUNCTION) << \
+    boost::throw_file(__FILE__) << \
+    boost::throw_line((int)__LINE__) << \
+    errinfo_stack_trace(boost::stacktrace::stacktrace()) << \
+    errinfo_message(msg)
+
 #define NET4CXX_EXCEPTION_PTR(Exception, ...)   std::make_exception_ptr(NET4CXX_EXCEPTION(Exception, ##__VA_ARGS__))
+
 #define NET4CXX_THROW_EXCEPTION(Exception, ...) throw NET4CXX_EXCEPTION(Exception, ##__VA_ARGS__)
 
 NS_END
