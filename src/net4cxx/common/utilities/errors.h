@@ -59,16 +59,18 @@ NET4CXX_DECLARE_EXCEPTION(ParsingError, Exception);
 NET4CXX_DECLARE_EXCEPTION(PermissionError, Exception);
 
 
-#define NET4CXX_EXCEPTION(Exception, msg, ...)   Exception(##__VA_ARGS__) << \
+#define NET4CXX_MAKE_EXCEPTION(Exception, msg, ...)   Exception(##__VA_ARGS__) << \
     boost::throw_function(BOOST_THROW_EXCEPTION_CURRENT_FUNCTION) << \
     boost::throw_file(__FILE__) << \
     boost::throw_line((int)__LINE__) << \
     errinfo_stack_trace(boost::stacktrace::stacktrace()) << \
     errinfo_message(msg)
 
-#define NET4CXX_EXCEPTION_PTR(Exception, ...)   std::make_exception_ptr(NET4CXX_EXCEPTION(Exception, ##__VA_ARGS__))
+#define NET4CXX_EXCEPTION_PTR(Exception, msg, ...) \
+    std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(Exception, msg, ##__VA_ARGS__))
 
-#define NET4CXX_THROW_EXCEPTION(Exception, ...) throw NET4CXX_EXCEPTION(Exception, ##__VA_ARGS__)
+#define NET4CXX_THROW_EXCEPTION(Exception, msg, ...) \
+    throw NET4CXX_MAKE_EXCEPTION(Exception, msg, ##__VA_ARGS__)
 
 NS_END
 
