@@ -4,6 +4,7 @@
 
 #include "net4cxx/plugins/websocket/util.h"
 #include "net4cxx/common/crypto/base64.h"
+#include "net4cxx/common/httputils/httplib.h"
 #include "net4cxx/common/utilities/random.h"
 
 
@@ -73,7 +74,7 @@ WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     }
     auto port = parsed.getPort();
     if (!port) {
-        port = scheme == "ws" ? 80 : 443;
+        port = scheme == "ws" ? HTTP_PORT : HTTPS_PORT;
     }
     const auto &fragment = parsed.getFragment();
     if (!fragment.empty()) {

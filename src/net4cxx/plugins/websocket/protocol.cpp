@@ -1078,12 +1078,11 @@ void WebSocketProtocol::sendAutoPing() {
     }
 }
 
-WebSocketProtocol::ExtensionList WebSocketProtocol::parseExtensionsHeader(const std::string &header,
-                                                                          bool removeQuotes) {
-    ExtensionList extensions;
+WebSocketExtensionList WebSocketProtocol::parseExtensionsHeader(const std::string &header, bool removeQuotes) {
+    WebSocketExtensionList extensions;
     StringVector exts, ext, p;
     std::string extension, key;
-    ExtensionParams params;
+    WebSocketExtensionParams params;
     boost::optional<std::string> value;
 
     exts = StrUtil::split(header, ',');
@@ -1143,6 +1142,10 @@ const char* WebSocketServerProtocol::SERVER_STATUS_TEMPLATE = R"(<!DOCTYPE html>
     </body>
 </html>
 )";
+
+std::pair<std::string, QueryArgListMap> WebSocketServerProtocol::onConnect(ConnectionRequest request) {
+    return std::make_pair("", QueryArgListMap{});
+}
 
 void WebSocketServerProtocol::connectionMade() {
     BaseType::connectionMade();
@@ -1486,11 +1489,54 @@ void WebSocketServerProtocol::processHandshake() {
         if (_maxConnections > 0 && factory->getConnectionCount() > _maxConnections) {
             failHandshake("maximum number of connections reached", 503);
         } else {
-
+            try {
+                auto res = onConnect(ConnectionRequest(_peer, _httpHeaders, _httpRequestHost, _httpRequestPath,
+                                                       _httpRequestParams, _websocketVersion, _websocketOrigin,
+                                                       _websocketProtocols, _websocketExtensions));
+                succeedHandshake(std::move(res));
+            } catch (ConnectionDeny &e) {
+                failHandshake(e.getReason(), e.getCode());
+            } catch (std::exception &e) {
+                NET4CXX_LOG_WARN(gGenLog, "Unexpected exception in onConnect ['%s']", e.what());
+                failHandshake(StrUtil::format("Internal server error: %s", e.what()),
+                              ConnectionDeny::INTERNAL_SERVER_ERROR);
+            }
         }
     } else if (_serverFlashSocketPolicy) {
+        const char policyFileRequest[] = {'<', 'p', 'o', 'l', 'i', 'c', 'y',
+                                          '-', 'f', 'i', 'l', 'e',
+                                          '-', 'r', 'e', 'q', 'u', 'e', 's', 't',
+                                          '/', '>', '\x00'};
+        const char *flashPolicyFileRequest = StrNStr((const char *)_data.data(), _data.size(), policyFileRequest,
+                                                     sizeof(policyFileRequest));
+        if (flashPolicyFileRequest) {
+            NET4CXX_LOG_DEBUG(gGenLog, "received Flash Socket Policy File request");
 
+            if (_serverFlashSocketPolicy) {
+                NET4CXX_LOG_DEBUG(gGenLog, "sending Flash Socket Policy File : %s", _flashSocketPolicy);
+                sendData((const Byte *)_flashSocketPolicy.data(), _flashSocketPolicy.size());
+                _wasServingFlashSocketPolicyFile = true;
+                dropConnection();
+            } else {
+                NET4CXX_LOG_DEBUG(gGenLog, "No Flash Policy File served.");
+            }
+        }
     }
+}
+
+void WebSocketServerProtocol::succeedHandshake(std::pair<std::string, QueryArgListMap> res) {
+    std::string protocol;
+    QueryArgListMap headers;
+    protocol = std::move(res.first);
+    headers = std::move(res.second);
+
+    if (!protocol.empty() &&
+        std::find(_websocketProtocols.begin(), _websocketProtocols.end(), protocol) == _websocketProtocols.end()) {
+        NET4CXX_THROW_EXCEPTION(Exception, "protocol accepted must be from the list client sent or <empty>");
+    }
+
+    _websocketProtocolInUse = std::move(protocol);
+
 }
 
 void WebSocketServerProtocol::failHandshake(const std::string &reason, int code, StringMap responseHeaders) {

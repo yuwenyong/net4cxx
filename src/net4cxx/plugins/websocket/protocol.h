@@ -41,10 +41,6 @@ enum CloseStatus: unsigned short {
 
 class NET4CXX_COMMON_API WebSocketProtocol: public Protocol, public std::enable_shared_from_this<WebSocketProtocol> {
 public:
-
-    using ExtensionParams = std::map<std::string, std::vector<boost::optional<std::string>>>;
-    using ExtensionList = std::vector<std::pair<std::string, ExtensionParams>>;
-
     enum class State {
         CLOSED = 0,
         CONNECTING,
@@ -282,7 +278,7 @@ protected:
                           HexFormatter(payload, len).toString());
     }
 
-    ExtensionList parseExtensionsHeader(const std::string &header, bool removeQuotes=true);
+    WebSocketExtensionList parseExtensionsHeader(const std::string &header, bool removeQuotes=true);
 
     std::string _peer{"<never connected>"};
     bool _isServer{false};
@@ -378,6 +374,8 @@ class WebSocketServerProtocol: public WebSocketProtocol {
 public:
     using BaseType = WebSocketProtocol;
 
+    virtual std::pair<std::string, QueryArgListMap> onConnect(ConnectionRequest request);
+
     void connectionMade() override;
 
     void connectionLost(std::exception_ptr reason) override;
@@ -386,6 +384,8 @@ public:
 
     void processHandshake() override;
 protected:
+    void succeedHandshake(std::pair<std::string, QueryArgListMap> res);
+
     void failHandshake(const std::string &reason, int code=400, StringMap responseHeaders={});
 
     void sendHttpErrorResponse(int code, const std::string &reason, StringMap responseHeaders={});
@@ -405,8 +405,10 @@ protected:
     std::string _httpRequestHost;
     StringVector _websocketProtocols;
     std::string _websocketOrigin;
-    ExtensionList _websocketExtensions;
+    WebSocketExtensionList _websocketExtensions;
     std::string _wskey;
+    std::string _websocketProtocolInUse;
+    std::vector<PerMessageCompressPtr> _websocketExtensionsInUse;
 
     static const char *SERVER_STATUS_TEMPLATE;
 };
@@ -416,8 +418,8 @@ class NET4CXX_COMMON_API WebSocketServerFactory: public Factory {
 public:
     using Headers = std::map<std::string, StringVector>;
 
-    WebSocketServerFactory(std::string url="", StringVector protocols={}, std::string version="", Headers headers={},
-                           unsigned short externalPort=0) {
+    explicit WebSocketServerFactory(std::string url="", StringVector protocols={}, std::string version="",
+                                    Headers headers={}, unsigned short externalPort=0) {
         setSessionParameters(std::move(url), std::move(protocols), std::move(version), std::move(headers),
                              externalPort);
         resetProtocolOptions();
@@ -721,8 +723,8 @@ class NET4CXX_COMMON_API WebSocketClientFactory: public ClientFactory {
 public:
     using Headers = std::map<std::string, StringVector>;
 
-    WebSocketClientFactory(std::string url = "", std::string origin = "", StringVector protocols = {},
-                           std::string useragent = "", Headers headers = {}, std::string proxy = "") {
+    explicit WebSocketClientFactory(std::string url = "", std::string origin = "", StringVector protocols = {},
+                                    std::string useragent = "", Headers headers = {}, std::string proxy = "") {
         setSessionParameters(std::move(url), std::move(origin), std::move(protocols), std::move(useragent),
                              std::move(headers), std::move(proxy));
         resetProtocolOptions();
