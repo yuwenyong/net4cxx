@@ -63,8 +63,8 @@ NET4CXX_DECLARE_EXCEPTION(PermissionError, Exception);
     boost::throw_function(BOOST_THROW_EXCEPTION_CURRENT_FUNCTION) << \
     boost::throw_file(__FILE__) << \
     boost::throw_line((int)__LINE__) << \
-    errinfo_stack_trace(boost::stacktrace::stacktrace()) << \
-    errinfo_message(msg)
+    net4cxx::errinfo_stack_trace(boost::stacktrace::stacktrace()) << \
+    net4cxx::errinfo_message(msg)
 
 #define NET4CXX_EXCEPTION_PTR(Exception, msg, ...) \
     std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(Exception, msg, ##__VA_ARGS__))

@@ -11,6 +11,7 @@
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/plugins/websocket/compress.h"
+#include "net4cxx/plugins/websocket/types.h"
 #include "net4cxx/plugins/websocket/utf8validator.h"
 #include "net4cxx/plugins/websocket/util.h"
 #include "net4cxx/plugins/websocket/xormasker.h"
@@ -133,6 +134,8 @@ public:
     static const std::vector<int> SUPPORTED_SPEC_VERSIONS;
 
     static const std::vector<int> SUPPORTED_PROTOCOL_VERSIONS;
+
+    static const std::map<int, int> SPEC_TO_PROTOCOL_VERSION;
 
     static const std::vector<unsigned short> CLOSE_STATUS_CODES_ALLOWED;
 
@@ -371,7 +374,7 @@ protected:
 };
 
 
-class WebSocketServerProtocol: public WebSocketProtocol {
+class NET4CXX_COMMON_API WebSocketServerProtocol: public WebSocketProtocol {
 public:
     using BaseType = WebSocketProtocol;
 
@@ -398,6 +401,7 @@ protected:
     void sendServerStatus(const std::string &redirectUrl="", int redirectAfter=0);
 
     std::string _httpRequestData;
+    std::string _httpResponseData;
     std::string _httpStatusLine;
     StringMap _httpHeaders;
     std::string _httpRequestUri;
@@ -407,10 +411,9 @@ protected:
     StringVector _webSocketProtocols;
     std::string _webSocketOrigin;
     WebSocketExtensionList _webSocketExtensions;
-    std::string _wskey;
+    std::string _webSocketKey;
     std::string _webSocketProtocolInUse;
     std::vector<PerMessageCompressPtr> _webSocketExtensionsInUse;
-    std::string _httpResponseData;
 
     static const char *SERVER_STATUS_TEMPLATE;
 };
@@ -723,6 +726,45 @@ protected:
 };
 
 
+class NET4CXX_COMMON_API WebSocketClientProtocol: public WebSocketProtocol {
+public:
+    using BaseType = WebSocketProtocol;
+
+    virtual void onConnect(ConnectionResponse response);
+
+    void connectionMade() override;
+
+    void connectionLost(std::exception_ptr reason) override;
+
+    void processProxyConnect() override;
+
+    void processHandshake() override;
+protected:
+    void startProxyConnect();
+
+    void failProxyConnect(const std::string &reason) {
+        NET4CXX_LOG_DEBUG(gGenLog, "failing proxy connect ('%s')", reason);
+        dropConnection(true);
+    }
+
+    void startHandshake();
+
+    void failHandshake(const std::string &reason) {
+        _wasNotCleanReason = reason;
+        NET4CXX_LOG_INFO(gGenLog, "failing WebSocket opening handshake ('%s')", reason);
+        dropConnection(true);
+    }
+
+    std::string _webSocketKey;
+    std::string _httpRequestData;
+    std::string _httpResponseData;
+    std::string _httpStatusLine;
+    StringMap _httpHeaders;
+    std::string _webSocketProtocolInUse;
+    std::vector<PerMessageCompressPtr> _webSocketExtensionsInUse;
+};
+
+
 class NET4CXX_COMMON_API WebSocketClientFactory: public ClientFactory {
 public:
     explicit WebSocketClientFactory(std::string url = "", std::string origin = "", StringVector protocols = {},
@@ -759,6 +801,33 @@ public:
 
     bool getTrackTimings() const {
         return _trackTimings;
+    }
+    std::string getHost() const {
+        return _host;
+    }
+
+    unsigned short getPort() const {
+        return _port;
+    }
+
+    std::string getResource() const {
+        return _resource;
+    }
+
+    std::string getOrigin() const {
+        return _origin;
+    }
+
+    const StringVector& getProtocols() const {
+        return _protocols;
+    }
+
+    std::string getUserAgent() const {
+        return _useragent;
+    }
+
+    const WebSocketHeaders& getHeaders() const {
+        return _headers;
     }
 
     std::string getProxy() const {

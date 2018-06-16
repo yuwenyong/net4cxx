@@ -71,7 +71,9 @@ using PerMessageCompressionAccept4Client = std::function<
 class NET4CXX_COMMON_API PerMessageCompressFactory {
 public:
     virtual PerMessageCompressOfferPtr createOfferFromParams(const WebSocketExtensionParams &params) = 0;
+    virtual PerMessageCompressResponsePtr createResponseFromParams(const WebSocketExtensionParams &params) = 0;
     virtual PerMessageCompressPtr createFromOfferAccept(bool isServer, PerMessageCompressOfferAcceptPtr accept) = 0;
+    virtual PerMessageCompressPtr createFromReponseAccept(bool isServer, PerMessageCompressResponseAcceptPtr accept) = 0;
     virtual ~PerMessageCompressFactory() = default;
 };
 

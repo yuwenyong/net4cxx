@@ -3,3 +3,7 @@
 //
 
 #include "net4cxx/plugins/websocket/base.h"
+
+NS_BEGIN
+
+NS_END
