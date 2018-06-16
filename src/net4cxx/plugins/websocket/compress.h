@@ -7,44 +7,47 @@
 
 #include "net4cxx/plugins/websocket/base.h"
 #include "net4cxx/common/compress/zlib.h"
+#include "net4cxx/common/utilities/util.h"
 
 
 NS_BEGIN
 
-class PerMessageCompressOffer {
+class NET4CXX_COMMON_API PerMessageCompressOffer {
 public:
     virtual std::string getExtensionString() const = 0;
-    virtual ~PerMessageCompressOffer();
+    virtual ~PerMessageCompressOffer() = default;
 };
 
 using PerMessageCompressOfferPtr = std::shared_ptr<PerMessageCompressOffer>;
 
 
-class PerMessageCompressOfferAccept {
+class NET4CXX_COMMON_API PerMessageCompressOfferAccept {
 public:
-    virtual ~PerMessageCompressOfferAccept();
+    virtual std::string getExtensionName() const = 0;
+    virtual std::string getExtensionString() const = 0;
+    virtual ~PerMessageCompressOfferAccept() = default;
 };
 
 using PerMessageCompressOfferAcceptPtr = std::shared_ptr<PerMessageCompressOfferAccept>;
 
 
-class PerMessageCompressResponse {
+class NET4CXX_COMMON_API PerMessageCompressResponse {
 public:
-    virtual ~PerMessageCompressResponse();
+    virtual ~PerMessageCompressResponse() = default;
 };
 
 using PerMessageCompressResponsePtr = std::shared_ptr<PerMessageCompressResponse>;
 
 
-class PerMessageCompressResponseAccept {
+class NET4CXX_COMMON_API PerMessageCompressResponseAccept {
 public:
-    virtual ~PerMessageCompressResponseAccept();
+    virtual ~PerMessageCompressResponseAccept() = default;
 };
 
 using PerMessageCompressResponseAcceptPtr = std::shared_ptr<PerMessageCompressResponseAccept>;
 
 
-class PerMessageCompress {
+class NET4CXX_COMMON_API PerMessageCompress {
 public:
     virtual void startCompressMessage() = 0;
     virtual ByteArray compressMessageData(const Byte *data, size_t length) = 0;
@@ -53,7 +56,7 @@ public:
     virtual ByteArray decompressMessageData(const Byte *data, size_t length) = 0;
     virtual void endDecompressMessage() = 0;
     virtual std::string getExtensionName() const = 0;
-    virtual ~PerMessageCompress();
+    virtual ~PerMessageCompress()= default;
 };
 
 using PerMessageCompressPtr = std::shared_ptr<PerMessageCompress>;
@@ -65,6 +68,14 @@ using PerMessageCompressionAccept4Client = std::function<
         PerMessageCompressResponseAcceptPtr (PerMessageCompressResponsePtr)>;
 
 
+class NET4CXX_COMMON_API PerMessageCompressFactory {
+public:
+    virtual PerMessageCompressOfferPtr createOfferFromParams(const WebSocketExtensionParams &params) = 0;
+    virtual PerMessageCompressPtr createFromOfferAccept(bool isServer, PerMessageCompressOfferAcceptPtr accept) = 0;
+    virtual ~PerMessageCompressFactory() = default;
+};
+
+
 class PerMessageDeflateConstants {
 public:
     static const char * EXTENSION_NAME;
@@ -73,7 +84,7 @@ public:
 };
 
 
-class PerMessageDeflate: public PerMessageCompress {
+class NET4CXX_COMMON_API PerMessageDeflate: public PerMessageCompress {
 public:
     static constexpr int DEFAULT_WINDOW_BITS = Zlib::maxWBits;
     static constexpr int DEFAULT_MEM_LEVEL = 8;
@@ -118,7 +129,7 @@ protected:
 };
 
 
-class PerMessageDeflateOffer: public PerMessageCompressOffer {
+class NET4CXX_COMMON_API PerMessageDeflateOffer: public PerMessageCompressOffer {
 public:
     PerMessageDeflateOffer(bool acceptNoContextTakeover, bool acceptMaxWindowBits, bool requestNoContextTakeover,
                            size_t requestMaxWindowBits)
@@ -136,6 +147,9 @@ protected:
     bool _requestNoContextTakeover;
     size_t _requestMaxWindowBits;
 };
+
+
+extern PtrMap<std::string, PerMessageCompressFactory> PERMESSAGE_COMPRESSION_EXTENSION;
 
 NS_END
 

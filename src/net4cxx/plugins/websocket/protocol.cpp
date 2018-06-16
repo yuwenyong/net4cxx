@@ -4,6 +4,8 @@
 
 #include "net4cxx/plugins/websocket/protocol.h"
 #include <boost/endian/conversion.hpp>
+#include "net4cxx/common/crypto/base64.h"
+#include "net4cxx/common/crypto/hashlib.h"
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -33,6 +35,8 @@ constexpr int WebSocketProtocol::DEFAULT_SPEC_VERSION;
 constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_TEXT;
 
 constexpr unsigned WebSocketProtocol::MESSAGE_TYPE_BINARY;
+
+const std::string WebSocketProtocol::WS_MAGIC = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
 
 const double WebSocketProtocol::QUEUED_WRITE_DELAY = 0.00001;
 
@@ -875,7 +879,7 @@ bool WebSocketProtocol::onFrameData(ByteArray payload) {
 
 void WebSocketProtocol::onMessageFrameData(ByteArray payload) {
     if (!_failedByMe) {
-        if (_websocketVersion == 0) {
+        if (_webSocketVersion == 0) {
             _messageDataTotalLength += payload.size();
             if (0 < _maxMessagePayloadSize && _maxMessagePayloadSize < _messageDataTotalLength) {
                 _wasMaxMessagePayloadSizeExceeded = true;
@@ -1041,7 +1045,7 @@ bool WebSocketProtocol::onCloseFrame(boost::optional<unsigned short> code, boost
     } else if (_state == State::OPEN) {
         _wasClean = true;
 
-        if (_websocketVersion == 0) {
+        if (_webSocketVersion == 0) {
             sendCloseFrame(boost::none, boost::none, true);
         } else {
             if (_echoCloseCodeReason) {
@@ -1143,8 +1147,8 @@ const char* WebSocketServerProtocol::SERVER_STATUS_TEMPLATE = R"(<!DOCTYPE html>
 </html>
 )";
 
-std::pair<std::string, QueryArgListMap> WebSocketServerProtocol::onConnect(ConnectionRequest request) {
-    return std::make_pair("", QueryArgListMap{});
+std::pair<std::string, WebSocketHeaders> WebSocketServerProtocol::onConnect(ConnectionRequest request) {
+    return std::make_pair("", WebSocketHeaders{});
 }
 
 void WebSocketServerProtocol::connectionMade() {
@@ -1342,8 +1346,8 @@ void WebSocketServerProtocol::processHandshake() {
         }
 
         int version = -1;
-        auto websocketVersionIter = _httpHeaders.find("sec-websocket-version");
-        if (websocketVersionIter == _httpHeaders.end()) {
+        auto webSocketVersionIter = _httpHeaders.find("sec-websocket-version");
+        if (webSocketVersionIter == _httpHeaders.end()) {
             NET4CXX_LOG_DEBUG(gGenLog, "Hixie76 protocol detected");
             failHandshake("WebSocket connection denied - Hixie76 protocol not supported.");
             return;
@@ -1354,10 +1358,10 @@ void WebSocketServerProtocol::processHandshake() {
                 return;
             }
             try {
-                version = std::stoi(websocketVersionIter->second);
+                version = std::stoi(webSocketVersionIter->second);
             } catch (...) {
                 failHandshake(StrUtil::format("could not parse HTTP Sec-WebSocket-Version header "
-                                              "'%s' in opening handshake request", websocketVersionIter->second));
+                                              "'%s' in opening handshake request", webSocketVersionIter->second));
                 return;
             }
         }
@@ -1379,12 +1383,12 @@ void WebSocketServerProtocol::processHandshake() {
                           400, {{"Sec-WebSocket-Version", svs}});
             return;
         } else {
-            _websocketVersion = version;
+            _webSocketVersion = version;
         }
 
-        auto websocketProtocolIter = _httpHeaders.find("sec-websocket-protocol");
-        if (websocketProtocolIter != _httpHeaders.end()) {
-            auto protocols = StrUtil::split(websocketProtocolIter->second, ',');
+        auto webSocketProtocolIter = _httpHeaders.find("sec-websocket-protocol");
+        if (webSocketProtocolIter != _httpHeaders.end()) {
+            auto protocols = StrUtil::split(webSocketProtocolIter->second, ',');
             std::map<std::string, int> pp;
             for (auto &p: protocols) {
                 boost::trim(p);
@@ -1396,27 +1400,27 @@ void WebSocketServerProtocol::processHandshake() {
                     pp[p] = 1;
                 }
             }
-            _websocketProtocols = std::move(protocols);
+            _webSocketProtocols = std::move(protocols);
         }
 
-        std::string websocketOriginHeaderKey;
-        if (_websocketVersion < 13) {
-            websocketOriginHeaderKey = "sec-websocket-origin";
+        std::string webSocketOriginHeaderKey;
+        if (_webSocketVersion < 13) {
+            webSocketOriginHeaderKey = "sec-websocket-origin";
         } else {
-            websocketOriginHeaderKey = "origin";
+            webSocketOriginHeaderKey = "origin";
         }
 
         bool haveOrigin = false;
         WebSocketUtil::UrlToOriginResult originTuple;
-        auto websocketOriginIter = _httpHeaders.find(websocketOriginHeaderKey);
-        if (websocketOriginIter != _httpHeaders.end()) {
-            if (httpHeadersCnt[websocketOriginHeaderKey] > 1) {
+        auto webSocketOriginIter = _httpHeaders.find(webSocketOriginHeaderKey);
+        if (webSocketOriginIter != _httpHeaders.end()) {
+            if (httpHeadersCnt[webSocketOriginHeaderKey] > 1) {
                 failHandshake("HTTP Origin header appears more than once in opening handshake request");
                 return;
             }
-            _websocketOrigin = boost::trim_copy(websocketOriginIter->second);
+            _webSocketOrigin = boost::trim_copy(webSocketOriginIter->second);
             try {
-                originTuple = WebSocketUtil::urlToOrigin(_websocketOrigin);
+                originTuple = WebSocketUtil::urlToOrigin(_webSocketOrigin);
             } catch (ValueError &e) {
                 failHandshake(StrUtil::format("HTTP Origin header invalid: %s", e.what()));
                 return;
@@ -1436,13 +1440,13 @@ void WebSocketServerProtocol::processHandshake() {
             }
             if (!originIsAllowed) {
                 failHandshake(StrUtil::format("WebSocket connection denied: origin '%s' not allowed",
-                                              _websocketOrigin));
+                                              _webSocketOrigin));
                 return;
             }
         }
 
-        auto websocketKeyIter = _httpHeaders.find("sec-websocket-key");
-        if (websocketKeyIter == _httpHeaders.end()) {
+        auto webSocketKeyIter = _httpHeaders.find("sec-websocket-key");
+        if (webSocketKeyIter == _httpHeaders.end()) {
             failHandshake("HTTP Sec-WebSocket-Key header missing");
             return;
         }
@@ -1450,7 +1454,7 @@ void WebSocketServerProtocol::processHandshake() {
             failHandshake("HTTP Sec-WebSocket-Key header appears more than once in opening handshake request");
             return;
         }
-        auto key = boost::trim_copy(websocketKeyIter->second);
+        auto key = boost::trim_copy(webSocketKeyIter->second);
         if (key.length() != 24) {
             failHandshake(StrUtil::format("bad Sec-WebSocket-Key (length must be 24 ASCII chars) '%s'", key));
             return;
@@ -1472,14 +1476,14 @@ void WebSocketServerProtocol::processHandshake() {
             }
         }
 
-        auto websocketExtensionsIter = _httpHeaders.find("sec-websocket-extensions");
-        if (websocketExtensionsIter != _httpHeaders.end()) {
+        auto webSocketExtensionsIter = _httpHeaders.find("sec-websocket-extensions");
+        if (webSocketExtensionsIter != _httpHeaders.end()) {
             if (httpHeadersCnt["sec-websocket-extensions"] > 1) {
                 failHandshake("HTTP Sec-WebSocket-Extensions header appears more than once "
                               "in opening handshake request");
                 return;
             } else {
-                _websocketExtensions = parseExtensionsHeader(websocketExtensionsIter->second);
+                _webSocketExtensions = parseExtensionsHeader(webSocketExtensionsIter->second);
             }
         }
 
@@ -1491,8 +1495,8 @@ void WebSocketServerProtocol::processHandshake() {
         } else {
             try {
                 auto res = onConnect(ConnectionRequest(_peer, _httpHeaders, _httpRequestHost, _httpRequestPath,
-                                                       _httpRequestParams, _websocketVersion, _websocketOrigin,
-                                                       _websocketProtocols, _websocketExtensions));
+                                                       _httpRequestParams, _webSocketVersion, _webSocketOrigin,
+                                                       _webSocketProtocols, _webSocketExtensions));
                 succeedHandshake(std::move(res));
             } catch (ConnectionDeny &e) {
                 failHandshake(e.getReason(), e.getCode());
@@ -1524,19 +1528,125 @@ void WebSocketServerProtocol::processHandshake() {
     }
 }
 
-void WebSocketServerProtocol::succeedHandshake(std::pair<std::string, QueryArgListMap> res) {
+void WebSocketServerProtocol::succeedHandshake(std::pair<std::string, WebSocketHeaders> res) {
+    auto factory = getFactory<WebSocketServerFactory>();
+
     std::string protocol;
-    QueryArgListMap headers;
+    WebSocketHeaders headers;
     protocol = std::move(res.first);
     headers = std::move(res.second);
 
     if (!protocol.empty() &&
-        std::find(_websocketProtocols.begin(), _websocketProtocols.end(), protocol) == _websocketProtocols.end()) {
+        std::find(_webSocketProtocols.begin(), _webSocketProtocols.end(), protocol) == _webSocketProtocols.end()) {
         NET4CXX_THROW_EXCEPTION(Exception, "protocol accepted must be from the list client sent or <empty>");
     }
 
-    _websocketProtocolInUse = std::move(protocol);
+    _webSocketProtocolInUse = std::move(protocol);
 
+    StringVector extensionResponse;
+    std::vector<PerMessageCompressOfferPtr> pmceOffers;
+
+    for (auto &webSocketExtension: _webSocketExtensions) {
+        auto &extension = webSocketExtension.first;
+        auto &params = webSocketExtension.second;
+        NET4CXX_LOG_DEBUG(gGenLog, "parsed WebSocket extension '%s'", extension);
+        auto PMCE = PERMESSAGE_COMPRESSION_EXTENSION.find(extension);
+        if (PMCE != PERMESSAGE_COMPRESSION_EXTENSION.end()) {
+            try {
+                auto offer = PMCE->second->createOfferFromParams(params);
+                pmceOffers.emplace_back(std::move(offer));
+            } catch (std::exception &e) {
+                failHandshake(e.what());
+                return;
+            }
+        } else {
+            NET4CXX_LOG_DEBUG(gGenLog, "client requested '%s' extension we don't support or which is not activated",
+                              extension);
+        }
+    }
+
+    if (!pmceOffers.empty()) {
+        PerMessageCompressOfferAcceptPtr accept;
+        if (_perMessageCompressionAccept4Server) {
+            accept = _perMessageCompressionAccept4Server(std::move(pmceOffers));
+        }
+
+        if (accept) {
+            auto PMCE = PERMESSAGE_COMPRESSION_EXTENSION.find(accept->getExtensionName());
+            _perMessageCompress = PMCE->second->createFromOfferAccept(true, accept);
+            _webSocketExtensionsInUse.emplace_back(_perMessageCompress);
+            extensionResponse.emplace_back(accept->getExtensionString());
+        } else {
+            NET4CXX_LOG_DEBUG(gGenLog, "client request permessage-compress extension, "
+                                       "but we did not accept any offers");
+        }
+    }
+
+    std::string response = "HTTP/1.1 101 Switching Protocols\x0d\x0a";
+
+    if (!factory->getServer().empty()) {
+        response += StrUtil::format("Server: %s\x0d\x0a", factory->getServer());
+    }
+
+    response += "Upgrade: WebSocket\x0d\x0a";
+    response += "Connection: Upgrade\x0d\x0a";
+
+    for (auto &uh: factory->getHeaders()) {
+        for (auto &headerValue: uh.second) {
+            response += StrUtil::format("%s: %s\x0d\x0a", uh.first, headerValue);
+        }
+    }
+
+    for (auto &uh: headers) {
+        for (auto &headerValue: uh.second) {
+            response += StrUtil::format("%s: %s\x0d\x0a", uh.first, headerValue);
+        }
+    }
+
+    if (!_webSocketProtocolInUse.empty()) {
+        response += StrUtil::format("Sec-WebSocket-Protocol: %s\x0d\x0a", _webSocketProtocolInUse);
+    }
+
+    SHA1Object sha1;
+    sha1.update(_wskey + WS_MAGIC);
+    auto secWebSocketAccept = Base64::b64encode(sha1.digest());
+
+    response += StrUtil::format("Sec-WebSocket-Accept: %s\x0d\x0a", secWebSocketAccept);
+
+    if (!extensionResponse.empty()) {
+        response += StrUtil::format("Sec-WebSocket-Extensions: %s\x0d\x0a", boost::join(extensionResponse, ", "));
+    }
+
+    response += "\x0d\x0a";
+
+    NET4CXX_LOG_DEBUG(gGenLog, "sending HTTP response:\n\n%s", response);
+    sendData((const Byte *)response.data(), response.size());
+
+    _httpResponseData = std::move(response);
+    _state = State::OPEN;
+
+    if (!_openHandshakeTimeoutCall.cancelled()) {
+        NET4CXX_LOG_DEBUG(gGenLog, "cancel openHandshakeTimeoutCall");
+        _openHandshakeTimeoutCall.cancel();
+    }
+
+    _insideMessage = false;
+    _currentFrame = boost::none;
+
+    if (_autoPingInterval > 0.0) {
+        _autoPingPendingCall = reactor()->callLater(_autoPingInterval, [self = shared_from_this(), this](){
+            sendAutoPing();
+        });
+    }
+
+    if (_trackedTimings) {
+        _trackedTimings->track("onOpen");
+    }
+    onOpen();
+
+    if (!_data.empty()) {
+        consumeData();
+    }
 }
 
 void WebSocketServerProtocol::failHandshake(const std::string &reason, int code, StringMap responseHeaders) {
@@ -1590,7 +1700,7 @@ void WebSocketServerProtocol::sendServerStatus(const std::string &redirectUrl, i
 
 
 void WebSocketServerFactory::setSessionParameters(std::string url, StringVector protocols, std::string server,
-                                                  Headers headers, unsigned short externalPort) {
+                                                  WebSocketHeaders headers, unsigned short externalPort) {
     if (url.empty()) {
         url = "ws://localhost";
     }
@@ -1678,7 +1788,7 @@ void WebSocketServerFactory::setAllowedOrigins(StringVector allowedOrigins) {
 
 
 void WebSocketClientFactory::setSessionParameters(std::string url, std::string origin, StringVector protocols,
-                                                  std::string useragent, Headers headers, std::string proxy) {
+                                                  std::string useragent, WebSocketHeaders headers, std::string proxy) {
     if (url.empty()) {
         url = "ws://localhost";
     }

@@ -99,6 +99,14 @@ public:
     static ByteArray unhexlify(const char *s, size_t len, bool reverse= false);
 };
 
+
+template <typename ValueT>
+using PtrVector = std::vector<std::unique_ptr<ValueT>>;
+
+template <typename KeyT, typename ValueT>
+using PtrMap = std::map<KeyT, std::unique_ptr<ValueT>>;
+
+
 NS_END
 
 #endif //NET4CXX_COMMON_UTILITIES_UTIL_H

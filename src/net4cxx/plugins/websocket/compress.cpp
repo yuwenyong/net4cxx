@@ -7,29 +7,6 @@
 
 NS_BEGIN
 
-PerMessageCompressOffer::~PerMessageCompressOffer() {
-
-}
-
-
-PerMessageCompressOfferAccept::~PerMessageCompressOfferAccept() {
-
-}
-
-
-PerMessageCompressResponse::~PerMessageCompressResponse() {
-
-}
-
-
-PerMessageCompressResponseAccept::~PerMessageCompressResponseAccept() {
-
-}
-
-
-PerMessageCompress::~PerMessageCompress() {
-
-}
 
 const char* PerMessageDeflateConstants::EXTENSION_NAME = "permessage-deflate";
 
@@ -107,5 +84,7 @@ std::string PerMessageDeflateOffer::getExtensionString() const {
     }
     return pmce;
 }
+
+PtrMap<std::string, PerMessageCompressFactory> PERMESSAGE_COMPRESSION_EXTENSION;
 
 NS_END

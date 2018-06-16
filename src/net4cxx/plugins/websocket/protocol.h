@@ -356,7 +356,7 @@ protected:
     bool _isMessageCompressed{false};
     bool _utf8validateIncomingCurrentMessage{false};
     bool _messageIsBinary{false};
-    int _websocketVersion{0};
+    int _webSocketVersion{0};
     uint64_t _messageDataTotalLength{0};
     uint64_t _frameLength{0};
     boost::optional<FrameHeader> _currentFrame;
@@ -366,6 +366,7 @@ protected:
     ByteArray _frameData;
     Utf8Validator::ValidateResult _utf8validateLast;
 
+    static const std::string WS_MAGIC;
     static const double QUEUED_WRITE_DELAY;
 };
 
@@ -374,7 +375,7 @@ class WebSocketServerProtocol: public WebSocketProtocol {
 public:
     using BaseType = WebSocketProtocol;
 
-    virtual std::pair<std::string, QueryArgListMap> onConnect(ConnectionRequest request);
+    virtual std::pair<std::string, WebSocketHeaders> onConnect(ConnectionRequest request);
 
     void connectionMade() override;
 
@@ -384,7 +385,7 @@ public:
 
     void processHandshake() override;
 protected:
-    void succeedHandshake(std::pair<std::string, QueryArgListMap> res);
+    void succeedHandshake(std::pair<std::string, WebSocketHeaders> res);
 
     void failHandshake(const std::string &reason, int code=400, StringMap responseHeaders={});
 
@@ -403,12 +404,13 @@ protected:
     std::string _httpRequestPath;
     QueryArgListMap _httpRequestParams;
     std::string _httpRequestHost;
-    StringVector _websocketProtocols;
-    std::string _websocketOrigin;
-    WebSocketExtensionList _websocketExtensions;
+    StringVector _webSocketProtocols;
+    std::string _webSocketOrigin;
+    WebSocketExtensionList _webSocketExtensions;
     std::string _wskey;
-    std::string _websocketProtocolInUse;
-    std::vector<PerMessageCompressPtr> _websocketExtensionsInUse;
+    std::string _webSocketProtocolInUse;
+    std::vector<PerMessageCompressPtr> _webSocketExtensionsInUse;
+    std::string _httpResponseData;
 
     static const char *SERVER_STATUS_TEMPLATE;
 };
@@ -416,18 +418,16 @@ protected:
 
 class NET4CXX_COMMON_API WebSocketServerFactory: public Factory {
 public:
-    using Headers = std::map<std::string, StringVector>;
-
     explicit WebSocketServerFactory(std::string url="", StringVector protocols={}, std::string version="",
-                                    Headers headers={}, unsigned short externalPort=0) {
+                                    WebSocketHeaders headers={}, unsigned short externalPort=0) {
         setSessionParameters(std::move(url), std::move(protocols), std::move(version), std::move(headers),
                              externalPort);
         resetProtocolOptions();
         _countConnections = 0;
     }
 
-    void setSessionParameters(std::string url="", StringVector protocols={}, std::string server="", Headers headers={},
-                              unsigned short externalPort=0);
+    void setSessionParameters(std::string url="", StringVector protocols={}, std::string server="",
+                              WebSocketHeaders headers={}, unsigned short externalPort=0);
 
     void resetProtocolOptions();
 
@@ -465,6 +465,10 @@ public:
 
     std::string getServer() const {
         return _server;
+    }
+
+    const WebSocketHeaders &getHeaders() const {
+        return _headers;
     }
 
     unsigned short getExternalPort() const {
@@ -688,7 +692,7 @@ protected:
     QueryArgListMap _params;
     StringVector _protocols;
     std::string _server;
-    Headers _headers;
+    WebSocketHeaders _headers;
     unsigned short _externalPort{0};
     std::vector<int> _versions;
     bool _webStatus{false};
@@ -721,17 +725,15 @@ protected:
 
 class NET4CXX_COMMON_API WebSocketClientFactory: public ClientFactory {
 public:
-    using Headers = std::map<std::string, StringVector>;
-
     explicit WebSocketClientFactory(std::string url = "", std::string origin = "", StringVector protocols = {},
-                                    std::string useragent = "", Headers headers = {}, std::string proxy = "") {
+                                    std::string useragent = "", WebSocketHeaders headers = {}, std::string proxy = "") {
         setSessionParameters(std::move(url), std::move(origin), std::move(protocols), std::move(useragent),
                              std::move(headers), std::move(proxy));
         resetProtocolOptions();
     }
 
     void setSessionParameters(std::string url = "", std::string origin = "", StringVector protocols = {},
-                              std::string useragent = "", Headers headers = {}, std::string proxy = "");
+                              std::string useragent = "", WebSocketHeaders headers = {}, std::string proxy = "");
 
     void resetProtocolOptions();
 
@@ -927,7 +929,7 @@ protected:
     std::string _origin;
     StringVector _protocols;
     std::string _useragent;
-    Headers _headers;
+    WebSocketHeaders _headers;
     std::string _proxy;
     int _version{0};
     bool _utf8validateIncoming;

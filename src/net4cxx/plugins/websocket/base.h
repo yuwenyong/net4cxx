@@ -18,6 +18,7 @@ NS_BEGIN
 using WebSocketMask = std::array<Byte, 4>;
 using WebSocketExtensionParams = std::map<std::string, std::vector<boost::optional<std::string>>>;
 using WebSocketExtensionList = std::vector<std::pair<std::string, WebSocketExtensionParams>>;
+using WebSocketHeaders = std::map<std::string, std::vector<std::string>>;
 
 
 class NET4CXX_COMMON_API ConnectionRequest {
