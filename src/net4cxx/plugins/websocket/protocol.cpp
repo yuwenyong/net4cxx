@@ -1286,7 +1286,7 @@ void WebSocketServerProtocol::processHandshake() {
             _httpRequestHost = std::move(h);
         } else {
             unsigned short externalPort = factory->getExternalPort();
-            bool isSecure = factory->getIsSecure();
+            bool isSecure = factory->isSecure();
             if (externalPort) {
                 if (!((isSecure && externalPort == 443) || (!isSecure && externalPort == 80))) {
                     failHandshake(StrUtil::format("missing port in HTTP Host header '%s' and "
@@ -1445,7 +1445,7 @@ void WebSocketServerProtocol::processHandshake() {
             if (std::get<0>(originTuple) == "null" && factory->getAllowNullOrigin()) {
                 originIsAllowed = true;
             } else {
-                originIsAllowed = WebSocketUtil::isSameOrigin(originTuple, factory->getIsSecure() ? "https" : "http",
+                originIsAllowed = WebSocketUtil::isSameOrigin(originTuple, factory->isSecure() ? "https" : "http",
                                                               factory->getExternalPort() != 0 ?
                                                               factory->getExternalPort() : factory->getPort(),
                                                               _allowedOriginsPatterns);
@@ -1730,6 +1730,7 @@ void WebSocketServerFactory::setSessionParameters(std::string url, StringVector 
     _url = std::move(url);
     _isSecure = isSecure;
     _host = std::move(host);
+    _port = port;
     _resource = std::move(resource);
     _path = std::move(path);
     _params = std::move(params);
@@ -2014,7 +2015,7 @@ void WebSocketClientProtocol::processHandshake() {
                         return;
                     }
 
-                    _perMessageCompress = PMCE->second->createFromReponseAccept(false, std::move(accept));
+                    _perMessageCompress = PMCE->second->createFromResponseAccept(false, std::move(accept));
                     _webSocketExtensionsInUse.emplace_back(_perMessageCompress);
 
                 } else {
@@ -2165,6 +2166,7 @@ void WebSocketClientFactory::setSessionParameters(std::string url, std::string o
     _url = std::move(url);
     _isSecure = isSecure;
     _host = std::move(host);
+    _port = port;
     _resource = std::move(resource);
     _path = std::move(path);
     _params = std::move(params);
@@ -2172,6 +2174,7 @@ void WebSocketClientFactory::setSessionParameters(std::string url, std::string o
     _origin = std::move(origin);
     _protocols = std::move(protocols);
     _useragent = std::move(useragent);
+    _headers = std::move(headers);
 
     _proxy = std::move(proxy);
 }

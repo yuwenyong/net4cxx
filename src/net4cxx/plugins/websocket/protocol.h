@@ -458,7 +458,7 @@ public:
         return _trackTimings;
     }
 
-    bool getIsSecure() const {
+    bool isSecure() const {
         return _isSecure;
     }
 
@@ -802,6 +802,11 @@ public:
     bool getTrackTimings() const {
         return _trackTimings;
     }
+
+    bool isSecure() const {
+        return _isSecure;
+    }
+
     std::string getHost() const {
         return _host;
     }
