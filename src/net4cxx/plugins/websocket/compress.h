@@ -6,7 +6,6 @@
 #define NET4CXX_PLUGINS_WEBSOCKET_COMPRESS_H
 
 #include "net4cxx/plugins/websocket/base.h"
-#include <boost/logic/tribool.hpp>
 #include "net4cxx/common/compress/zlib.h"
 #include "net4cxx/common/utilities/util.h"
 
@@ -134,10 +133,10 @@ using PerMessageDeflateOfferPtr = std::shared_ptr<PerMessageDeflateOffer>;
 
 class NET4CXX_COMMON_API PerMessageDeflateOfferAccept: public PerMessageCompressOfferAccept {
 public:
-    explicit PerMessageDeflateOfferAccept(PerMessageDeflateOfferPtr offer,
+    explicit PerMessageDeflateOfferAccept(PerMessageCompressOfferPtr offer,
                                           bool requestNoContextTakeover=false,
                                           int requestMaxWindowBits=0,
-                                          boost::tribool noContextTakeover=boost::indeterminate,
+                                          boost::optional<bool> noContextTakeover=boost::none,
                                           boost::optional<int> windowBits=boost::none,
                                           boost::optional<int> memLevel=boost::none,
                                           boost::optional<size_t> maxMessageSize=boost::none);
@@ -158,7 +157,7 @@ public:
         return _requestMaxWindowBits;
     }
 
-    boost::tribool getNoContextTakeover() const {
+    boost::optional<bool> getNoContextTakeover() const {
         return _noContextTakeover;
     }
 
@@ -177,11 +176,91 @@ protected:
     PerMessageDeflateOfferPtr _offer;
     bool _requestNoContextTakeover;
     int _requestMaxWindowBits;
-    boost::tribool _noContextTakeover;
+    boost::optional<bool> _noContextTakeover;
     boost::optional<int> _windowBits;
     boost::optional<int> _memLevel;
     boost::optional<size_t> _maxMessageSize;
 };
+
+using PerMessageDeflateOfferAcceptPtr = std::shared_ptr<PerMessageDeflateOfferAccept>;
+
+
+class NET4CXX_COMMON_API PerMessageDeflateResponse: public PerMessageCompressResponse {
+public:
+    PerMessageDeflateResponse(int clientMaxWindowBits, bool clientNoContextTakeover, int serverMaxWindowBits,
+                              bool serverNoContextTakeover)
+            : _clientMaxWindowBits(clientMaxWindowBits)
+            , _clientNoContextTakeover(clientNoContextTakeover)
+            , _serverMaxWindowBits(serverMaxWindowBits)
+            , _serverNoContextTakeover(serverNoContextTakeover) {
+
+    }
+
+    std::string getExtensionName() const override;
+
+    int getClientMaxWindowBits() const {
+        return _clientMaxWindowBits;
+    }
+
+    int getServerMaxWindowBits() const {
+        return _serverMaxWindowBits;
+    }
+
+    bool getClientNoContextTakeover() const {
+        return _clientNoContextTakeover;
+    }
+
+    bool getServerNoContextTakeover() const {
+        return _serverNoContextTakeover;
+    }
+protected:
+    int _clientMaxWindowBits;
+    bool _clientNoContextTakeover;
+    int _serverMaxWindowBits;
+    bool _serverNoContextTakeover;
+};
+
+using PerMessageDeflateResponsePtr = std::shared_ptr<PerMessageDeflateResponse>;
+
+
+class NET4CXX_COMMON_API PerMessageDeflateResponseAccept: public PerMessageCompressResponseAccept {
+public:
+    explicit PerMessageDeflateResponseAccept(PerMessageCompressResponsePtr response,
+                                             boost::optional<bool> noContextTakeover=boost::none,
+                                             boost::optional<int> windowBits=boost::none,
+                                             boost::optional<int> memLevel=boost::none,
+                                             boost::optional<size_t> maxMessageSize=boost::none);
+
+    std::string getExtensionName() const override;
+
+    PerMessageDeflateResponsePtr getResponse() const {
+        return _response;
+    }
+
+    boost::optional<bool> getNoContextTakeover() const {
+        return _noContextTakeover;
+    }
+
+    boost::optional<int> getWindowBits() const {
+        return _windowBits;
+    }
+
+    boost::optional<int> getMemLevel() const {
+        return _memLevel;
+    }
+
+    boost::optional<size_t> getMaxMessageSize() const {
+        return _maxMessageSize;
+    }
+protected:
+    PerMessageDeflateResponsePtr _response;
+    boost::optional<bool> _noContextTakeover;
+    boost::optional<int> _windowBits;
+    boost::optional<int> _memLevel;
+    boost::optional<size_t> _maxMessageSize;
+};
+
+using PerMessageDeflateResponseAcceptPtr = std::shared_ptr<PerMessageDeflateResponseAccept>;
 
 
 class NET4CXX_COMMON_API PerMessageDeflate: public PerMessageCompress {
@@ -194,13 +273,15 @@ public:
                       bool clientNoContextTakeover,
                       int serverMaxWindowBits,
                       int clientMaxWindowBits,
-                      int memLevel)
+                      boost::optional<int> memLevel,
+                      boost::optional<size_t> maxMessageSize)
             : _isServer(isServer)
             , _serverNoContextTakeover(serverNoContextTakeover)
             , _clientNoContextTakeover(clientNoContextTakeover)
             , _serverMaxWindowBits(serverMaxWindowBits ? serverMaxWindowBits : DEFAULT_WINDOW_BITS)
             , _clientMaxWindowBits(clientMaxWindowBits ? clientMaxWindowBits : DEFAULT_WINDOW_BITS)
-            , _memLevel(memLevel ? memLevel : DEFAULT_MEM_LEVEL) {
+            , _memLevel(memLevel && *memLevel ? *memLevel : DEFAULT_MEM_LEVEL)
+            , _maxMessageSize(maxMessageSize) {
 
     }
 
@@ -224,26 +305,23 @@ protected:
     int _serverMaxWindowBits;
     int _clientMaxWindowBits;
     int _memLevel;
+    boost::optional<size_t> _maxMessageSize;
     std::unique_ptr<CompressObj> _compressor;
     std::unique_ptr<DecompressObj> _decompressor;
 };
+
+using PerMessageDeflatePtr = std::shared_ptr<PerMessageDeflate>;
 
 
 class NET4CXX_COMMON_API PerMessageDeflateFactory: public PerMessageCompressFactory {
 public:
     PerMessageCompressOfferPtr createOfferFromParams(const WebSocketExtensionParams &params) override;
 
-    PerMessageCompressResponsePtr createResponseFromParams(const WebSocketExtensionParams &params) override {
-        return nullptr;
-    }
+    PerMessageCompressResponsePtr createResponseFromParams(const WebSocketExtensionParams &params) override;
 
-    PerMessageCompressPtr createFromOfferAccept(bool isServer, PerMessageCompressOfferAcceptPtr accept) override {
-        return nullptr;
-    }
+    PerMessageCompressPtr createFromOfferAccept(bool isServer, PerMessageCompressOfferAcceptPtr accept) override;
 
-    PerMessageCompressPtr createFromResponseAccept(bool isServer, PerMessageCompressResponseAcceptPtr accept) override {
-        return nullptr;
-    }
+    PerMessageCompressPtr createFromResponseAccept(bool isServer, PerMessageCompressResponseAcceptPtr accept) override;
 };
 
 

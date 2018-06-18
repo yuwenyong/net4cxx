@@ -107,6 +107,22 @@ template <typename KeyT, typename ValueT>
 using PtrMap = std::map<KeyT, std::unique_ptr<ValueT>>;
 
 
+template <typename KeyT, typename ValueT>
+class PtrMapCreator {
+public:
+    PtrMapCreator& operator()(KeyT key, std::unique_ptr<ValueT> &&value) {
+        _container.emplace(std::move(key), std::move(value));
+        return *this;
+    }
+
+    PtrMap<KeyT, ValueT>&& operator()() {
+        return std::move(_container);
+    }
+protected:
+    PtrMap<KeyT, ValueT> _container;
+};
+
+
 NS_END
 
 #endif //NET4CXX_COMMON_UTILITIES_UTIL_H

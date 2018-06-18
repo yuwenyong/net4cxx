@@ -37,14 +37,19 @@ std::string PerMessageDeflateOffer::getExtensionString() const {
 }
 
 
-PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(net4cxx::PerMessageDeflateOfferPtr offer,
+PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(PerMessageCompressOfferPtr offer,
                                                            bool requestNoContextTakeover,
                                                            int requestMaxWindowBits,
-                                                           boost::tribool noContextTakeover,
+                                                           boost::optional<bool> noContextTakeover,
                                                            boost::optional<int> windowBits,
                                                            boost::optional<int> memLevel,
-                                                           boost::optional<size_t> maxMessageSize)
-        : _offer(std::move(offer)) {
+                                                           boost::optional<size_t> maxMessageSize) {
+
+    _offer = std::dynamic_pointer_cast<PerMessageDeflateOffer>(offer);
+    if (!_offer) {
+        NET4CXX_THROW_EXCEPTION(Exception, "Invalid type for offer");
+    }
+
     if (requestNoContextTakeover && !_offer->getAcceptNoContextTakeover()) {
         NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %s for request_no_context_takeover"
                                                            " - feature unsupported by client",
@@ -67,11 +72,11 @@ PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(net4cxx::PerMessageDe
     }
     _requestMaxWindowBits = requestMaxWindowBits;
 
-    if (!boost::indeterminate(noContextTakeover)) {
-        if (_offer->getRequestNoContextTakeover() && !noContextTakeover) {
+    if (noContextTakeover) {
+        if (_offer->getRequestNoContextTakeover() && !*noContextTakeover) {
             NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %s for no_context_takeover"
                                                                " - client requested feature",
-                                                               noContextTakeover ? "true" : "false"));
+                                                               *noContextTakeover ? "true" : "false"));
         }
     }
     _noContextTakeover = noContextTakeover;
@@ -121,6 +126,58 @@ std::string PerMessageDeflateOfferAccept::getExtensionString() const {
 }
 
 
+std::string PerMessageDeflateResponse::getExtensionName() const {
+    return PerMessageDeflateConstants::EXTENSION_NAME;
+}
+
+
+PerMessageDeflateResponseAccept::PerMessageDeflateResponseAccept(PerMessageCompressResponsePtr response,
+                                                                 boost::optional<bool> noContextTakeover,
+                                                                 boost::optional<int> windowBits,
+                                                                 boost::optional<int> memLevel,
+                                                                 boost::optional<size_t> maxMessageSize) {
+    _response = std::dynamic_pointer_cast<PerMessageDeflateResponse>(response);
+    if (!_response) {
+        NET4CXX_THROW_EXCEPTION(Exception, "Invalid type for response");
+    }
+
+    if (noContextTakeover) {
+        if (_response->getClientNoContextTakeover() && !*noContextTakeover) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %s for no_context_takeover"
+                                                               " - server requested feature",
+                                                               *noContextTakeover ? "true" : "false"));
+        }
+    }
+    _noContextTakeover = noContextTakeover;
+
+    if (windowBits) {
+        if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
+                                PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), *windowBits)) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for window_bits", *windowBits));
+        }
+
+        if (_response->getClientMaxWindowBits() != 0 && *windowBits > _response->getClientMaxWindowBits()) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for window_bits"
+                                                               " - server requested lower maximum value", *windowBits));
+        }
+    }
+    _windowBits = windowBits;
+
+    if (memLevel) {
+        if (!std::binary_search(PerMessageDeflateConstants::MEM_LEVEL_PERMISSIBLE_VALUES.begin(),
+                                PerMessageDeflateConstants::MEM_LEVEL_PERMISSIBLE_VALUES.end(), *memLevel)) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for mem_level", *memLevel));
+        }
+    }
+    _memLevel = memLevel;
+    _maxMessageSize = maxMessageSize;
+}
+
+std::string PerMessageDeflateResponseAccept::getExtensionName() const {
+    return PerMessageDeflateConstants::EXTENSION_NAME;
+}
+
+
 constexpr int PerMessageDeflate::DEFAULT_WINDOW_BITS;
 constexpr int PerMessageDeflate::DEFAULT_MEM_LEVEL;
 
@@ -166,6 +223,9 @@ void PerMessageDeflate::startDecompressMessage() {
 }
 
 ByteArray PerMessageDeflate::decompressMessageData(const Byte *data, size_t length) {
+    if (_maxMessageSize) {
+        return _decompressor->decompress(data, length, *_maxMessageSize);
+    }
     return _decompressor->decompress(data, length);
 }
 
@@ -251,13 +311,138 @@ PerMessageCompressOfferPtr PerMessageDeflateFactory::createOfferFromParams(const
             } else {
                 requestNoContextTakeover = true;
             }
+        } else {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter '%s' for extension '%s'", p,
+                                                               PerMessageDeflateConstants::EXTENSION_NAME));
         }
     }
     return std::make_shared<PerMessageDeflateOffer>(acceptNoContextTakeover, acceptMaxWindowBits,
                                                     requestNoContextTakeover, requestMaxWindowBits);
 }
 
+PerMessageCompressResponsePtr PerMessageDeflateFactory::createResponseFromParams(
+        const WebSocketExtensionParams &params) {
+    int clientMaxWindowBits = 0;
+    bool clientNoContextTakeover = false;
+    int serverMaxWindowBits = 0;
+    bool serverNoContextTakeover = false;
 
-PtrMap<std::string, PerMessageCompressFactory> PERMESSAGE_COMPRESSION_EXTENSION;
+    for (auto &param: params) {
+        auto &p = param.first;
+        if (param.second.size() > 1) {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("multiple occurrence of extension parameter '%s' "
+                                                               "for extension '%s'", p,
+                                                               PerMessageDeflateConstants::EXTENSION_NAME));
+        }
+
+        auto &val = param.second.front();
+
+        if (p == "client_max_window_bits") {
+            if (val) {
+                int value;
+                try {
+                    value = std::stoi(*val);
+                } catch (...) {
+                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                }
+                if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
+                                        PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), value)) {
+                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                } else {
+                    clientMaxWindowBits = value;
+                }
+            } else {
+                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                   "for parameter '%s' of extension '%s'", "", p,
+                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+            }
+        } else if (p == "client_no_context_takeover") {
+            if (val) {
+                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                   "for parameter '%s' of extension '%s'", *val, p,
+                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+            } else {
+                clientNoContextTakeover = true;
+            }
+        } else if (p == "server_max_window_bits") {
+            if (val) {
+                int value;
+                try {
+                    value = std::stoi(*val);
+                } catch (...) {
+                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                }
+                if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
+                                        PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), value)) {
+                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                } else {
+                    serverMaxWindowBits = value;
+                }
+            } else {
+                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                   "for parameter '%s' of extension '%s'", "", p,
+                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+            }
+        } else if (p == "server_no_context_takeover") {
+            if (val) {
+                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
+                                                                   "for parameter '%s' of extension '%s'", *val, p,
+                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+            } else {
+                serverNoContextTakeover = true;
+            }
+        } else {
+            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter '%s' for extension '%s'", p,
+                                                               PerMessageDeflateConstants::EXTENSION_NAME));
+        }
+    }
+    return std::make_shared<PerMessageDeflateResponse>(clientMaxWindowBits, clientNoContextTakeover,
+                                                       serverMaxWindowBits, serverNoContextTakeover);
+}
+
+PerMessageCompressPtr PerMessageDeflateFactory::createFromResponseAccept(bool isServer,
+                                                                         PerMessageCompressResponseAcceptPtr accept) {
+    auto acceptor = std::static_pointer_cast<PerMessageDeflateResponseAccept>(accept);
+    auto pmce = std::make_shared<PerMessageDeflate>(
+            isServer,
+            acceptor->getResponse()->getServerNoContextTakeover(),
+            acceptor->getNoContextTakeover() ?
+            *acceptor->getNoContextTakeover() : acceptor->getResponse()->getClientNoContextTakeover(),
+            acceptor->getResponse()->getServerMaxWindowBits(),
+            acceptor->getWindowBits() ?
+            *acceptor->getWindowBits() : acceptor->getResponse()->getClientMaxWindowBits(),
+            acceptor->getMemLevel(),
+            acceptor->getMaxMessageSize());
+    return pmce;
+}
+
+PerMessageCompressPtr PerMessageDeflateFactory::createFromOfferAccept(bool isServer,
+                                                                      PerMessageCompressOfferAcceptPtr accept) {
+    auto acceptor = std::static_pointer_cast<PerMessageDeflateOfferAccept>(accept);
+    auto pmce = std::make_shared<PerMessageDeflate>(
+            isServer,
+            acceptor->getNoContextTakeover() ?
+            *acceptor->getNoContextTakeover() : acceptor->getOffer()->getRequestNoContextTakeover(),
+            acceptor->getRequestNoContextTakeover(),
+            acceptor->getWindowBits() ?
+            *acceptor->getWindowBits() : acceptor->getOffer()->getRequestMaxWindowBits(),
+            acceptor->getRequestMaxWindowBits(),
+            acceptor->getMemLevel(),
+            acceptor->getMaxMessageSize());
+    return pmce;
+}
+
+
+PtrMap<std::string, PerMessageCompressFactory> PERMESSAGE_COMPRESSION_EXTENSION =
+        PtrMapCreator<std::string, PerMessageCompressFactory>()
+                (PerMessageDeflateConstants::EXTENSION_NAME, std::make_unique<PerMessageDeflateFactory>())();
 
 NS_END
