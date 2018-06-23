@@ -61,6 +61,33 @@ std::string Timings::diffFormatted(const std::string &startKey, const std::strin
 }
 
 
+std::string WebSocketUtil::createUrl(const std::string &hostName, unsigned short port, bool isSecure,
+                                     const std::string &path, const QueryArgList &params) {
+    std::string netloc;
+    if (port) {
+        netloc = hostName + ":" + std::to_string(port);
+    } else {
+        if (isSecure) {
+            netloc = hostName + ":443";
+        } else {
+            netloc = hostName + ":80";
+        }
+    }
+    std::string scheme = isSecure ? "wss" : "ws";
+    std::string ppath;
+    if (!path.empty()) {
+        ppath = URLParse::quote(path);
+    } else {
+        ppath = "/";
+    }
+    std::string query;
+    if (!params.empty()) {
+        query = URLParse::urlEncode(params);
+    }
+    return URLParse::urlUnparse(URLParseResult(std::move(scheme), std::move(netloc), std::move(ppath), "",
+                                               std::move(query), ""));
+}
+
 WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     auto parsed = URLParse::urlParse(url);
     const auto &scheme = parsed.getScheme();
@@ -158,14 +185,14 @@ WebSocketUtil::UrlToOriginResult WebSocketUtil::urlToOrigin(const std::string &u
     return std::make_tuple(scheme, *host, port);
 }
 
-bool WebSocketUtil::isSameOrigin(const UrlToOriginResult &websocketOrigin, const std::string &hostScheme,
+bool WebSocketUtil::isSameOrigin(const UrlToOriginResult &webSocketOrigin, const std::string &hostScheme,
                                  unsigned short hostPort, const std::vector<boost::regex> &hostPolicy) {
-    if (std::get<0>(websocketOrigin) == "null") {
+    if (std::get<0>(webSocketOrigin) == "null") {
         return false;
     }
     std::string originScheme, originHost;
     boost::optional<unsigned short> originPort;
-    std::tie(originScheme, originHost, originPort) = websocketOrigin;
+    std::tie(originScheme, originHost, originPort) = webSocketOrigin;
     std::string originHeader;
     if (originPort) {
         originHeader = StrUtil::format("%s://%s:%u", originScheme, originHost, *originPort);

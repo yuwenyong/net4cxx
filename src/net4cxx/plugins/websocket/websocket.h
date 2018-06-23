@@ -12,11 +12,11 @@
 NS_BEGIN
 
 NET4CXX_COMMON_API ConnectorPtr connectWS(Reactor *reactor, std::shared_ptr<WebSocketClientFactory> factory,
-                                          SSLOptionPtr sslOption= nullptr, double timeout=30.0,
+                                          SSLOptionPtr sslOption=nullptr, double timeout=30.0,
                                           const Address &bindAddress={});
 
 NET4CXX_COMMON_API ListenerPtr listenWS(Reactor *reactor, std::shared_ptr<WebSocketServerFactory> factory,
-                                        SSLOptionPtr sslOption= nullptr, const std::string &interface={});
+                                        SSLOptionPtr sslOption=nullptr, const std::string &interface={});
 
 NS_END
 

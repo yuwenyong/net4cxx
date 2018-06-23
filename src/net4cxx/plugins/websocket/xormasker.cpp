@@ -34,6 +34,7 @@ void XorMaskerSimple::process(Byte *data, uint64_t len) {
     }
 }
 
+
 uint64_t XorMaskerShifted1::pointer() const {
     return _ptr;
 }

@@ -18,10 +18,10 @@ ConnectorPtr connectWS(Reactor *reactor, std::shared_ptr<WebSocketClientFactory>
     }
     ConnectorPtr conn;
     if (factory->isSecure()) {
-        conn = reactor->connectSSL(factory->getHost(), std::to_string(factory->getPort()), std::move(factory),
+        conn = reactor->connectSSL(factory->getHost(), std::to_string(factory->getPort()), factory,
                                    std::move(sslOption), timeout, bindAddress);
     } else {
-        conn = reactor->connectTCP(factory->getHost(), std::to_string(factory->getPort()), std::move(factory),
+        conn = reactor->connectTCP(factory->getHost(), std::to_string(factory->getPort()), factory,
                                    timeout, bindAddress);
     }
     return conn;
@@ -34,10 +34,10 @@ ListenerPtr listenWS(Reactor *reactor, std::shared_ptr<WebSocketServerFactory> f
         if (!sslOption) {
             NET4CXX_THROW_EXCEPTION(Exception, "Secure WebSocket listen requested, but no SSL context given");
         }
-        listener = reactor->listenSSL(std::to_string(factory->getPort()), std::move(factory), std::move(sslOption),
+        listener = reactor->listenSSL(std::to_string(factory->getPort()), factory, std::move(sslOption),
                                       interface);
     } else {
-        listener = reactor->listenTCP(std::to_string(factory->getPort()), std::move(factory), interface);
+        listener = reactor->listenTCP(std::to_string(factory->getPort()), factory, interface);
     }
     return listener;
 }

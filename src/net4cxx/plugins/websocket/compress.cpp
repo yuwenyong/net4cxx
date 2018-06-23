@@ -443,6 +443,7 @@ PerMessageCompressPtr PerMessageDeflateFactory::createFromOfferAccept(bool isSer
 
 PtrMap<std::string, PerMessageCompressFactory> PERMESSAGE_COMPRESSION_EXTENSION =
         PtrMapCreator<std::string, PerMessageCompressFactory>()
-                (PerMessageDeflateConstants::EXTENSION_NAME, std::make_unique<PerMessageDeflateFactory>())();
+                (PerMessageDeflateConstants::EXTENSION_NAME, std::make_unique<PerMessageDeflateFactory>())
+                ();
 
 NS_END

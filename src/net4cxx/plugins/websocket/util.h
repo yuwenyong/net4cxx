@@ -96,13 +96,16 @@ public:
 
     using UrlToOriginResult = std::tuple<std::string, std::string, boost::optional<unsigned short>>;
 
+    static std::string createUrl(const std::string &hostName, unsigned short port=0, bool isSecure=false,
+                                 const std::string &path="", const QueryArgList &params={});
+
     static ParseUrlResult parseUrl(const std::string &url);
 
     static ParseHttpHeaderResult parseHttpHeader(const std::string &data);
 
     static UrlToOriginResult urlToOrigin(const std::string &url);
 
-    static bool isSameOrigin(const UrlToOriginResult &websocketOrigin, const std::string &hostScheme,
+    static bool isSameOrigin(const UrlToOriginResult &webSocketOrigin, const std::string &hostScheme,
                              unsigned short hostPort, const std::vector<boost::regex> &hostPolicy);
 
     static std::vector<boost::regex> wildcardsToPatterns(const StringVector &wildcards);
@@ -154,12 +157,12 @@ class FrameHeader {
 public:
     friend class WebSocketProtocol;
 
-    FrameHeader(Byte opcode, bool fin, Byte rsv, uint64_t length, const boost::optional<WebSocketMask> &mask)
+    FrameHeader(Byte opcode, bool fin, Byte rsv, uint64_t length, boost::optional<WebSocketMask> mask)
             : _opcode(opcode)
             , _fin(fin)
             , _rsv(rsv)
             , _length(length)
-            , _mask(mask) {
+            , _mask(std::move(mask)) {
 
     }
 protected:
