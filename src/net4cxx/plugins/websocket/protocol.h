@@ -815,12 +815,12 @@ public:
         return _port;
     }
 
-    std::string getResource() const {
-        return _resource;
-    }
-
     std::string getOrigin() const {
         return _origin;
+    }
+
+    std::string getResource() const {
+        return _resource;
     }
 
     const StringVector& getProtocols() const {

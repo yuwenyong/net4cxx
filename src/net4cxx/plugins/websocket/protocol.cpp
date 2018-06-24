@@ -1663,7 +1663,7 @@ void WebSocketServerProtocol::succeedHandshake(std::pair<std::string, WebSocketH
 
 void WebSocketServerProtocol::failHandshake(const std::string &reason, int code, StringMap responseHeaders) {
     _wasNotCleanReason = reason;
-    NET4CXX_LOG_INFO(gGenLog, "ailing WebSocket opening handshake ('%s')", reason);
+    NET4CXX_LOG_INFO(gGenLog, "failing WebSocket opening handshake ('%s')", reason);
     sendHttpErrorResponse(code, reason, std::move(responseHeaders));
     dropConnection(false);
 }
@@ -1713,9 +1713,6 @@ void WebSocketServerProtocol::sendServerStatus(const std::string &redirectUrl, i
 
 void WebSocketServerFactory::setSessionParameters(std::string url, StringVector protocols, std::string server,
                                                   WebSocketHeaders headers, unsigned short externalPort) {
-    if (url.empty()) {
-        url = "ws://localhost";
-    }
     if (server.empty()) {
         server = NET4CXX_VER;
     }
@@ -1723,7 +1720,8 @@ void WebSocketServerFactory::setSessionParameters(std::string url, StringVector 
     std::string host, resource, path;
     unsigned short port;
     QueryArgListMap params;
-    std::tie(isSecure, host, port, resource, path, params) = WebSocketUtil::parseUrl(url);
+    std::tie(isSecure, host, port, resource, path, params) = WebSocketUtil::parseUrl(
+            url.empty() ? "ws://localhost" : url);
     if (!params.empty()) {
         NET4CXX_THROW_EXCEPTION(Exception, "query parameters specified for server WebSocket URL");
     }
@@ -1899,7 +1897,7 @@ void WebSocketClientProtocol::processHandshake() {
 
         auto httpVersion = boost::trim_copy(sl[0]);
         if (httpVersion != "HTTP/1.1") {
-            failHandshake(StrUtil::format("Unsupported HTTP version '%s'", httpVersion));
+            failHandshake(StrUtil::format("Unsupported HTTP version ('%s')", httpVersion));
             return;
         }
 
@@ -2087,7 +2085,7 @@ void WebSocketClientProtocol::processHandshake() {
 
 void WebSocketClientProtocol::startProxyConnect() {
     auto factory = getFactory<WebSocketClientFactory>();
-    std::string request = StrUtil::format("CONNECT %s:%d HTTP/1.1\x0d\x0a", factory->getHost(), factory->getPort());
+    std::string request = StrUtil::format("CONNECT %s:%u HTTP/1.1\x0d\x0a", factory->getHost(), factory->getPort());
     request += StrUtil::format("Host: %s:%u\x0d\x0a", factory->getHost(), factory->getPort());
     request += "\x0d\x0a";
 
@@ -2152,9 +2150,6 @@ void WebSocketClientProtocol::startHandshake() {
 
 void WebSocketClientFactory::setSessionParameters(std::string url, std::string origin, StringVector protocols,
                                                   std::string useragent, WebSocketHeaders headers, std::string proxy) {
-    if (url.empty()) {
-        url = "ws://localhost";
-    }
     if (useragent.empty()) {
         useragent = NET4CXX_VER;
     }
@@ -2162,7 +2157,8 @@ void WebSocketClientFactory::setSessionParameters(std::string url, std::string o
     std::string host, resource, path;
     unsigned short port;
     QueryArgListMap params;
-    std::tie(isSecure, host, port, resource, path, params) = WebSocketUtil::parseUrl(url);
+    std::tie(isSecure, host, port, resource, path, params) = WebSocketUtil::parseUrl(
+            url.empty() ? "ws://localhost" : url);
     _url = std::move(url);
     _isSecure = isSecure;
     _host = std::move(host);
