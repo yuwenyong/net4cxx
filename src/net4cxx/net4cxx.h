@@ -35,4 +35,6 @@
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/core/network/udp.h"
 
+#include "net4cxx/plugins/websocket/websocket.h"
+
 #endif //NET4CXX_NET4CXX_H

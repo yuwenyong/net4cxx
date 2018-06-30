@@ -22,8 +22,16 @@ int test3(int arg1, int arg2) {
     return test2(arg1, arg2);
 }
 
-int main () {
+std::map<int, std::unique_ptr<int>> x = PtrMapCreator<int, int>()
+        (10, std::make_unique<int>(11))
+        (11, std::make_unique<int>(12))();
 
+int main () {
+//    std::map<int, std::unique_ptr<int>> x = {{1, std::make_unique<int>(10)}, {2, std::make_unique<int>(10)}};
+
+    for (auto &pr: x) {
+        std::cerr << pr.first << ',' << *pr.second << std::endl;
+    }
     try {
         test3(0, 0);
     } catch (std::exception &e) {

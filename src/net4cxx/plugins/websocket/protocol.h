@@ -126,9 +126,17 @@ public:
 
     virtual void processHandshake() = 0;
 
+    std::string getPeerName() const {
+        return _peer;
+    }
 
     template <typename SelfT>
     std::shared_ptr<SelfT> getSelf() const {
+        return std::static_pointer_cast<SelfT>(shared_from_this());
+    }
+
+    template <typename SelfT>
+    std::shared_ptr<SelfT> getSelf() {
         return std::static_pointer_cast<SelfT>(shared_from_this());
     }
 
@@ -146,7 +154,7 @@ public:
 
     static constexpr unsigned MESSAGE_TYPE_BINARY = 2;
 protected:
-    std::string getPeerName() const;
+    std::string makePeerName() const;
 
     void setTrackTimings(bool enable);
 
@@ -227,7 +235,7 @@ protected:
     }
 
     void onMessageFrame(ByteArray payload) {
-        if (_failedByMe) {
+        if (!_failedByMe) {
             ConcatBuffer(_messageData, std::move(payload));
         }
     }
@@ -361,6 +369,8 @@ protected:
     static const double QUEUED_WRITE_DELAY;
 };
 
+using WebSocketProtocolPtr = std::shared_ptr<WebSocketProtocol>;
+
 
 class NET4CXX_COMMON_API WebSocketServerProtocol: public WebSocketProtocol {
 public:
@@ -416,6 +426,8 @@ protected:
 
     static const char *SERVER_STATUS_TEMPLATE;
 };
+
+using WebSocketServerProtocolPtr = std::shared_ptr<WebSocketServerProtocol>;
 
 
 class NET4CXX_COMMON_API WebSocketServerFactory: public Factory {
@@ -766,6 +778,8 @@ protected:
     std::string _webSocketProtocolInUse;
     std::vector<PerMessageCompressPtr> _webSocketExtensionsInUse;
 };
+
+using WebSocketClientProtocolPtr = std::shared_ptr<WebSocketClientProtocol>;
 
 
 class NET4CXX_COMMON_API WebSocketClientFactory: public ClientFactory {

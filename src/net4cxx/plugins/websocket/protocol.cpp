@@ -194,7 +194,7 @@ void WebSocketProtocol::sendClose(boost::optional<unsigned short> code, boost::o
 }
 
 void WebSocketProtocol::connectionMade() {
-    _peer = getPeerName();
+    _peer = makePeerName();
 
     setTrackTimings(_trackTimings);
     _sendState = SendState::GROUND;
@@ -261,12 +261,12 @@ void WebSocketProtocol::connectionLost(std::exception_ptr reason) {
             onClose(_wasClean, CLOSE_STATUS_CODE_ABNORMAL_CLOSE, StrUtil::format("connection was closed uncleanly (%s)",
                                                                                  _wasNotCleanReason->c_str()));
         } else {
-            onClose(_wasClean, _remoteCloseCode, *_remoteCloseReason);
+            onClose(_wasClean, _remoteCloseCode, _remoteCloseReason);
         }
     }
 }
 
-std::string WebSocketProtocol::getPeerName() const {
+std::string WebSocketProtocol::makePeerName() const {
     std::string res;
     auto address = getRemoteAddress();
     if (NetUtil::isValidIPv4(address)) {

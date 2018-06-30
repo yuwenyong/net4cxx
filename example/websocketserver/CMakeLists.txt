@@ -1,0 +1,3 @@
+add_executable(websocketserver websocketserver.cpp)
+add_dependencies(websocketserver net4cxx)
+target_link_libraries(websocketserver net4cxx)
