@@ -58,18 +58,18 @@ void WebSocketProtocol::onOpen() {
 
 void WebSocketProtocol::onMessage(ByteArray payload, bool isBinary) {
     NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onMessage(payload=<%llu bytes)>, isBinary=%s",
-                      (uint64_t)payload.size(), isBinary ? "true" : "false");
+                      payload.size(), isBinary ? "true" : "false");
 }
 
 void WebSocketProtocol::onPing(ByteArray payload) {
-    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPing(payload=<%llu bytes>)", (uint64_t)payload.size());
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPing(payload=<%llu bytes>)", payload.size());
     if (_state == State::OPEN) {
         sendPong(payload.data(), payload.size());
     }
 }
 
 void WebSocketProtocol::onPong(ByteArray payload) {
-    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPong(payload=<%llu bytes>)", (uint64_t)payload.size());
+    NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onPong(payload=<%llu bytes>)", payload.size());
 }
 
 void WebSocketProtocol::onClose(bool wasClean, boost::optional<unsigned short> code,
@@ -105,6 +105,8 @@ void WebSocketProtocol::sendMessage(const Byte *payload, size_t length, bool isB
 
         payload = payload1.data();
         length = payload1.size();
+
+        _trafficStats._outgoingOctetsWebSocketLevel += length;
     } else {
         sendCompressed = false;
         _trafficStats._outgoingOctetsAppLevel += length;
@@ -194,86 +196,17 @@ void WebSocketProtocol::sendClose(boost::optional<unsigned short> code, boost::o
 void WebSocketProtocol::connectionMade() {
     _peer = getPeerName();
 
-    _isServer = std::dynamic_pointer_cast<WebSocketServerFactory>(_factory.lock()) ? true: false;
-    if (_isServer) {
-        auto factory = getFactory<WebSocketServerFactory>();
-        NET4CXX_ASSERT(factory);
-        _logOctets = factory->getLogOctets();
-        _logFrames = factory->getLogFrames();
-        _trackTimings = factory->getTrackTimings();
-        _utf8validateIncomming = factory->getUtf8ValidateIncoming();
-        _applyMask = factory->getApplyMask();
-        _maxFramePayloadSize = factory->getMaxFramePayloadSize();
-        _maxMessagePayloadSize = factory->getMaxMessagePayloadSize();
-        _autoFragmentSize = factory->getAutoFragmentSize();
-        _failByDrop = factory->getFailByDrop();
-        _echoCloseCodeReason = factory->getEchoCloseCodeReason();
-        _openHandshakeTimeout = factory->getOpenHandshakeTimeout();
-        _closeHandshakeTimeout = factory->getCloseHandshakeTimeout();
-        _tcpNoDelay = factory->getTcpNoDelay();
-        _autoPingInterval = factory->getAutoPingInterval();
-        _autoPingTimeout = factory->getAutoPingTimeout();
-        _autoPingSize = factory->getAutoPingSize();
-
-        _versions = factory->getVersions();
-        _webStatus = factory->getWebStatus();
-        _requireMaskedClientFrames = factory->getRequireMaskedClientFrames();
-        _maskServerFrames = factory->getMaskServerFrames();
-        _perMessageCompressionAccept4Server = factory->getPerMessageCompressionAccept();
-        _serverFlashSocketPolicy = factory->getServerFlashSocketPolicy();
-        _flashSocketPolicy = factory->getFlashSocketPolicy();
-        _allowedOrigins = factory->getAllowedOrigins();
-        _allowedOriginsPatterns = factory->getAllowedOriginsPatterns();
-        _allowNullOrigin = factory->getAllowNullOrigin();
-        _maxConnections = factory->getMaxConnections();
-        _trustXForwardedFor = factory->getTrustXForwardedFor();
-
-        _state = State::CONNECTING;
-    } else {
-        auto factory = getFactory<WebSocketClientFactory>();
-        NET4CXX_ASSERT(factory);
-        _logOctets = factory->getLogOctets();
-        _logFrames = factory->getLogFrames();
-        _trackTimings = factory->getTrackTimings();
-        _utf8validateIncomming = factory->getUtf8ValidateIncoming();
-        _applyMask = factory->getApplyMask();
-        _maxFramePayloadSize = factory->getMaxFramePayloadSize();
-        _maxMessagePayloadSize = factory->getMaxMessagePayloadSize();
-        _autoFragmentSize = factory->getAutoFragmentSize();
-        _failByDrop = factory->getFailByDrop();
-        _echoCloseCodeReason = factory->getEchoCloseCodeReason();
-        _openHandshakeTimeout = factory->getOpenHandshakeTimeout();
-        _closeHandshakeTimeout = factory->getCloseHandshakeTimeout();
-        _tcpNoDelay = factory->getTcpNoDelay();
-        _autoPingInterval = factory->getAutoPingInterval();
-        _autoPingTimeout = factory->getAutoPingTimeout();
-        _autoPingSize = factory->getAutoPingSize();
-
-        _version = factory->getVersion();
-        _acceptMaskedServerFrames = factory->getAcceptMaskedServerFrames();
-        _maskClientFrames = factory->getMaskClientFrames();
-        _serverConnectionDropTimeout = factory->getServerConnectionDropTimeout();
-        _perMessageCompressionAccept4Client = factory->getPerMessageCompressionAccept();
-        _perMessageCompressionOffers = factory->getPerMessageCompressionOffers();
-
-        if (factory->getProxy().empty()) {
-            _state = State::CONNECTING;
-        } else {
-            _state = State::PROXY_CONNECTING;
-        }
-    }
-
     setTrackTimings(_trackTimings);
     _sendState = SendState::GROUND;
-
-    NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
-    setNoDelay(_tcpNoDelay);
 
     if (_openHandshakeTimeout > 0.0) {
         _openHandshakeTimeoutCall = reactor()->callLater(_openHandshakeTimeout, [self = shared_from_this(), this](){
             onOpenHandshakeTimeout();
         });
     }
+
+    NET4CXX_LOG_DEBUG(gGenLog, "Connection made to %s", _peer.c_str());
+    setNoDelay(_tcpNoDelay);
 }
 
 void WebSocketProtocol::dataReceived(Byte *data, size_t length) {
@@ -304,11 +237,13 @@ void WebSocketProtocol::connectionLost(std::exception_ptr reason) {
     if (!_isServer && !_serverConnectionDropTimeoutCall.cancelled()) {
         NET4CXX_LOG_DEBUG(gGenLog, "serverConnectionDropTimeoutCall.cancel");
         _serverConnectionDropTimeoutCall.cancel();
+        _serverConnectionDropTimeoutCall.reset();
     }
 
     if (!_autoPingPendingCall.cancelled()) {
         NET4CXX_LOG_DEBUG(gGenLog,"Auto ping/pong: canceling autoPingPendingCall upon lost connection");
         _autoPingPendingCall.cancel();
+        _autoPingPendingCall.reset();
     }
 
     if (_state != State::CLOSED) {
@@ -335,9 +270,9 @@ std::string WebSocketProtocol::getPeerName() const {
     std::string res;
     auto address = getRemoteAddress();
     if (NetUtil::isValidIPv4(address)) {
-        res = "tcp4:" + address + std::to_string(getRemotePort());
+        res = "tcp4:" + address + ":" + std::to_string(getRemotePort());
     } else if (NetUtil::isValidIPv6(address)) {
-        res = "tcp6:" + address + std::to_string(getRemotePort());
+        res = "tcp6:" + address + ":" + std::to_string(getRemotePort());
     } else if (!address.empty()) {
         res = "unix:" + address;
     } else {
@@ -347,8 +282,11 @@ std::string WebSocketProtocol::getPeerName() const {
 }
 
 void WebSocketProtocol::setTrackTimings(bool enable) {
-    if (enable) {
-        _trackedTimings = Timings{};
+    _trackTimings = enable;
+    if (_trackTimings) {
+        if (!_trackedTimings) {
+            _trackedTimings = Timings{};
+        }
     } else {
         _trackedTimings = boost::none;
     }
@@ -434,7 +372,7 @@ void WebSocketProtocol::consumeData() {
     } else if (_state == State::CONNECTING) {
         processHandshake();
     } else if (_state == State::CLOSED) {
-        NET4CXX_LOG_DEBUG(gGenLog, "received data in STATE_CLOSED");
+        NET4CXX_LOG_DEBUG(gGenLog, "received data in State::CLOSED");
     } else {
         NET4CXX_ASSERT_MSG(false, "invalid state");
     }
@@ -504,7 +442,7 @@ bool WebSocketProtocol::processData() {
 
                 if (_perMessageCompress && frameRsv == 4) {
                     if (protocolViolation(StrUtil::format("received compressed control frame [%s]",
-                                                          _perMessageCompress->getExtensionName().c_str()))) {
+                                                          _perMessageCompress->getExtensionName()))) {
                         return false;
                     }
                 }
@@ -527,7 +465,7 @@ bool WebSocketProtocol::processData() {
                 }
                 if (_perMessageCompress && frameRsv == 4u && _insideMessage) {
                     if (protocolViolation(StrUtil::format("received continuation data frame with compress bit set [%s]",
-                                                          _perMessageCompress->getExtensionName().c_str()))) {
+                                                          _perMessageCompress->getExtensionName()))) {
                         return false;
                     }
                 }
@@ -540,6 +478,7 @@ bool WebSocketProtocol::processData() {
             } else if (framePayloadLen1 == 126u) {
                 frameHeaderLen = 2 + 2 + maskLen;
             } else {
+                NET4CXX_ASSERT(framePayloadLen1 == 127u);
                 frameHeaderLen = 2 + 8 + maskLen;
             }
 
@@ -958,7 +897,7 @@ void WebSocketProtocol::onMessageEnd() {
 
 bool WebSocketProtocol::processControlFrame() {
     ByteArray payload = std::move(_controlFrameData);
-    if (_currentFrame->_opcode == 0) {
+    if (_currentFrame->_opcode == 8u) {
         boost::optional<unsigned short> code;
         boost::optional<std::string> reasonRaw;
         auto ll = payload.size();
@@ -984,6 +923,7 @@ bool WebSocketProtocol::processControlFrame() {
                     }
 
                     _autoPingPending.clear();
+                    _autoPingTimeoutCall.reset();
 
                     if (_autoPingInterval != 0.0) {
                         _autoPingPendingCall = reactor()->callLater(_autoPingInterval,
@@ -1040,11 +980,12 @@ bool WebSocketProtocol::onCloseFrame(boost::optional<unsigned short> code, boost
         if (!_closeHandshakeTimeoutCall.cancelled()) {
             NET4CXX_LOG_DEBUG(gGenLog, "connection closed properly: canceling closing handshake timeout");
             _closeHandshakeTimeoutCall.cancel();
+            _closeHandshakeTimeoutCall.reset();
         }
 
         _wasClean = true;
 
-        if (_isMessageCompressed) {
+        if (_isServer) {
             dropConnection(true);
         } else {
             if (_serverConnectionDropTimeout > 0.0) {
@@ -1164,8 +1105,41 @@ std::pair<std::string, WebSocketHeaders> WebSocketServerProtocol::onConnect(Conn
 }
 
 void WebSocketServerProtocol::connectionMade() {
+    auto factory = getFactory<WebSocketServerFactory>();
+    _isServer = true;
+    _logOctets = factory->getLogOctets();
+    _logFrames = factory->getLogFrames();
+    _trackTimings = factory->getTrackTimings();
+    _utf8validateIncomming = factory->getUtf8ValidateIncoming();
+    _applyMask = factory->getApplyMask();
+    _maxFramePayloadSize = factory->getMaxFramePayloadSize();
+    _maxMessagePayloadSize = factory->getMaxMessagePayloadSize();
+    _autoFragmentSize = factory->getAutoFragmentSize();
+    _failByDrop = factory->getFailByDrop();
+    _echoCloseCodeReason = factory->getEchoCloseCodeReason();
+    _openHandshakeTimeout = factory->getOpenHandshakeTimeout();
+    _closeHandshakeTimeout = factory->getCloseHandshakeTimeout();
+    _tcpNoDelay = factory->getTcpNoDelay();
+    _autoPingInterval = factory->getAutoPingInterval();
+    _autoPingTimeout = factory->getAutoPingTimeout();
+    _autoPingSize = factory->getAutoPingSize();
+
+    _versions = factory->getVersions();
+    _webStatus = factory->getWebStatus();
+    _requireMaskedClientFrames = factory->getRequireMaskedClientFrames();
+    _maskServerFrames = factory->getMaskServerFrames();
+    _perMessageCompressionAccept = factory->getPerMessageCompressionAccept();
+    _serverFlashSocketPolicy = factory->getServerFlashSocketPolicy();
+    _flashSocketPolicy = factory->getFlashSocketPolicy();
+    _allowedOrigins = factory->getAllowedOrigins();
+    _allowedOriginsPatterns = factory->getAllowedOriginsPatterns();
+    _allowNullOrigin = factory->getAllowNullOrigin();
+    _maxConnections = factory->getMaxConnections();
+    _trustXForwardedFor = factory->getTrustXForwardedFor();
+
+    _state = State::CONNECTING;
     BaseType::connectionMade();
-    getFactory<WebSocketServerFactory>()->incConnectionCount();
+    factory->incConnectionCount();
     NET4CXX_LOG_DEBUG(gGenLog, "connection accepted from peer %s", _peer);
 }
 
@@ -1442,7 +1416,7 @@ void WebSocketServerProtocol::processHandshake() {
 
         if (haveOrigin) {
             bool  originIsAllowed;
-            if (std::get<0>(originTuple) == "null" && factory->getAllowNullOrigin()) {
+            if (std::get<0>(originTuple) == "null" && _allowNullOrigin) {
                 originIsAllowed = true;
             } else {
                 originIsAllowed = WebSocketUtil::isSameOrigin(originTuple, factory->isSecure() ? "https" : "http",
@@ -1579,8 +1553,8 @@ void WebSocketServerProtocol::succeedHandshake(std::pair<std::string, WebSocketH
 
     if (!pmceOffers.empty()) {
         PerMessageCompressOfferAcceptPtr accept;
-        if (_perMessageCompressionAccept4Server) {
-            accept = _perMessageCompressionAccept4Server(std::move(pmceOffers));
+        if (_perMessageCompressionAccept) {
+            accept = _perMessageCompressionAccept(std::move(pmceOffers));
         }
 
         if (accept) {
@@ -1803,10 +1777,42 @@ void WebSocketClientProtocol::onConnect(ConnectionResponse response) {
 }
 
 void WebSocketClientProtocol::connectionMade() {
+    auto factory = getFactory<WebSocketClientFactory>();
+    _isServer = false;
+    _logOctets = factory->getLogOctets();
+    _logFrames = factory->getLogFrames();
+    _trackTimings = factory->getTrackTimings();
+    _utf8validateIncomming = factory->getUtf8ValidateIncoming();
+    _applyMask = factory->getApplyMask();
+    _maxFramePayloadSize = factory->getMaxFramePayloadSize();
+    _maxMessagePayloadSize = factory->getMaxMessagePayloadSize();
+    _autoFragmentSize = factory->getAutoFragmentSize();
+    _failByDrop = factory->getFailByDrop();
+    _echoCloseCodeReason = factory->getEchoCloseCodeReason();
+    _openHandshakeTimeout = factory->getOpenHandshakeTimeout();
+    _closeHandshakeTimeout = factory->getCloseHandshakeTimeout();
+    _tcpNoDelay = factory->getTcpNoDelay();
+    _autoPingInterval = factory->getAutoPingInterval();
+    _autoPingTimeout = factory->getAutoPingTimeout();
+    _autoPingSize = factory->getAutoPingSize();
+
+    _version = factory->getVersion();
+    _acceptMaskedServerFrames = factory->getAcceptMaskedServerFrames();
+    _maskClientFrames = factory->getMaskClientFrames();
+    _serverConnectionDropTimeout = factory->getServerConnectionDropTimeout();
+    _perMessageCompressionAccept = factory->getPerMessageCompressionAccept();
+    _perMessageCompressionOffers = factory->getPerMessageCompressionOffers();
+
+    if (factory->getProxy().empty()) {
+        _state = State::CONNECTING;
+    } else {
+        _state = State::PROXY_CONNECTING;
+    }
+
     BaseType::connectionMade();
     NET4CXX_LOG_DEBUG(gGenLog, "connection to %s established", _peer);
 
-    if (!getFactory<WebSocketClientFactory>()->getProxy().empty()) {
+    if (!factory->getProxy().empty()) {
         startProxyConnect();
     } else {
         startHandshake();
@@ -2004,8 +2010,8 @@ void WebSocketClientProtocol::processHandshake() {
                     }
 
                     PerMessageCompressResponseAcceptPtr accept;
-                    if (_perMessageCompressionAccept4Client) {
-                        accept = _perMessageCompressionAccept4Client(std::move(pmceResponse));
+                    if (_perMessageCompressionAccept) {
+                        accept = _perMessageCompressionAccept(std::move(pmceResponse));
                     }
 
                     if (!accept) {

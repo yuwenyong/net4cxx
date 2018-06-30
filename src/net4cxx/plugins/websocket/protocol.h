@@ -6,6 +6,7 @@
 #define NET4CXX_PLUGINS_WEBSOCKET_PROTOCOL_H
 
 #include "net4cxx/plugins/websocket/base.h"
+#include <boost/logic/tribool.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
 #include "net4cxx/common/httputils/urlparse.h"
@@ -284,7 +285,7 @@ protected:
     WebSocketExtensionList parseExtensionsHeader(const std::string &header, bool removeQuotes=true);
 
     std::string _peer{"<never connected>"};
-    bool _isServer{false};
+    boost::tribool _isServer{boost::indeterminate};
     // common
     bool _logOctets{false};
     bool _logFrames{false};
@@ -303,25 +304,12 @@ protected:
     double _autoPingTimeout{0.0};
     size_t _autoPingSize{0};
     // server
-    std::vector<int> _versions;
-    bool _webStatus{false};
     bool _requireMaskedClientFrames{false};
     bool _maskServerFrames{false};
-    PerMessageCompressionAccept4Server _perMessageCompressionAccept4Server;
-    bool _serverFlashSocketPolicy{false};
-    std::string _flashSocketPolicy;
-    StringVector _allowedOrigins;
-    std::vector<boost::regex> _allowedOriginsPatterns;
-    bool _allowNullOrigin{false};
-    size_t _maxConnections{0};
-    size_t _trustXForwardedFor{0};
     // client
-    int _version{0};
     bool _acceptMaskedServerFrames{false};
     bool _maskClientFrames{false};
     double _serverConnectionDropTimeout{0.0};
-    std::vector<PerMessageCompressOfferPtr> _perMessageCompressionOffers;
-    PerMessageCompressionAccept4Client _perMessageCompressionAccept4Client;
     // extra
     PerMessageCompressPtr _perMessageCompress;
     boost::optional<Timings> _trackedTimings;
@@ -399,6 +387,17 @@ protected:
     void sendRedirect(const std::string &url);
 
     void sendServerStatus(const std::string &redirectUrl="", int redirectAfter=0);
+
+    std::vector<int> _versions;
+    bool _webStatus{false};
+    PerMessageCompressionAccept4Server _perMessageCompressionAccept;
+    bool _serverFlashSocketPolicy{false};
+    std::string _flashSocketPolicy;
+    StringVector _allowedOrigins;
+    std::vector<boost::regex> _allowedOriginsPatterns;
+    bool _allowNullOrigin{false};
+    size_t _maxConnections{0};
+    size_t _trustXForwardedFor{0};
 
     std::string _httpRequestData;
     std::string _httpResponseData;
@@ -754,6 +753,10 @@ protected:
         NET4CXX_LOG_INFO(gGenLog, "failing WebSocket opening handshake ('%s')", reason);
         dropConnection(true);
     }
+
+    int _version{0};
+    std::vector<PerMessageCompressOfferPtr> _perMessageCompressionOffers;
+    PerMessageCompressionAccept4Client _perMessageCompressionAccept;
 
     std::string _webSocketKey;
     std::string _httpRequestData;
