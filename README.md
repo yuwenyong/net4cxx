@@ -1390,11 +1390,16 @@ virtual void onOpen();
 virtual void onMessage(ByteArray payload, bool isBinary);
 ```
 
+* payload: 消息的内容
+* isBinary: 消息是否二进制
+
 #### 收到Ping时的回调
 
 ```c++
 virtual void onPing(ByteArray payload);
 ```
+
+* payload: 附带的消息
 
 #### 收到Pong时的回调
 
@@ -1402,11 +1407,16 @@ virtual void onPing(ByteArray payload);
 virtual void onPong(ByteArray payload);
 ```
 
+* payload: 附带的消息
+
 #### 连接关闭时的回调
 
 ```c++
 virtual void onClose(bool wasClean, boost::optional<unsigned short> code, boost::optional<std::string> reason);
 ```
+
+* code: 可选的关闭状态码
+* reason: 可选的关闭原因
 
 #### 发送消息
 
@@ -1417,6 +1427,10 @@ void sendMessage(const char *payload, bool isBinary=false, size_t fragmentSize=0
 void sendMessage(const std::string &payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false, bool doNotCompress=false);
 ```
 
+* payload: 消息的内容
+* length: 消息的长度
+* isBinary: 是否二进制
+
 #### 发送ping包
 
 ```c++
@@ -1425,6 +1439,9 @@ void sendPing(const ByteArray &payload);
 void sendPing(const char *payload);
 void sendPing(const std::string &payload);
 ```
+
+* payload: 附带的消息内容
+* length: 附带的消息长度
 
 #### 发送pong包
 
@@ -1435,10 +1452,26 @@ void sendPong(const char *payload);
 void sendPong(const std::string &payload);
 ```
 
+* payload: 附带的消息内容
+* length: 附带的消息长度
+
 #### 发送close包
 
 ```c++
 void sendClose(boost::optional<unsigned short> code=boost::none, boost::optional<std::string> reason=boost::none);
+```
+
+* code: 可选的关闭状态码
+* reason: 可选的关闭原因
+
+#### 获取自身的shared_ptr对象
+
+```c++
+template <typename SelfT>
+std::shared_ptr<SelfT> getSelf() const;
+
+template <typename SelfT>
+std::shared_ptr<SelfT> getSelf();
 ```
 
 #### WebSocketServerProtocol
@@ -1459,6 +1492,8 @@ class WebSocketServerFactory: public Factory;
 WebSocketServerFactory(std::string url="", StringVector protocols={}, std::string version="", WebSocketHeaders headers={}, unsigned short externalPort=0);
 ```
 
+* url: 服务的url
+
 #### WebSocketClientProtocol
 
 ```c++
@@ -1476,6 +1511,8 @@ class WebSocketClientFactory: public ClientFactory;
 ```c++
 explicit WebSocketClientFactory(std::string url = "", std::string origin = "", StringVector protocols = {}, std::string useragent = "", WebSocketHeaders headers = {}, std::string proxy = "");
 ```
+
+* url: 连接的url
 
 #### 全局函数
 

@@ -10,9 +10,9 @@ using namespace net4cxx;
 class BroadcastServerFactory: public WebSocketServerFactory,
                               public std::enable_shared_from_this<BroadcastServerFactory> {
 public:
-    ProtocolPtr buildProtocol(const Address &address) override;
-
     using WebSocketServerFactory::WebSocketServerFactory;
+
+    ProtocolPtr buildProtocol(const Address &address) override;
 
     void tick(Reactor *reactor) {
         _tickCount += 1;
