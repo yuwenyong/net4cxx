@@ -208,6 +208,134 @@ int main(int argc, char **argv) {
 * 以上实现了一个最简单的udp client;
 * 将connectUDP调用替换成connectUNIXDatagram可以使用unix域数据报套接字;
 
+### 开发基于websocket的服务端
+
+```c++
+#include "net4cxx/net4cxx.h"
+
+
+using namespace net4cxx;
+
+class BroadcastServerFactory: public WebSocketServerFactory,
+                              public std::enable_shared_from_this<BroadcastServerFactory> {
+public:
+    using WebSocketServerFactory::WebSocketServerFactory;
+
+    ProtocolPtr buildProtocol(const Address &address) override;
+
+    void registerClient(WebSocketServerProtocolPtr client) {
+        if (_clients.find(client) == _clients.end()) {
+            NET4CXX_LOG_INFO(gAppLog, "register client %s", client->getPeerName());
+            _clients.insert(client);
+        }
+    }
+
+    void unregisterClient(WebSocketServerProtocolPtr client) {
+        if (_clients.find(client) != _clients.end()) {
+            NET4CXX_LOG_INFO(gAppLog, "unregister client %s", client->getPeerName());
+            _clients.erase(client);
+        }
+    }
+
+    void broadcast(const std::string &msg) {
+        NET4CXX_LOG_INFO(gAppLog, "broacasting message '%s' ..", msg);
+        for (auto c: _clients) {
+            c->sendMessage(msg);
+            NET4CXX_LOG_INFO(gAppLog, "message sent to %s", c->getPeerName());
+        }
+    }
+protected:
+    int _tickCount{0};
+    std::set<WebSocketServerProtocolPtr> _clients;
+};
+
+
+class BroadcastServerProtocol: public WebSocketServerProtocol {
+public:
+    void onOpen() override {
+        getFactory<BroadcastServerFactory>()->registerClient(getSelf<BroadcastServerProtocol>());
+    }
+
+    void onMessage(ByteArray payload, bool isBinary) override {
+        if (!isBinary) {
+            auto msg = StrUtil::format("%s from %s", BytesToString(payload), getPeerName());
+            getFactory<BroadcastServerFactory>()->broadcast(msg);
+        }
+    }
+
+    void connectionLost(std::exception_ptr reason) override {
+        WebSocketServerProtocol::connectionLost(reason);
+        getFactory<BroadcastServerFactory>()->unregisterClient(getSelf<BroadcastServerProtocol>());
+    }
+};
+
+ProtocolPtr BroadcastServerFactory::buildProtocol(const Address &address) {
+    return std::make_shared<BroadcastServerProtocol>();
+}
+
+int main(int argc, char **argv) {
+    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+    Reactor reactor;
+    auto factory = std::make_shared<BroadcastServerFactory>("ws://127.0.0.1:9000");
+    listenWS(&reactor, factory);
+    reactor.run();
+    return 0;
+}
+```
+
+* 以上实现了一个具有广播功能的websocket服务器;
+
+### 开发基于websocket的客户端
+
+```c++
+#include "net4cxx/net4cxx.h"
+
+
+using namespace net4cxx;
+
+
+class BroadcastClientProtocol: public WebSocketClientProtocol {
+public:
+    void onOpen() override {
+        sendHello();
+    }
+
+    void onMessage(ByteArray payload, bool isBinary) override {
+        if (!isBinary) {
+            NET4CXX_LOG_INFO(gAppLog, "Text message received: %s", BytesToString(payload));
+        }
+    }
+
+    void sendHello() {
+        sendMessage("Hello from client!");
+        reactor()->callLater(2.0, [this, self=shared_from_this()](){
+            sendHello();
+        });
+    }
+};
+
+
+class BroadcastClientFactory: public WebSocketClientFactory {
+public:
+    using WebSocketClientFactory::WebSocketClientFactory;
+
+    ProtocolPtr buildProtocol(const Address &address) override {
+        return std::make_shared<BroadcastClientProtocol>();
+    }
+};
+
+
+int main(int argc, char **argv) {
+    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+    Reactor reactor;
+    auto factory = std::make_shared<BroadcastClientFactory>("ws://127.0.0.1:9000");
+    connectWS(&reactor, factory);
+    reactor.run();
+    return 0;
+}
+```
+
+* 以上实现了一个会自动定时发消息的websocket客户端
 
 ## Reference
 
@@ -1123,7 +1251,7 @@ ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protoco
 ```
 
 * endpoint: 要连接的对端
-* protocl: 指定的协议处理器
+* protocol: 指定的协议处理器
 
 ### 基础数据报协议模块
 
@@ -1242,7 +1370,137 @@ unsigned short getRemotePort() const;
 
 ### web模块(待实现)
 
-### webSocket模块(待实现)
+### webSocket模块
+
+#### WebSocketProtocol
+
+```c++
+class WebSocketProtocol: public Protocol, public std::enable_shared_from_this<WebSocketProtocol>;
+```
+
+#### 成功打开时的回调
+
+```c++
+virtual void onOpen();
+```
+
+#### 收到消息时的回调
+
+```c++
+virtual void onMessage(ByteArray payload, bool isBinary);
+```
+
+#### 收到Ping时的回调
+
+```c++
+virtual void onPing(ByteArray payload);
+```
+
+#### 收到Pong时的回调
+
+```c++
+virtual void onPong(ByteArray payload);
+```
+
+#### 连接关闭时的回调
+
+```c++
+virtual void onClose(bool wasClean, boost::optional<unsigned short> code, boost::optional<std::string> reason);
+```
+
+#### 发送消息
+
+```c++
+void sendMessage(const Byte *payload, size_t length, bool isBinary=false, size_t fragmentSize=0, bool sync=false, bool doNotCompress=false);
+void sendMessage(const ByteArray &payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false, bool doNotCompress=false);
+void sendMessage(const char *payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false, bool doNotCompress=false);
+void sendMessage(const std::string &payload, bool isBinary=false, size_t fragmentSize=0, bool sync=false, bool doNotCompress=false);
+```
+
+#### 发送ping包
+
+```c++
+void sendPing(const Byte *payload, size_t length);
+void sendPing(const ByteArray &payload);
+void sendPing(const char *payload);
+void sendPing(const std::string &payload);
+```
+
+#### 发送pong包
+
+```c++
+void sendPong(const Byte *payload, size_t length);
+void sendPong(const ByteArray &payload);
+void sendPong(const char *payload);
+void sendPong(const std::string &payload);
+```
+
+#### 发送close包
+
+```c++
+void sendClose(boost::optional<unsigned short> code=boost::none, boost::optional<std::string> reason=boost::none);
+```
+
+#### WebSocketServerProtocol
+
+```c++
+class WebSocketServerProtocol: public WebSocketProtocol;
+```
+
+#### WebSocketServerFactory
+
+```c++
+class WebSocketServerFactory: public Factory;
+```
+
+##### 构造函数
+
+```c++
+WebSocketServerFactory(std::string url="", StringVector protocols={}, std::string version="", WebSocketHeaders headers={}, unsigned short externalPort=0);
+```
+
+#### WebSocketClientProtocol
+
+```c++
+class WebSocketClientProtocol: public WebSocketProtocol;
+```
+
+#### WebSocketClientFactory
+
+```c++
+class WebSocketClientFactory: public ClientFactory;
+```
+
+##### 构造函数
+
+```c++
+explicit WebSocketClientFactory(std::string url = "", std::string origin = "", StringVector protocols = {}, std::string useragent = "", WebSocketHeaders headers = {}, std::string proxy = "");
+```
+
+#### 全局函数
+
+##### 启动WebSocketServer
+
+```c++
+ListenerPtr listenWS(Reactor *reactor, std::shared_ptr<WebSocketServerFactory> factory, SSLOptionPtr sslOption=nullptr, const std::string &interface={});
+```
+
+* reactor: 关联的反应器
+* factory: 创建WebSocketServerProtocol的工厂
+* sslOption: ssl选项
+* interface: 绑定的地址
+
+##### 创建WebSocketClient
+
+```c++
+ConnectorPtr connectWS(Reactor *reactor, std::shared_ptr<WebSocketClientFactory> factory, SSLOptionPtr sslOption=nullptr, double timeout=30.0, const Address &bindAddress={});
+```
+
+* reactor: 关联的反应器
+* factory: 创建WebSocketClientProtocol的工厂
+* sslOption: ssl选项
+* timeout: 超时值
+* bindAddress: 绑定的地址
 
 ### 基础工具模块(待实现)
 

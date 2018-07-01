@@ -2121,6 +2121,7 @@ void WebSocketClientProtocol::startHandshake() {
     _webSocketKey.resize(16);
     Random::randBytes((Byte *)_webSocketKey.data(), _webSocketKey.size());
     _webSocketKey = Base64::b64encode(_webSocketKey);
+    request += StrUtil::format("Sec-WebSocket-Key: %s\x0d\x0a", _webSocketKey);
 
     if (!factory->getOrigin().empty()) {
         if (_version > 10) {
