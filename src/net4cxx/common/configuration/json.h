@@ -13,7 +13,7 @@
 NS_BEGIN
 
 
-enum class JSONType {
+enum class JsonType {
     nullValue = 0,
     intValue,
     uintValue,
@@ -33,90 +33,90 @@ enum CommentPlacement {
 };
 
 
-class NET4CXX_COMMON_API JSONValue {
+class NET4CXX_COMMON_API JsonValue {
 public:
     struct NullValue {
 
     };
 
-    using ObjectType = std::map<std::string, JSONValue>;
-    using ArrayType = std::vector<JSONValue>;
+    using ObjectType = std::map<std::string, JsonValue>;
+    using ArrayType = std::vector<JsonValue>;
     using ValueType = boost::variant<NullValue, int64_t, uint64_t, double, std::string, bool, ArrayType, ObjectType>;
     using ArrayIterator = ArrayType::iterator;
     using ConstArrayIterator = ArrayType::const_iterator;
     using ObjectIterator = ObjectType::iterator;
     using ConstObjectIterator = ObjectType::const_iterator;
 
-    friend bool operator<(const JSONValue &lhs, const JSONValue &rhs);
-    friend bool operator==(const JSONValue &lhs, const JSONValue &rhs);
+    friend bool operator<(const JsonValue &lhs, const JsonValue &rhs);
+    friend bool operator==(const JsonValue &lhs, const JsonValue &rhs);
 
-    JSONValue() = default;
+    JsonValue() = default;
 
-    JSONValue(JSONType type);
+    JsonValue(JsonType type);
 
-    JSONValue(nullptr_t) {
-
-    }
-
-    JSONValue(int value): _value(int64_t{value}) {
+    JsonValue(nullptr_t) {
 
     }
 
-    JSONValue(unsigned int value): _value(uint64_t{value}) {
+    JsonValue(int value): _value(int64_t{value}) {
 
     }
 
-    JSONValue(int64_t value): _value(value) {
+    JsonValue(unsigned int value): _value(uint64_t{value}) {
 
     }
 
-    JSONValue(uint64_t value): _value(value) {
+    JsonValue(int64_t value): _value(value) {
 
     }
 
-    JSONValue(float value): _value(double{value}) {
+    JsonValue(uint64_t value): _value(value) {
 
     }
 
-    JSONValue(double value): _value(value) {
+    JsonValue(float value): _value(double{value}) {
 
     }
 
-    JSONValue(const char *value): _value(std::string{value}) {
+    JsonValue(double value): _value(value) {
 
     }
 
-    JSONValue(const char *value, size_t length): _value(std::string{value, value + length}) {
+    JsonValue(const char *value): _value(std::string{value}) {
 
     }
 
-    JSONValue(const std::string &value): _value(value) {
+    JsonValue(const char *value, size_t length): _value(std::string{value, value + length}) {
 
     }
 
-    JSONValue(bool value): _value(value) {
+    JsonValue(const std::string &value): _value(value) {
 
     }
 
-    void swap(JSONValue &other) {
+    JsonValue(bool value): _value(value) {
+
+    }
+
+    void swap(JsonValue &other) {
         std::swap(*this, other);
     }
 
-    void swapPayload(JSONValue &other) {
+    void swapPayload(JsonValue &other) {
         std::swap(_value, other._value);
     }
 
-    void copy(const JSONValue &other) {
+    void copy(const JsonValue &other) {
         *this = other;
     }
 
-    void copyPayload(const JSONValue &other) {
+    void copyPayload(const JsonValue &other) {
         _value = other._value;
     }
 
-    JSONType type() const;
+    JsonType type() const;
 
-    int compare(const JSONValue &other) const;
+    int compare(const JsonValue &other) const;
 
     std::string asString() const;
 
@@ -173,7 +173,7 @@ public:
         return _value.type() == typeid(ObjectType);
     }
 
-    bool isConvertibleTo(JSONType other) const;
+    bool isConvertibleTo(JsonType other) const;
 
     size_t size() const;
 
@@ -193,16 +193,16 @@ public:
 
     void resize(size_t newSize);
 
-    JSONValue& operator[](size_t index);
+    JsonValue& operator[](size_t index);
 
-    JSONValue& operator[](int index);
+    JsonValue& operator[](int index);
 
-    const JSONValue& operator[](size_t index) const;
+    const JsonValue& operator[](size_t index) const;
 
-    const JSONValue& operator[](int index) const;
+    const JsonValue& operator[](int index) const;
 
-    JSONValue get(size_t index, const JSONValue &defaultValue) const {
-        const JSONValue *value = &((*this)[index]);
+    JsonValue get(size_t index, const JsonValue &defaultValue) const {
+        const JsonValue *value = &((*this)[index]);
         return value == &nullSingleton() ? defaultValue : *value;
     }
 
@@ -210,45 +210,45 @@ public:
         return index < size();
     }
 
-    JSONValue& append(const JSONValue &value) {
+    JsonValue& append(const JsonValue &value) {
         return (*this)[size()] = value;
     }
 
-    JSONValue& append(JSONValue &&value) {
+    JsonValue& append(JsonValue &&value) {
         return (*this)[size()] = std::move(value);
     }
 
-    JSONValue& operator[](const char *key);
+    JsonValue& operator[](const char *key);
 
-    JSONValue& operator[](const std::string &key) {
+    JsonValue& operator[](const std::string &key) {
         return (*this)[key.c_str()];
     }
 
-    const JSONValue& operator[](const char *key) const;
+    const JsonValue& operator[](const char *key) const;
 
-    const JSONValue& operator[](const std::string &key) const {
+    const JsonValue& operator[](const std::string &key) const {
         return (*this)[key.c_str()];
     }
 
-    JSONValue get(const char *key, const JSONValue &defaultValue) const;
+    JsonValue get(const char *key, const JsonValue &defaultValue) const;
 
-    JSONValue get(const std::string &key, const JSONValue &defaultValue) const {
+    JsonValue get(const std::string &key, const JsonValue &defaultValue) const {
         return get(key.c_str(), defaultValue);
     }
 
-    const JSONValue* find(const char *key) const;
+    const JsonValue* find(const char *key) const;
 
-    const JSONValue* find(const std::string &key) const {
+    const JsonValue* find(const std::string &key) const {
         return find(key.c_str());
     }
 
-    bool removeMember(const char *key, JSONValue *removed= nullptr);
+    bool removeMember(const char *key, JsonValue *removed= nullptr);
 
-    bool removeMember(const std::string &key, JSONValue *removed= nullptr) {
+    bool removeMember(const std::string &key, JsonValue *removed= nullptr) {
         return removeMember(key.c_str(), removed);
     }
 
-    bool removeIndex(size_t index, JSONValue *removed= nullptr);
+    bool removeIndex(size_t index, JsonValue *removed= nullptr);
 
     bool isMember(const char *key) const {
         return find(key) != nullptr;
@@ -322,58 +322,58 @@ public:
         return object.end();
     }
 
-    static const JSONValue& nullSingleton();
+    static const JsonValue& nullSingleton();
 private:
     ValueType _value;
     std::array<std::string, COMMENT_COUNT> _comments;
 };
 
 
-inline bool operator<(const JSONValue &lhs, const JSONValue &rhs) {
+inline bool operator<(const JsonValue &lhs, const JsonValue &rhs) {
     return lhs._value < rhs._value;
 }
 
-inline bool operator<=(const JSONValue &lhs, const JSONValue &rhs) {
+inline bool operator<=(const JsonValue &lhs, const JsonValue &rhs) {
     return !(rhs < lhs);
 }
 
-inline bool operator>(const JSONValue &lhs, const JSONValue &rhs) {
+inline bool operator>(const JsonValue &lhs, const JsonValue &rhs) {
     return rhs < lhs;
 }
 
-inline bool operator>=(const JSONValue &lhs, const JSONValue &rhs) {
+inline bool operator>=(const JsonValue &lhs, const JsonValue &rhs) {
     return !(lhs < rhs);
 }
 
-inline bool operator==(const JSONValue &lhs, const JSONValue &rhs) {
+inline bool operator==(const JsonValue &lhs, const JsonValue &rhs) {
     return lhs._value == rhs._value;
 }
 
-inline bool operator!=(const JSONValue &lhs, const JSONValue &rhs) {
+inline bool operator!=(const JsonValue &lhs, const JsonValue &rhs) {
     return !(lhs == rhs);
 }
 
-inline bool operator<(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
+inline bool operator<(const JsonValue::NullValue &lhs, const JsonValue::NullValue &rhs) {
     return false;
 }
 
-inline bool operator<=(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
+inline bool operator<=(const JsonValue::NullValue &lhs, const JsonValue::NullValue &rhs) {
     return !(rhs < lhs);
 }
 
-inline bool operator>(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
+inline bool operator>(const JsonValue::NullValue &lhs, const JsonValue::NullValue &rhs) {
     return rhs < lhs;
 }
 
-inline bool operator>=(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
+inline bool operator>=(const JsonValue::NullValue &lhs, const JsonValue::NullValue &rhs) {
     return !(lhs < rhs);
 }
 
-inline bool operator==(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
+inline bool operator==(const JsonValue::NullValue &lhs, const JsonValue::NullValue &rhs) {
     return true;
 }
 
-inline bool operator!=(const JSONValue::NullValue &lhs, const JSONValue::NullValue &rhs) {
+inline bool operator!=(const JsonValue::NullValue &lhs, const JsonValue::NullValue &rhs) {
     return !(lhs == rhs);
 }
 
@@ -382,7 +382,7 @@ class NET4CXX_COMMON_API StreamWriter {
 public:
     virtual ~StreamWriter() = default;
 
-    virtual int write(const JSONValue &root, std::ostream *sout) = 0;
+    virtual int write(const JsonValue &root, std::ostream *sout) = 0;
 
     class NET4CXX_COMMON_API Factory {
     public:
@@ -412,13 +412,13 @@ public:
                             bool useSpecialFloats,
                             unsigned int precision);
 
-    int write(const JSONValue &root, std::ostream *sout) override;
+    int write(const JsonValue &root, std::ostream *sout) override;
 private:
-    void writeValue(const JSONValue &value);
+    void writeValue(const JsonValue &value);
 
-    void writeArrayValue(const JSONValue &value);
+    void writeArrayValue(const JsonValue &value);
 
-    bool isMultilineArray(const JSONValue &value);
+    bool isMultilineArray(const JsonValue &value);
 
     void pushValue(const std::string &value) {
         if (_addChildValues) {
@@ -451,11 +451,11 @@ private:
         _indentString.resize(_indentString.size() - _indentation.size());
     }
 
-    void writeCommentBeforeValue(const JSONValue &root);
+    void writeCommentBeforeValue(const JsonValue &root);
 
-    void writeCommentAfterValueOnSameLine(const JSONValue &root);
+    void writeCommentAfterValueOnSameLine(const JsonValue &root);
 
-    static bool hasCommentForValue(const JSONValue &value);
+    static bool hasCommentForValue(const JsonValue &value);
 
     StringVector _childValues;
     std::string _indentString;
@@ -478,36 +478,36 @@ public:
 
     StreamWriter* newStreamWriter() const override;
 
-    JSONValue& settings() {
+    JsonValue& settings() {
         return _settings;
     }
 
-    const JSONValue& settings() const {
+    const JsonValue& settings() const {
         return _settings;
     }
 
-    bool validate(JSONValue *invalid= nullptr) const;
+    bool validate(JsonValue *invalid= nullptr) const;
 
-    JSONValue& operator[](const std::string &key) {
+    JsonValue& operator[](const std::string &key) {
         return _settings[key];
     }
 
-    static void setDefaults(JSONValue *settings);
+    static void setDefaults(JsonValue *settings);
 protected:
-    JSONValue _settings;
+    JsonValue _settings;
 };
 
 
-NET4CXX_COMMON_API std::string writeString(const StreamWriter::Factory &factory, const JSONValue &root);
+NET4CXX_COMMON_API std::string writeString(const StreamWriter::Factory &factory, const JsonValue &root);
 
-NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &sout, const JSONValue &root);
+NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &sout, const JsonValue &root);
 
 
 class NET4CXX_COMMON_API CharReader {
 public:
     virtual ~CharReader() = default;
 
-    virtual bool parse(char const* beginDoc, char const* endDoc, JSONValue* root, std::string *errs) = 0;
+    virtual bool parse(char const* beginDoc, char const* endDoc, JsonValue* root, std::string *errs) = 0;
 
     class NET4CXX_COMMON_API Factory {
     public:
@@ -544,7 +544,7 @@ public:
 
     }
 
-    bool parse(const char* beginDoc, const char* endDoc, JSONValue& root, bool collectComments = true);
+    bool parse(const char* beginDoc, const char* endDoc, JsonValue& root, bool collectComments = true);
 
     std::string getFormattedErrorMessages() const;
 
@@ -612,7 +612,7 @@ protected:
 
     bool decodeNumber(Token& token);
 
-    bool decodeNumber(Token &token, JSONValue &decoded);
+    bool decodeNumber(Token &token, JsonValue &decoded);
 
     bool decodeString(Token &token);
 
@@ -620,7 +620,7 @@ protected:
 
     bool decodeDouble(Token &token);
 
-    bool decodeDouble(Token &token, JSONValue &decoded);
+    bool decodeDouble(Token &token, JsonValue &decoded);
 
     bool decodeUnicodeCodePoint(Token &token, const char *&current, const char *end, unsigned int &unicode);
 
@@ -635,7 +635,7 @@ protected:
         return recoverFromError(skipUntilToken);
     }
 
-    JSONValue& currentValue() {
+    JsonValue& currentValue() {
         return *(_nodes.top());
     }
 
@@ -658,14 +658,14 @@ protected:
 
     static bool containsNewLine(const char *begin, const char *end);
 
-    std::stack<JSONValue *> _nodes;
+    std::stack<JsonValue *> _nodes;
     std::deque<ErrorInfo> _errors;
 //    std::string _document;
     const char *_begin{nullptr};
     const char *_end{nullptr};
     const char *_current{nullptr};
     const char *_lastValueEnd{nullptr};
-    JSONValue *_lastValue{nullptr};
+    JsonValue *_lastValue{nullptr};
     std::string _commentsBefore;
     ReaderFeatures _features;
     bool _collectComments{false};
@@ -680,7 +680,7 @@ public:
 
     }
 
-    bool parse(char const* beginDoc, char const* endDoc, JSONValue* root, std::string *errs) override;
+    bool parse(char const* beginDoc, char const* endDoc, JsonValue* root, std::string *errs) override;
 protected:
     bool _collectComments;
     BuiltReader _reader;
@@ -693,32 +693,32 @@ public:
 
     CharReader* newCharReader() const override;
 
-    JSONValue& settings() {
+    JsonValue& settings() {
         return _settings;
     }
 
-    const JSONValue& settings() const {
+    const JsonValue& settings() const {
         return _settings;
     }
 
-    bool validate(JSONValue *invalid= nullptr) const;
+    bool validate(JsonValue *invalid= nullptr) const;
 
-    JSONValue& operator[](const std::string &key) {
+    JsonValue& operator[](const std::string &key) {
         return _settings[key];
     }
 
-    static void setDefaults(JSONValue *settings);
+    static void setDefaults(JsonValue *settings);
 
-    static void strictMode(JSONValue *settings);
+    static void strictMode(JsonValue *settings);
 protected:
-    JSONValue _settings;
+    JsonValue _settings;
 };
 
 
-NET4CXX_COMMON_API bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JSONValue* root,
+NET4CXX_COMMON_API bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JsonValue* root,
                                         std::string *errs);
 
-NET4CXX_COMMON_API std::istream& operator>>(std::istream &sin, JSONValue &root);
+NET4CXX_COMMON_API std::istream& operator>>(std::istream &sin, JsonValue &root);
 
 NS_END
 

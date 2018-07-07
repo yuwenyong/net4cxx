@@ -234,82 +234,82 @@ static std::string valueToQuotedString(const std::string &value) {
 }
 
 
-JSONValue::JSONValue(JSONType type) {
+JsonValue::JsonValue(JsonType type) {
     switch (type) {
-        case JSONType::nullValue: {
+        case JsonType::nullValue: {
             break;
         }
-        case JSONType::intValue: {
+        case JsonType::intValue: {
             _value = (int64_t)0;
             break;
         }
-        case JSONType::uintValue: {
+        case JsonType::uintValue: {
             _value = (uint64_t)0;
             break;
         }
-        case JSONType::realValue: {
+        case JsonType::realValue: {
             _value = 0.0;
             break;
         }
-        case JSONType::stringValue: {
+        case JsonType::stringValue: {
             _value = "";
             break;
         }
-        case JSONType::boolValue: {
+        case JsonType::boolValue: {
             _value = false;
             break;
         }
-        case JSONType::arrayValue: {
+        case JsonType::arrayValue: {
             _value = ArrayType{};
             break;
         }
-        case JSONType::objectValue: {
+        case JsonType::objectValue: {
             _value = ObjectType{};
             break;
         }
     }
 }
 
-JSONType JSONValue::type() const {
+JsonType JsonValue::type() const {
 
-    struct GetTypeVisitor: public boost::static_visitor<JSONType> {
+    struct GetTypeVisitor: public boost::static_visitor<JsonType> {
         result_type operator()(NullValue v) const {
-            return JSONType::nullValue;
+            return JsonType::nullValue;
         }
 
         result_type operator()(int64_t v) const {
-            return JSONType::intValue;
+            return JsonType::intValue;
         }
 
         result_type operator()(uint64_t v) const {
-            return JSONType::uintValue;
+            return JsonType::uintValue;
         }
 
         result_type operator()(double v) const {
-            return JSONType::realValue;
+            return JsonType::realValue;
         }
 
         result_type operator()(const std::string &v) const {
-            return JSONType::stringValue;
+            return JsonType::stringValue;
         }
 
         result_type operator()(bool v) const {
-            return JSONType::boolValue;
+            return JsonType::boolValue;
         }
 
         result_type operator()(const ArrayType &v) const {
-            return JSONType::arrayValue;
+            return JsonType::arrayValue;
         }
 
         result_type operator()(const ObjectType &v) const {
-            return JSONType::objectValue;
+            return JsonType::objectValue;
         }
     };
 
     return boost::apply_visitor(GetTypeVisitor(), _value);
 }
 
-int JSONValue::compare(const JSONValue &other) const {
+int JsonValue::compare(const JsonValue &other) const {
     if (*this < other) {
         return -1;
     }
@@ -319,7 +319,7 @@ int JSONValue::compare(const JSONValue &other) const {
     return 0;
 }
 
-std::string JSONValue::asString() const {
+std::string JsonValue::asString() const {
 
     struct AsStringVisitor: public boost::static_visitor<std::string> {
         result_type operator()(NullValue v) const {
@@ -358,7 +358,7 @@ std::string JSONValue::asString() const {
     return boost::apply_visitor(AsStringVisitor(), _value);
 }
 
-int JSONValue::asInt() const {
+int JsonValue::asInt() const {
 
     struct AsIntVisitor: public boost::static_visitor<int> {
         result_type operator()(NullValue v) const {
@@ -406,7 +406,7 @@ int JSONValue::asInt() const {
     return boost::apply_visitor(AsIntVisitor(), _value);
 }
 
-unsigned int JSONValue::asUInt() const {
+unsigned int JsonValue::asUInt() const {
 
     struct AsUIntVisitor: public boost::static_visitor<unsigned int> {
         result_type operator()(NullValue v) const {
@@ -454,7 +454,7 @@ unsigned int JSONValue::asUInt() const {
     return boost::apply_visitor(AsUIntVisitor(), _value);
 }
 
-int64_t JSONValue::asInt64() const {
+int64_t JsonValue::asInt64() const {
 
     struct AsInt64Visitor: public boost::static_visitor<int64_t> {
         result_type operator()(NullValue v) const {
@@ -499,7 +499,7 @@ int64_t JSONValue::asInt64() const {
     return boost::apply_visitor(AsInt64Visitor(), _value);
 }
 
-uint64_t JSONValue::asUInt64() const {
+uint64_t JsonValue::asUInt64() const {
 
     struct AsUInt64Visitor: public boost::static_visitor<uint64_t> {
         result_type operator()(NullValue v) const {
@@ -544,7 +544,7 @@ uint64_t JSONValue::asUInt64() const {
     return boost::apply_visitor(AsUInt64Visitor(), _value);
 }
 
-float JSONValue::asFloat() const {
+float JsonValue::asFloat() const {
 
     struct AsFloatVisitor: public boost::static_visitor<float> {
         result_type operator()(NullValue v) const {
@@ -583,7 +583,7 @@ float JSONValue::asFloat() const {
     return boost::apply_visitor(AsFloatVisitor(), _value);
 }
 
-double JSONValue::asDouble() const {
+double JsonValue::asDouble() const {
 
     struct AsDoubleVisitor: public boost::static_visitor<double> {
         result_type operator()(NullValue v) const {
@@ -622,7 +622,7 @@ double JSONValue::asDouble() const {
     return boost::apply_visitor(AsDoubleVisitor(), _value);
 }
 
-bool JSONValue::asBool() const {
+bool JsonValue::asBool() const {
 
     struct AsBoolVisitor: public boost::static_visitor<bool> {
         result_type operator()(NullValue v) const {
@@ -661,7 +661,7 @@ bool JSONValue::asBool() const {
     return boost::apply_visitor(AsBoolVisitor(), _value);
 }
 
-bool JSONValue::isInt() const {
+bool JsonValue::isInt() const {
 
     struct IsIntVisitor: public boost::static_visitor<bool> {
         result_type operator()(NullValue v) const {
@@ -700,7 +700,7 @@ bool JSONValue::isInt() const {
     return boost::apply_visitor(IsIntVisitor(), _value);
 }
 
-bool JSONValue::isInt64() const {
+bool JsonValue::isInt64() const {
 
     struct IsInt64Visitor: public boost::static_visitor<bool> {
         result_type operator()(NullValue v) const {
@@ -739,7 +739,7 @@ bool JSONValue::isInt64() const {
     return boost::apply_visitor(IsInt64Visitor(), _value);
 }
 
-bool JSONValue::isUInt() const {
+bool JsonValue::isUInt() const {
 
     struct IsUIntVisitor: public boost::static_visitor<bool> {
         result_type operator()(NullValue v) const {
@@ -778,7 +778,7 @@ bool JSONValue::isUInt() const {
     return boost::apply_visitor(IsUIntVisitor(), _value);
 }
 
-bool JSONValue::isUInt64() const {
+bool JsonValue::isUInt64() const {
 
     struct IsUInt64Visitor: public boost::static_visitor<bool> {
         result_type operator()(NullValue v) const {
@@ -817,7 +817,7 @@ bool JSONValue::isUInt64() const {
     return boost::apply_visitor(IsUInt64Visitor(), _value);
 }
 
-bool JSONValue::isIntegral() const {
+bool JsonValue::isIntegral() const {
 
     struct IsIntegralVisitor: public boost::static_visitor<bool> {
         result_type operator()(NullValue v) const {
@@ -856,9 +856,9 @@ bool JSONValue::isIntegral() const {
     return boost::apply_visitor(IsIntegralVisitor(), _value);
 }
 
-bool JSONValue::isConvertibleTo(JSONType other) const {
+bool JsonValue::isConvertibleTo(JsonType other) const {
     switch (other) {
-        case JSONType::nullValue: {
+        case JsonType::nullValue: {
             return (isNumeric() && asDouble() == 0.0)
                    || (_value.type() == typeid(bool) && !boost::get<bool>(_value))
                    || (_value.type() == typeid(std::string) && boost::get<std::string>(_value).empty())
@@ -866,7 +866,7 @@ bool JSONValue::isConvertibleTo(JSONType other) const {
                    || (_value.type() == typeid(ObjectType) && boost::get<ObjectType>(_value).empty())
                    || (_value.type() == typeid(NullValue));
         }
-        case JSONType::intValue: {
+        case JsonType::intValue: {
             return isInt()
                    || (_value.type() == typeid(double)
                        && InRange(boost::get<double>(_value), std::numeric_limits<int>::min(),
@@ -874,27 +874,27 @@ bool JSONValue::isConvertibleTo(JSONType other) const {
                    || _value.type() == typeid(bool)
                    || _value.type() == typeid(NullValue);
         }
-        case JSONType::uintValue: {
+        case JsonType::uintValue: {
             return isUInt()
                    || (_value.type() == typeid(double)
                        && InRange(boost::get<double>(_value), 0, std::numeric_limits<unsigned int>::max()))
                    || _value.type() == typeid(bool)
                    || _value.type() == typeid(NullValue);
         }
-        case JSONType::realValue: {
+        case JsonType::realValue: {
             return isNumeric() || _value.type() == typeid(bool) || _value.type() == typeid(NullValue);
         }
-        case JSONType::stringValue: {
+        case JsonType::stringValue: {
             return isNumeric() || _value.type() == typeid(bool) || _value.type() == typeid(std::string)
                    || _value.type() == typeid(NullValue);
         }
-        case JSONType::boolValue: {
+        case JsonType::boolValue: {
             return isNumeric() || _value.type() == typeid(bool) || _value.type() == typeid(NullValue);
         }
-        case JSONType::arrayValue: {
+        case JsonType::arrayValue: {
             return _value.type() == typeid(ArrayType) || _value.type() == typeid(NullValue);
         }
-        case JSONType::objectValue: {
+        case JsonType::objectValue: {
             return _value.type() == typeid(ObjectType) || _value.type() == typeid(NullValue);
         }
     }
@@ -902,7 +902,7 @@ bool JSONValue::isConvertibleTo(JSONType other) const {
     return false; // unreachable
 }
 
-size_t JSONValue::size() const {
+size_t JsonValue::size() const {
     if (_value.type() == typeid(ArrayType)) {
         return boost::get<ArrayType>(_value).size();
     } else if (_value.type() == typeid(ObjectType)) {
@@ -912,7 +912,7 @@ size_t JSONValue::size() const {
     }
 }
 
-void JSONValue::clear() {
+void JsonValue::clear() {
     if (_value.type() == typeid(ArrayType)) {
         boost::get<ArrayType>(_value).clear();
     } else if (_value.type() == typeid(ObjectType)) {
@@ -924,9 +924,9 @@ void JSONValue::clear() {
     }
 }
 
-void JSONValue::resize(size_t newSize) {
+void JsonValue::resize(size_t newSize) {
     if (_value.type() == typeid(NullValue)) {
-        *this = JSONValue(JSONType::arrayValue);
+        *this = JsonValue(JsonType::arrayValue);
     }
     if (_value.type() != typeid(ArrayType)) {
         NET4CXX_THROW_EXCEPTION(ValueError, "resize requires array value");
@@ -934,9 +934,9 @@ void JSONValue::resize(size_t newSize) {
     boost::get<ArrayType>(_value).resize(newSize);
 }
 
-JSONValue& JSONValue::operator[](size_t index) {
+JsonValue& JsonValue::operator[](size_t index) {
     if (_value.type() == typeid(NullValue)) {
-        *this = JSONValue(JSONType::arrayValue);
+        *this = JsonValue(JsonType::arrayValue);
     } else if (_value.type() != typeid(ArrayType)) {
         NET4CXX_THROW_EXCEPTION(ValueError, "operator[](index) requires array value");
     }
@@ -947,14 +947,14 @@ JSONValue& JSONValue::operator[](size_t index) {
     return array[index];
 }
 
-JSONValue& JSONValue::operator[](int index) {
+JsonValue& JsonValue::operator[](int index) {
     if (index < 0) {
         NET4CXX_THROW_EXCEPTION(ValueError, "index cannot be negative");
     }
     return (*this)[static_cast<size_t>(index)];
 }
 
-const JSONValue& JSONValue::operator[](size_t index) const {
+const JsonValue& JsonValue::operator[](size_t index) const {
     if (_value.type() == typeid(NullValue)) {
         return nullSingleton();
     } else if (_value.type() == typeid(ArrayType)) {
@@ -969,16 +969,16 @@ const JSONValue& JSONValue::operator[](size_t index) const {
     }
 }
 
-const JSONValue& JSONValue::operator[](int index) const {
+const JsonValue& JsonValue::operator[](int index) const {
     if (index < 0) {
         NET4CXX_THROW_EXCEPTION(ValueError, "index cannot be negative");
     }
     return (*this)[static_cast<size_t>(index)];
 }
 
-JSONValue& JSONValue::operator[](const char *key) {
+JsonValue& JsonValue::operator[](const char *key) {
     if (_value.type() == typeid(NullValue)) {
-        *this = JSONValue(JSONType::objectValue);
+        *this = JsonValue(JsonType::objectValue);
     } else if (_value.type() != typeid(ObjectType)) {
         NET4CXX_THROW_EXCEPTION(ValueError, "operator[](key) requires object value");
     }
@@ -990,17 +990,17 @@ JSONValue& JSONValue::operator[](const char *key) {
     return it->second;
 }
 
-const JSONValue& JSONValue::operator[](const char *key) const {
-    const JSONValue *found = find(key);
+const JsonValue& JsonValue::operator[](const char *key) const {
+    const JsonValue *found = find(key);
     return found ? *found : nullSingleton();
 }
 
-JSONValue JSONValue::get(const char *key, const JSONValue &defaultValue) const {
-    const JSONValue *found = find(key);
+JsonValue JsonValue::get(const char *key, const JsonValue &defaultValue) const {
+    const JsonValue *found = find(key);
     return found ? *found : defaultValue;
 }
 
-const JSONValue* JSONValue::find(const char *key) const {
+const JsonValue* JsonValue::find(const char *key) const {
     if (_value.type() == typeid(NullValue)) {
         return nullptr;
     } else if (_value.type() == typeid(ObjectType)) {
@@ -1012,7 +1012,7 @@ const JSONValue* JSONValue::find(const char *key) const {
     }
 }
 
-bool JSONValue::removeMember(const char *key, JSONValue *removed) {
+bool JsonValue::removeMember(const char *key, JsonValue *removed) {
     if (_value.type() != typeid(ObjectType)) {
         return false;
     }
@@ -1028,7 +1028,7 @@ bool JSONValue::removeMember(const char *key, JSONValue *removed) {
     return true;
 }
 
-bool JSONValue::removeIndex(size_t index, JSONValue *removed) {
+bool JsonValue::removeIndex(size_t index, JsonValue *removed) {
     if (_value.type() != typeid(ArrayType)) {
         return false;
     }
@@ -1043,7 +1043,7 @@ bool JSONValue::removeIndex(size_t index, JSONValue *removed) {
     return true;
 }
 
-StringVector JSONValue::getMemberNames() const {
+StringVector JsonValue::getMemberNames() const {
     StringVector members;
     if (_value.type() == typeid(NullValue)) {
 
@@ -1059,7 +1059,7 @@ StringVector JSONValue::getMemberNames() const {
     return members;
 }
 
-std::string JSONValue::toStyledString() const {
+std::string JsonValue::toStyledString() const {
     StreamWriterBuilder builder;
     std::string out = hasComment(COMMENT_BEFORE) ? "\n" : "";
     out += writeString(builder, *this);
@@ -1067,8 +1067,8 @@ std::string JSONValue::toStyledString() const {
     return out;
 }
 
-const JSONValue& JSONValue::nullSingleton() {
-    static const JSONValue nullStatic;
+const JsonValue& JsonValue::nullSingleton() {
+    static const JsonValue nullStatic;
     return nullStatic;
 }
 
@@ -1094,7 +1094,7 @@ BuiltStyledStreamWriter::BuiltStyledStreamWriter(
 
 }
 
-int BuiltStyledStreamWriter::write(const JSONValue &root, std::ostream *sout) {
+int BuiltStyledStreamWriter::write(const JsonValue &root, std::ostream *sout) {
     _sout = sout;
     _addChildValues = false;
     _indented = true;
@@ -1111,37 +1111,37 @@ int BuiltStyledStreamWriter::write(const JSONValue &root, std::ostream *sout) {
     return 0;
 }
 
-void BuiltStyledStreamWriter::writeValue(const JSONValue &value) {
+void BuiltStyledStreamWriter::writeValue(const JsonValue &value) {
     switch (value.type()) {
-        case JSONType::nullValue: {
+        case JsonType::nullValue: {
             pushValue(_nullSymbol);
             break;
         }
-        case JSONType::intValue: {
+        case JsonType::intValue: {
             pushValue(std::to_string(value.asInt64()));
             break;
         }
-        case JSONType::uintValue: {
+        case JsonType::uintValue: {
             pushValue(std::to_string(value.asUInt64()));
             break;
         }
-        case JSONType::realValue: {
+        case JsonType::realValue: {
             pushValue(valueToString(value.asDouble(), _useSpecialFloats, _precision));
             break;
         }
-        case JSONType::stringValue: {
+        case JsonType::stringValue: {
             pushValue(valueToQuotedString(value.asString()));
             break;
         }
-        case JSONType::boolValue: {
+        case JsonType::boolValue: {
             pushValue(value.asBool() ? "true" : "false");
             break;
         }
-        case JSONType::arrayValue: {
+        case JsonType::arrayValue: {
             writeArrayValue(value);
             break;
         }
-        case JSONType::objectValue: {
+        case JsonType::objectValue: {
             StringVector members = value.getMemberNames();
             if (members.empty()) {
                 pushValue("{}");
@@ -1150,7 +1150,7 @@ void BuiltStyledStreamWriter::writeValue(const JSONValue &value) {
                 indent();
                 for (auto it = members.begin();it != members.end(); ++ it) {
                     const std::string &name = *it;
-                    const JSONValue &childValue = value[name];
+                    const JsonValue &childValue = value[name];
                     writeCommentBeforeValue(childValue);
                     writeWithIndent(valueToQuotedString(name));
                     *_sout << _colonSymbol;
@@ -1168,7 +1168,7 @@ void BuiltStyledStreamWriter::writeValue(const JSONValue &value) {
     }
 }
 
-void BuiltStyledStreamWriter::writeArrayValue(const JSONValue &value) {
+void BuiltStyledStreamWriter::writeArrayValue(const JsonValue &value) {
     size_t size = value.size();
     if (size == 0) {
         pushValue("[]");
@@ -1179,7 +1179,7 @@ void BuiltStyledStreamWriter::writeArrayValue(const JSONValue &value) {
             indent();
             bool hasChildValue = !_childValues.empty();
             for (size_t index = 0; index != size; ++index) {
-                const JSONValue &childValue = value[index];
+                const JsonValue &childValue = value[index];
                 writeCommentBeforeValue(childValue);
                 if (hasChildValue) {
                     writeWithIndent(_childValues[index]);
@@ -1218,12 +1218,12 @@ void BuiltStyledStreamWriter::writeArrayValue(const JSONValue &value) {
     }
 }
 
-bool BuiltStyledStreamWriter::isMultilineArray(const JSONValue &value) {
+bool BuiltStyledStreamWriter::isMultilineArray(const JsonValue &value) {
     size_t size = value.size();
     bool isMultiLine = size * 3 >= _rightMargin;
     _childValues.clear();
     for (size_t index = 0; index < size && !isMultiLine; ++index) {
-        const JSONValue &childValue = value[index];
+        const JsonValue &childValue = value[index];
         isMultiLine = ((childValue.isArray() || childValue.isObject()) && !childValue.empty());
     }
     if (!isMultiLine) {
@@ -1243,7 +1243,7 @@ bool BuiltStyledStreamWriter::isMultilineArray(const JSONValue &value) {
     return isMultiLine;
 }
 
-void BuiltStyledStreamWriter::writeCommentBeforeValue(const JSONValue &root) {
+void BuiltStyledStreamWriter::writeCommentBeforeValue(const JsonValue &root) {
     if (_cs == CommentStyle::None) {
         return;
     }
@@ -1263,7 +1263,7 @@ void BuiltStyledStreamWriter::writeCommentBeforeValue(const JSONValue &root) {
     _indented = false;
 }
 
-void BuiltStyledStreamWriter::writeCommentAfterValueOnSameLine(const JSONValue &root) {
+void BuiltStyledStreamWriter::writeCommentAfterValueOnSameLine(const JsonValue &root) {
     if (_cs == CommentStyle::None) {
         return;
     }
@@ -1276,7 +1276,7 @@ void BuiltStyledStreamWriter::writeCommentAfterValueOnSameLine(const JSONValue &
     }
 }
 
-bool BuiltStyledStreamWriter::hasCommentForValue(const JSONValue &value) {
+bool BuiltStyledStreamWriter::hasCommentForValue(const JsonValue &value) {
     return value.hasComment(COMMENT_BEFORE)
            || value.hasComment(COMMENT_ON_SAME_LINE)
            || value.hasComment(COMMENT_AFTER);
@@ -1328,12 +1328,12 @@ static void getValidWriterKeys(StringSet *validKeys) {
     validKeys->insert("precision");
 }
 
-bool StreamWriterBuilder::validate(JSONValue *invalid) const {
-    JSONValue myInvalid;
+bool StreamWriterBuilder::validate(JsonValue *invalid) const {
+    JsonValue myInvalid;
     if (!invalid) {
         invalid = &myInvalid;
     }
-    JSONValue &inv = *invalid;
+    JsonValue &inv = *invalid;
     StringSet validKeys;
     getValidWriterKeys(&validKeys);
     StringVector keys = _settings.getMemberNames();
@@ -1345,7 +1345,7 @@ bool StreamWriterBuilder::validate(JSONValue *invalid) const {
     return inv.empty();
 }
 
-void StreamWriterBuilder::setDefaults(JSONValue *settings) {
+void StreamWriterBuilder::setDefaults(JsonValue *settings) {
     (*settings)["commentStyle"] = "All";
     (*settings)["indentation"] = "\t";
     (*settings)["enableYAMLCompatibility"] = false;
@@ -1355,14 +1355,14 @@ void StreamWriterBuilder::setDefaults(JSONValue *settings) {
 }
 
 
-std::string writeString(const StreamWriter::Factory &factory, const JSONValue &root) {
+std::string writeString(const StreamWriter::Factory &factory, const JsonValue &root) {
     std::ostringstream sout;
     std::unique_ptr<StreamWriter> writer(factory.newStreamWriter());
     writer->write(root, &sout);
     return sout.str();
 }
 
-std::ostream& operator<<(std::ostream &sout, const JSONValue &root) {
+std::ostream& operator<<(std::ostream &sout, const JsonValue &root) {
     StreamWriterBuilder builder;
     std::unique_ptr<StreamWriter> writer(builder.newStreamWriter());
     writer->write(root, &sout);
@@ -1370,7 +1370,7 @@ std::ostream& operator<<(std::ostream &sout, const JSONValue &root) {
 }
 
 
-bool BuiltReader::parse(const char *beginDoc, const char *endDoc, JSONValue &root, bool collectComments) {
+bool BuiltReader::parse(const char *beginDoc, const char *endDoc, JsonValue &root, bool collectComments) {
     if (_features.allowComments) {
         collectComments = false;
     }
@@ -1391,7 +1391,7 @@ bool BuiltReader::parse(const char *beginDoc, const char *endDoc, JSONValue &roo
     skipCommentTokens(token);
     if (_features.failIfExtra) {
         if ((_features.strictRoot || token.type != tokenError) && token.type != tokenEndOfStream) {
-            addError("Extra non-whitespace after JSON value.", token);
+            addError("Extra non-whitespace after json value.", token);
             return false;
         }
     }
@@ -1403,7 +1403,7 @@ bool BuiltReader::parse(const char *beginDoc, const char *endDoc, JSONValue &roo
             token.type = tokenError;
             token.start = beginDoc;
             token.end = endDoc;
-            addError("A valid JSON document must be either an array or an object value.", token);
+            addError("A valid json document must be either an array or an object value.", token);
             return false;
         }
     }
@@ -1699,32 +1699,32 @@ bool BuiltReader::readValue() {
             break;
         }
         case tokenTrue: {
-            JSONValue v(true);
+            JsonValue v(true);
             currentValue().swapPayload(v);
             break;
         }
         case tokenFalse: {
-            JSONValue v(false);
+            JsonValue v(false);
             currentValue().swapPayload(v);
             break;
         }
         case tokenNull: {
-            JSONValue v;
+            JsonValue v;
             currentValue().swapPayload(v);
             break;
         }
         case tokenNaN: {
-            JSONValue v(std::numeric_limits<double>::quiet_NaN());
+            JsonValue v(std::numeric_limits<double>::quiet_NaN());
             currentValue().swapPayload(v);
             break;
         }
         case tokenPosInf: {
-            JSONValue v(std::numeric_limits<double>::infinity());
+            JsonValue v(std::numeric_limits<double>::infinity());
             currentValue().swapPayload(v);
             break;
         }
         case tokenNegInf: {
-            JSONValue v(-std::numeric_limits<double>::infinity());
+            JsonValue v(-std::numeric_limits<double>::infinity());
             currentValue().swapPayload(v);
             break;
         }
@@ -1733,7 +1733,7 @@ bool BuiltReader::readValue() {
         case tokenArrayEnd: {
             if (_features.allowDroppedNullPlaceholders) {
                 --_current;
-                JSONValue v;
+                JsonValue v;
                 currentValue().swapPayload(v);
                 break;
             }
@@ -1754,7 +1754,7 @@ bool BuiltReader::readValue() {
 bool BuiltReader::readObject(Token &token) {
     Token tokenName;
     std::string name;
-    JSONValue init(JSONType::objectValue);
+    JsonValue init(JsonType::objectValue);
     currentValue().swapPayload(init);
     while (readToken(tokenName)) {
         bool initialTokenOk = true;
@@ -1773,7 +1773,7 @@ bool BuiltReader::readObject(Token &token) {
                 return recoverFromError(tokenObjectEnd);
             }
         } else if (tokenName.type == tokenNumber && _features.allowNumericKeys) {
-            JSONValue numberName;
+            JsonValue numberName;
             if (!decodeNumber(tokenName, numberName)) {
                 return recoverFromError(tokenObjectEnd);
             }
@@ -1793,7 +1793,7 @@ bool BuiltReader::readObject(Token &token) {
             std::string msg = "Duplicate key: '" + name + "'";
             return addErrorAndRecover(msg, tokenName, tokenObjectEnd);
         }
-        JSONValue &value = currentValue()[name];
+        JsonValue &value = currentValue()[name];
         _nodes.push(&value);
         bool ok = readValue();
         _nodes.pop();
@@ -1818,7 +1818,7 @@ bool BuiltReader::readObject(Token &token) {
 }
 
 bool BuiltReader::readArray(Token &token) {
-    JSONValue init(JSONType::arrayValue);
+    JsonValue init(JsonType::arrayValue);
     currentValue().swapPayload(init);
     skipSpaces();
     if (_current != _end && *_current == ']') {
@@ -1828,7 +1828,7 @@ bool BuiltReader::readArray(Token &token) {
     }
     int index = 0;
     for (;;) {
-        JSONValue &value = currentValue()[index++];
+        JsonValue &value = currentValue()[index++];
         _nodes.push(&value);
         bool ok = readValue();
         _nodes.pop();
@@ -1853,7 +1853,7 @@ bool BuiltReader::readArray(Token &token) {
 }
 
 bool BuiltReader::decodeNumber(Token &token) {
-    JSONValue decoded;
+    JsonValue decoded;
     if (!decodeNumber(token, decoded)) {
         return false;
     }
@@ -1861,7 +1861,7 @@ bool BuiltReader::decodeNumber(Token &token) {
     return true;
 }
 
-bool BuiltReader::decodeNumber(Token &token, JSONValue &decoded) {
+bool BuiltReader::decodeNumber(Token &token, JsonValue &decoded) {
     const char *current = token.start;
     bool isNegative = *current == '-';
     if (isNegative) {
@@ -1903,7 +1903,7 @@ bool BuiltReader::decodeString(Token &token) {
     if (!decodeString(token, decodedString)) {
         return false;
     }
-    JSONValue decoded(decodedString);
+    JsonValue decoded(decodedString);
     currentValue().swapPayload(decoded);
     return true;
 }
@@ -1965,7 +1965,7 @@ bool BuiltReader::decodeString(Token &token, std::string &decoded) {
 }
 
 bool BuiltReader::decodeDouble(Token &token) {
-    JSONValue decoded;
+    JsonValue decoded;
     if (!decodeDouble(token, decoded)) {
         return false;
     }
@@ -1973,7 +1973,7 @@ bool BuiltReader::decodeDouble(Token &token) {
     return true;
 }
 
-bool BuiltReader::decodeDouble(Token &token, JSONValue &decoded) {
+bool BuiltReader::decodeDouble(Token &token, JsonValue &decoded) {
     double value = 0;
     constexpr int bufferSize = 32;
     int count;
@@ -2160,7 +2160,7 @@ bool BuiltReader::containsNewLine(const char *begin, const char *end) {
 }
 
 
-bool BuiltCharReader::parse(char const *beginDoc, char const *endDoc, JSONValue *root, std::string *errs) {
+bool BuiltCharReader::parse(char const *beginDoc, char const *endDoc, JsonValue *root, std::string *errs) {
     bool ok = _reader.parse(beginDoc, endDoc, *root, _collectComments);
     if (errs) {
         *errs = _reader.getFormattedErrorMessages();
@@ -2202,12 +2202,12 @@ static void getValidReaderKeys(StringSet *validKeys) {
     validKeys->insert("allowSpecialFloats");
 }
 
-bool CharReaderBuilder::validate(JSONValue *invalid) const {
-    JSONValue myInvalid;
+bool CharReaderBuilder::validate(JsonValue *invalid) const {
+    JsonValue myInvalid;
     if (!invalid) {
         invalid = &myInvalid;
     }
-    JSONValue &inv = *invalid;
+    JsonValue &inv = *invalid;
     StringSet validKeys;
     getValidReaderKeys(&validKeys);
     StringVector keys = _settings.getMemberNames();
@@ -2219,7 +2219,7 @@ bool CharReaderBuilder::validate(JSONValue *invalid) const {
     return inv.empty();
 }
 
-void CharReaderBuilder::setDefaults(JSONValue *settings) {
+void CharReaderBuilder::setDefaults(JsonValue *settings) {
     (*settings)["collectComments"] = true;
     (*settings)["allowComments"] = true;
     (*settings)["strictRoot"] = false;
@@ -2232,7 +2232,7 @@ void CharReaderBuilder::setDefaults(JSONValue *settings) {
     (*settings)["allowSpecialFloats"] = false;
 }
 
-void CharReaderBuilder::strictMode(JSONValue *settings) {
+void CharReaderBuilder::strictMode(JsonValue *settings) {
     (*settings)["allowComments"] = false;
     (*settings)["strictRoot"] = true;
     (*settings)["allowDroppedNullPlaceholders"] = false;
@@ -2245,7 +2245,7 @@ void CharReaderBuilder::strictMode(JSONValue *settings) {
 }
 
 
-bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JSONValue* root, std::string *errs) {
+bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JsonValue* root, std::string *errs) {
     std::ostringstream ssin;
     ssin << sin.rdbuf();
     std::string doc = ssin.str();
@@ -2255,7 +2255,7 @@ bool parseFromStream(const CharReader::Factory &factory, std::istream &sin, JSON
     return reader->parse(begin, end, root, errs);
 }
 
-std::istream& operator>>(std::istream &sin, JSONValue &root) {
+std::istream& operator>>(std::istream &sin, JsonValue &root) {
     CharReaderBuilder b;
     std::string errs;
     bool ok = parseFromStream(b, sin, &root, &errs);

@@ -132,7 +132,7 @@ public:
 
     void reset();
 
-    JSONValue toJson() const;
+    JsonValue toJson() const;
 
     std::string toString() const;
 protected:

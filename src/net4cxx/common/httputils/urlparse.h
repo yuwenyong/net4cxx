@@ -11,22 +11,22 @@
 
 NS_BEGIN
 
-using URLSplitResultBase = std::tuple<std::string, std::string, std::string, std::string, std::string>;
+using UrlSplitResultBase = std::tuple<std::string, std::string, std::string, std::string, std::string>;
 
 
-class NET4CXX_COMMON_API URLSplitResult: public URLSplitResultBase {
+class NET4CXX_COMMON_API UrlSplitResult: public UrlSplitResultBase {
 public:
-    URLSplitResult()
-            : URLSplitResultBase() {
+    UrlSplitResult()
+            : UrlSplitResultBase() {
 
     }
 
-    URLSplitResult(std::string scheme,
+    UrlSplitResult(std::string scheme,
                    std::string netloc,
                    std::string path,
                    std::string query,
                    std::string fragment)
-            : URLSplitResultBase(std::move(scheme),
+            : UrlSplitResultBase(std::move(scheme),
                                  std::move(netloc),
                                  std::move(path),
                                  std::move(query),
@@ -62,27 +62,27 @@ public:
 
     boost::optional<unsigned short> getPort() const;
 
-    std::string getURL() const;
+    std::string getUrl() const;
 };
 
 
-using URLParseResultBase = std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>;
+using UrlParseResultBase = std::tuple<std::string, std::string, std::string, std::string, std::string, std::string>;
 
 
-class NET4CXX_COMMON_API URLParseResult : public URLParseResultBase {
+class NET4CXX_COMMON_API UrlParseResult : public UrlParseResultBase {
 public:
-    URLParseResult()
-            : URLParseResultBase() {
+    UrlParseResult()
+            : UrlParseResultBase() {
 
     }
 
-    URLParseResult(std::string scheme,
+    UrlParseResult(std::string scheme,
                    std::string netloc,
                    std::string path,
                    std::string params,
                    std::string query,
                    std::string fragment)
-            : URLParseResultBase(std::move(scheme),
+            : UrlParseResultBase(std::move(scheme),
                                  std::move(netloc),
                                  std::move(path),
                                  std::move(params),
@@ -123,7 +123,7 @@ public:
 
     boost::optional<unsigned short> getPort() const;
 
-    std::string getURL() const;
+    std::string getUrl() const;
 };
 
 
@@ -133,15 +133,15 @@ using QueryArgList = std::vector<std::pair<std::string, std::string>>;
 using QueryArgListMap = std::map<std::string, std::vector<std::string>>;
 
 
-class NET4CXX_COMMON_API URLParse {
+class NET4CXX_COMMON_API UrlParse {
 public:
-    static URLParseResult urlParse(std::string url, std::string scheme="", bool allowFragments=true);
+    static UrlParseResult urlParse(std::string url, std::string scheme="", bool allowFragments=true);
 
-    static URLSplitResult urlSplit(std::string url, std::string scheme="", bool allowFragments=true);
+    static UrlSplitResult urlSplit(std::string url, std::string scheme="", bool allowFragments=true);
 
-    static std::string urlUnparse(const URLParseResult &data);
+    static std::string urlUnparse(const UrlParseResult &data);
 
-    static std::string urlUnsplit(const URLSplitResult &data);
+    static std::string urlUnsplit(const UrlSplitResult &data);
 
     static std::string urlJoin(const std::string &base, const std::string &url, bool allowFragments=true);
 

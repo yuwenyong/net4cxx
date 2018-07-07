@@ -76,20 +76,20 @@ std::string WebSocketUtil::createUrl(const std::string &hostName, unsigned short
     std::string scheme = isSecure ? "wss" : "ws";
     std::string ppath;
     if (!path.empty()) {
-        ppath = URLParse::quote(path);
+        ppath = UrlParse::quote(path);
     } else {
         ppath = "/";
     }
     std::string query;
     if (!params.empty()) {
-        query = URLParse::urlEncode(params);
+        query = UrlParse::urlEncode(params);
     }
-    return URLParse::urlUnparse(URLParseResult(std::move(scheme), std::move(netloc), std::move(ppath), "",
+    return UrlParse::urlUnparse(UrlParseResult(std::move(scheme), std::move(netloc), std::move(ppath), "",
                                                std::move(query), ""));
 }
 
 WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
-    auto parsed = URLParse::urlParse(url);
+    auto parsed = UrlParse::urlParse(url);
     const auto &scheme = parsed.getScheme();
     if (scheme != "ws" && scheme != "wss") {
         NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket URL: protocol scheme '" + scheme +
@@ -110,7 +110,7 @@ WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     std::string path, ppath;
     if (!parsed.getPath().empty()) {
         ppath = parsed.getPath();
-        path = URLParse::unquote(ppath);
+        path = UrlParse::unquote(ppath);
     } else {
         ppath = "/";
         path = ppath;
@@ -119,7 +119,7 @@ WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     QueryArgListMap params;
     if (!parsed.getQuery().empty()) {
         resource = ppath + "?" + parsed.getQuery();
-        params = URLParse::parseQS(parsed.getQuery());
+        params = UrlParse::parseQS(parsed.getQuery());
     } else {
         resource = ppath;
     }
@@ -163,7 +163,7 @@ WebSocketUtil::UrlToOriginResult WebSocketUtil::urlToOrigin(const std::string &u
     if (boost::to_lower_copy(url) == "null") {
         return std::make_tuple("null", "", boost::none);
     }
-    auto res = URLParse::urlSplit(url);
+    auto res = UrlParse::urlSplit(url);
     auto scheme = boost::to_lower_copy(res.getScheme());
     if (scheme == "file") {
         return std::make_tuple("null", "", boost::none);
@@ -249,8 +249,8 @@ void TrafficStats::reset() {
 }
 
 
-JSONValue TrafficStats::toJson() const {
-    JSONValue result;
+JsonValue TrafficStats::toJson() const {
+    JsonValue result;
     result["outgoingOctetsWireLevel"] = (uint64_t)_outgoingOctetsWireLevel;
     result["outgoingOctetsWebSocketLevel"] = (uint64_t)_outgoingOctetsWebSocketLevel;
     result["outgoingOctetsAppLevel"] = (uint64_t)_outgoingOctetsAppLevel;
@@ -296,7 +296,7 @@ JSONValue TrafficStats::toJson() const {
 }
 
 std::string TrafficStats::toString() const {
-    JSONValue value = toJson();
+    JsonValue value = toJson();
     std::ostringstream os;
     os << value;
     return os.str();

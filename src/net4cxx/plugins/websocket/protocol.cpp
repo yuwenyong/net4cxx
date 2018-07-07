@@ -1200,7 +1200,7 @@ void WebSocketServerProtocol::processHandshake() {
         try {
             std::string scheme, netloc, path, query, fragment;
             std::tie(scheme, netloc, path, std::ignore, query, fragment) =
-                    (const URLParseResultBase &)URLParse::urlParse(_httpRequestUri);
+                    (const UrlParseResultBase &)UrlParse::urlParse(_httpRequestUri);
 
             if (scheme != "" or netloc != "") {
 
@@ -1212,7 +1212,7 @@ void WebSocketServerProtocol::processHandshake() {
             }
 
             _httpRequestPath = path;
-            _httpRequestParams = URLParse::parseQS(query);
+            _httpRequestParams = UrlParse::parseQS(query);
         } catch (...) {
             failHandshake(StrUtil::format("Bad HTTP request resource - could not parse '%s'", _httpRequestUri));
             return;

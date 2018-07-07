@@ -81,7 +81,7 @@ protected:
     bool _cleaned{false};
     CleanupObjectList _cleanupObjectList;
     CleanupObjectMap _cleanupObjectMap;
-    std::mutex _objectsLock;
+    mutable std::mutex _objectsLock;
 };
 
 
