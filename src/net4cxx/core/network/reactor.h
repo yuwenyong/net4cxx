@@ -20,8 +20,8 @@ class ClientFactory;
 
 class NET4CXX_COMMON_API Reactor {
 public:
-    using ServiceType = boost::asio::io_service;
-    using WorkType = ServiceType::work;
+    using IOContext = boost::asio::io_context;
+    using WorkGurad = boost::asio::executor_work_guard<IOContext::executor_type>;
     using SignalSet = boost::asio::signal_set;
     using StopCallbacks = boost::signals2::signal<void ()>;
 
@@ -68,7 +68,7 @@ public:
 
     template <typename CallbackT>
     void addCallback(CallbackT &&callback) {
-        _ioService.post(std::forward<CallbackT>(callback));
+        boost::asio::post(_ioContext, std::forward<CallbackT>(callback));
     }
 
     template <typename CallbackT>
@@ -110,8 +110,8 @@ public:
         return !_running;
     }
 
-    ServiceType& getService() {
-        return _ioService;
+    IOContext& getIOContext() {
+        return _ioContext;
     }
 
     template <typename CallbackT>
@@ -145,7 +145,7 @@ protected:
 
     void sigQuit();
 
-    ServiceType _ioService;
+    IOContext _ioContext;
     SignalSet _signalSet;
     bool _installSignalHandlers{false};
     volatile bool _running{false};

@@ -14,7 +14,7 @@ NS_BEGIN
 SSLConnection::SSLConnection(const ProtocolPtr &protocol, SSLOptionPtr sslOption, Reactor *reactor)
         : Connection(protocol, reactor)
         , _sslOption(std::move(sslOption))
-        , _socket(reactor->getService(), _sslOption->context()) {
+        , _socket(reactor->getIOContext(), _sslOption->context()) {
 
 }
 
@@ -285,7 +285,7 @@ SSLListener::SSLListener(std::string port, std::shared_ptr<Factory> factory, SSL
         , _factory(std::move(factory))
         , _sslOption(std::move(sslOption))
         , _interface(std::move(interface))
-        , _acceptor(reactor->getService()) {
+        , _acceptor(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_SSLListener_COUNT);
 #endif
@@ -298,11 +298,11 @@ SSLListener::SSLListener(std::string port, std::shared_ptr<Factory> factory, SSL
 void SSLListener::startListening() {
     EndpointType endpoint;
     if (NetUtil::isValidIP(_interface) && NetUtil::isValidPort(_port)) {
-        endpoint = {AddressType::from_string(_interface), (unsigned short)std::stoul(_port)};
+        endpoint = {boost::asio::ip::make_address(_interface), (unsigned short)std::stoul(_port)};
     } else {
-        ResolverType resolver(_reactor->getService());
-        ResolverType::query query(_interface, _port);
-        endpoint = *resolver.resolve(query);
+        ResolverType resolver(_reactor->getIOContext());
+        ResolverType::results_type results = resolver.resolve(_interface, _port);
+        endpoint = (*results.cbegin()).endpoint();
     }
     _acceptor.open(endpoint.protocol());
     _acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
@@ -357,7 +357,7 @@ SSLConnector::SSLConnector(std::string host, std::string port, std::shared_ptr<C
         , _sslOption(std::move(sslOption))
         , _timeout(timeout)
         , _bindAddress(std::move(bindAddress))
-        , _resolver(reactor->getService()) {
+        , _resolver(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_SSLConnector_COUNT);
 #endif
@@ -401,7 +401,7 @@ void SSLConnector::stopConnecting() {
 
 void SSLConnector::connectionFailed(std::exception_ptr reason) {
     if (reason) {
-        _error = std::move(reason);
+        _error = reason;
     }
     cancelTimeout();
     _connection.reset();
@@ -415,7 +415,7 @@ void SSLConnector::connectionFailed(std::exception_ptr reason) {
 
 void SSLConnector::connectionLost(std::exception_ptr reason) {
     if (reason) {
-        _error = std::move(reason);
+        _error = reason;
     }
     _state = kDisconnected;
     _factory->clientConnectionLost(shared_from_this(), _error);
@@ -434,12 +434,12 @@ ProtocolPtr SSLConnector::buildProtocol(const Address &address) {
 void SSLConnector::doResolve() {
     ResolverType::query query(_host, _port);
     _resolver.async_resolve(query, [this, self=shared_from_this()](
-            const boost::system::error_code &ec, ResolverIterator iterator) {
-        cbResolve(ec, std::move(iterator));
+            const boost::system::error_code &ec, ResolverResultsType results) {
+        cbResolve(ec, results);
     });
 }
 
-void SSLConnector::handleResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
+void SSLConnector::handleResolve(const boost::system::error_code &ec, const ResolverResultsType &results) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             NET4CXX_LOG_ERROR(gGenLog, "Resolve error %d :%s", ec.value(), ec.message().c_str());
@@ -451,7 +451,7 @@ void SSLConnector::handleResolve(const boost::system::error_code &ec, ResolverIt
 
 void SSLConnector::doConnect() {
     makeTransport();
-    EndpointType endpoint{AddressType::from_string(_host), (unsigned short)std::stoul(_port)};
+    EndpointType endpoint{boost::asio::ip::make_address(_host), (unsigned short)std::stoul(_port)};
     _connection->getSocket().lowest_layer().async_connect(
             endpoint, [this, self = shared_from_this(), connection = _connection](
                     const boost::system::error_code &ec) {
@@ -459,11 +459,11 @@ void SSLConnector::doConnect() {
             });
 }
 
-void SSLConnector::doConnect(ResolverIterator iterator) {
+void SSLConnector::doConnect(const ResolverResultsType &results) {
     makeTransport();
-    boost::asio::async_connect(_connection->getSocket().lowest_layer(), std::move(iterator),
+    boost::asio::async_connect(_connection->getSocket().lowest_layer(), results,
                                [this, self = shared_from_this(), connection = _connection](
-                                       const boost::system::error_code &ec, ResolverIterator iterator) {
+                                       const boost::system::error_code &ec, const EndpointType &endpoint) {
                                    cbConnect(ec);
                                });
 }
@@ -498,7 +498,7 @@ void SSLConnector::handleTimeout() {
 void SSLConnector::makeTransport() {
     _connection = std::make_shared<SSLClientConnection>(_sslOption, _reactor);
     if (!_bindAddress.getAddress().empty()) {
-        EndpointType endpoint{AddressType::from_string(_bindAddress.getAddress()), _bindAddress.getPort()};
+        EndpointType endpoint{boost::asio::ip::make_address(_bindAddress.getAddress()), _bindAddress.getPort()};
         _connection->getSocket().lowest_layer().open(endpoint.protocol());
         _connection->getSocket().lowest_layer().bind(endpoint);
     }

@@ -172,19 +172,19 @@ class NET4CXX_COMMON_API NetUtil {
 public:
     static bool isValidIPv4(const std::string &ip) {
         boost::system::error_code ec;
-        boost::asio::ip::address_v4::from_string(ip, ec);
+        boost::asio::ip::make_address_v4(ip, ec);
         return !ec;
     }
 
     static bool isValidIPv6(const std::string &ip) {
         boost::system::error_code ec;
-        boost::asio::ip::address_v6::from_string(ip, ec);
+        boost::asio::ip::make_address_v6(ip, ec);
         return !ec;
     }
 
     static bool isValidIP(const std::string &ip) {
         boost::system::error_code ec;
-        boost::asio::ip::address::from_string(ip, ec);
+        boost::asio::ip::make_address(ip, ec);
         return !ec;
     }
 
@@ -274,13 +274,13 @@ protected:
 
     template <typename CallbackT>
     void start(const Duration &deadline, CallbackT &&callback) {
-        _timer.expires_from_now(deadline);
+        _timer.expires_after(deadline);
         wait(std::forward<CallbackT>(callback));
     }
 
     template <typename CallbackT>
     void start(double deadline, CallbackT &&callback) {
-        _timer.expires_from_now(std::chrono::milliseconds(int64_t(deadline * 1000)));
+        _timer.expires_after(std::chrono::milliseconds(int64_t(deadline * 1000)));
         wait(std::forward<CallbackT>(callback));
     }
 

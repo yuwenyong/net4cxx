@@ -18,7 +18,7 @@ public:
     friend Reactor;
     friend class DelayedResolve;
     using ResolverType = boost::asio::ip::tcp::resolver;
-    using ResolverIterator = ResolverType::iterator;
+    using ResolverResultsType = ResolverType::results_type;
 
     explicit Resolver(Reactor *reactor);
 
@@ -28,9 +28,8 @@ public:
 protected:
     template <typename CallbackT>
     void start(const std::string &host, CallbackT &&callback) {
-        ResolverType::query query(host, "");
-        _resolver.async_resolve(query, [callback = std::forward<CallbackT>(callback), resolver = shared_from_this()](
-                const boost::system::error_code &ec, ResolverIterator iterator) {
+        _resolver.async_resolve(host, "", [callback = std::forward<CallbackT>(callback), resolver = shared_from_this()](
+                const boost::system::error_code &ec, ResolverResultsType results) {
             StringVector addresses;
             if (ec) {
                 if (ec == boost::asio::error::operation_aborted) {
@@ -38,10 +37,8 @@ protected:
                 }
                 NET4CXX_LOG_ERROR(gGenLog, "Resolve error %d: %s", ec.value(), ec.message().c_str());
             } else {
-                ResolverIterator end;
-                while (iterator != end) {
-                    addresses.push_back(iterator->endpoint().address().to_string());
-                    ++iterator;
+                for (auto &result: results) {
+                    addresses.emplace_back(result.endpoint().address().to_string());
                 }
             }
             callback(std::move(addresses));

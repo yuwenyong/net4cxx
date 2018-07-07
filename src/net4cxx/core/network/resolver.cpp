@@ -10,7 +10,7 @@ NS_BEGIN
 
 
 Resolver::Resolver(Reactor *reactor)
-        : _resolver(reactor->getService()){
+        : _resolver(reactor->getIOContext()){
 
 }
 

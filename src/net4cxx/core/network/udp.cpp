@@ -15,7 +15,7 @@ UDPConnection::UDPConnection(unsigned short port, const DatagramProtocolPtr &pro
                              size_t maxPacketSize, bool listenMultiple, Reactor *reactor)
         : DatagramConnection({(interface.empty() ? "0.0.0.0" : std::move(interface)), port}, protocol, maxPacketSize,
                              reactor)
-        , _socket(reactor->getService())
+        , _socket(reactor->getIOContext())
         , _listenMultiple(listenMultiple) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
@@ -25,7 +25,7 @@ UDPConnection::UDPConnection(unsigned short port, const DatagramProtocolPtr &pro
 UDPConnection::UDPConnection(std::string address, unsigned short port, const DatagramProtocolPtr &protocol,
                              size_t maxPacketSize, Address bindAddress, bool listenMultiple, Reactor *reactor)
         : DatagramConnection({std::move(address), port}, protocol, maxPacketSize, std::move(bindAddress), reactor)
-        , _socket(reactor->getService())
+        , _socket(reactor->getIOContext())
         , _listenMultiple(listenMultiple) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
@@ -39,7 +39,7 @@ void UDPConnection::write(const Byte *datagram, size_t length, const Address &ad
             _socket.send(boost::asio::buffer(datagram, length));
         } else {
             NET4CXX_ASSERT(address);
-            EndpointType receiver(AddressType::from_string(address.getAddress()), address.getPort());
+            EndpointType receiver(boost::asio::ip::make_address(address.getAddress()), address.getPort());
             if (!_socket.is_open()) {
                 _socket.open(receiver.protocol());
             }
@@ -148,7 +148,7 @@ void UDPConnection::handleRead(const boost::system::error_code &ec, size_t trans
 
 void UDPConnection::bindSocket() {
     try {
-        EndpointType endpoint{AddressType::from_string(_bindAddress.getAddress()), _bindAddress.getPort()};
+        EndpointType endpoint{boost::asio::ip::make_address(_bindAddress.getAddress()), _bindAddress.getPort()};
         _socket.open(endpoint.protocol());
         if (_listenMultiple) {
             _socket.set_option(boost::asio::socket_base::reuse_address(true));
@@ -164,7 +164,7 @@ void UDPConnection::bindSocket() {
 
 void UDPConnection::connectSocket() {
     try {
-        EndpointType endpoint{AddressType::from_string(_connectedAddress.getAddress()), _connectedAddress.getPort()};
+        EndpointType endpoint{boost::asio::ip::make_address(_connectedAddress.getAddress()), _connectedAddress.getPort()};
         _socket.connect(endpoint);
     } catch (boost::system::system_error &e) {
         NET4CXX_LOG_ERROR(gGenLog, "Connect error %d: %s", e.code().value(), e.code().message().c_str());

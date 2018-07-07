@@ -54,7 +54,7 @@ public:
 
     template<typename ObjectT>
     Singleton<ObjectT> *registerObject() {
-        std::lock_guard<std::mutex> lock(_objectsLock);
+        std::lock_guard<std::mutex> lock(_lock);
         if (_cleaned) {
             return nullptr;
         }
@@ -71,17 +71,17 @@ public:
     void cleanup();
 
     bool cleaned() const {
-        std::lock_guard<std::mutex> lock(_objectsLock);
+        std::lock_guard<std::mutex> lock(_lock);
         return _cleaned;
     }
 
     static ObjectManager *instance();
 
 protected:
+    mutable std::mutex _lock;
     bool _cleaned{false};
     CleanupObjectList _cleanupObjectList;
     CleanupObjectMap _cleanupObjectMap;
-    mutable std::mutex _objectsLock;
 };
 
 

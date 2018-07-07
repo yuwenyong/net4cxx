@@ -17,8 +17,8 @@ NS_BEGIN
 thread_local Reactor* Reactor::_current = nullptr;
 
 Reactor::Reactor()
-        : _ioService()
-        , _signalSet(_ioService) {
+        : _ioContext()
+        , _signalSet(_ioContext) {
 
 }
 
@@ -27,26 +27,26 @@ void Reactor::run(bool installSignalHandlers) {
         NET4CXX_THROW_EXCEPTION(ReactorAlreadyRunning, "");
     }
     Random::seed();
-    if (_ioService.stopped()) {
-        _ioService.reset();
+    if (_ioContext.stopped()) {
+        _ioContext.restart();
     }
     Reactor *oldCurrent = _current;
     _current = this;
-    WorkType work(_ioService);
+    WorkGurad work = boost::asio::make_work_guard(_ioContext);
     startRunning(installSignalHandlers);
     _running = false;
     _current = oldCurrent;
 }
 
 void Reactor::stop() {
-    if (_ioService.stopped()) {
+    if (_ioContext.stopped()) {
         NET4CXX_THROW_EXCEPTION(ReactorNotRunning, "Can't stop reactor that isn't running.");
     }
     if (!_stopCallbacks.empty()) {
         _stopCallbacks();
         _stopCallbacks.disconnect_all_slots();
     }
-    _ioService.stop();
+    _ioContext.stop();
 }
 
 ListenerPtr Reactor::listenTCP(const std::string &port, std::shared_ptr<Factory> factory,
@@ -129,9 +129,9 @@ void Reactor::startRunning(bool installSignalHandlers) {
         handleSignals();
     }
     _running = true;
-    while (!_ioService.stopped()) {
+    while (!_ioContext.stopped()) {
         try {
-            _ioService.run();
+            _ioContext.run();
         } catch (std::exception &e) {
             NET4CXX_LOG_ERROR(gAppLog, "Unexpected Exception:%s", e.what());
         } catch (...) {

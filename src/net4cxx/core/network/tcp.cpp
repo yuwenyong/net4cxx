@@ -12,7 +12,7 @@ NS_BEGIN
 
 TCPConnection::TCPConnection(const ProtocolPtr &protocol, Reactor *reactor)
         : Connection(protocol, reactor)
-        , _socket(reactor->getService()) {
+        , _socket(reactor->getIOContext()) {
 
 }
 
@@ -237,7 +237,7 @@ TCPListener::TCPListener(std::string port, std::shared_ptr<Factory> factory, std
         , _port(std::move(port))
         , _factory(std::move(factory))
         , _interface(std::move(interface))
-        , _acceptor(reactor->getService()) {
+        , _acceptor(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_TCPListener_COUNT);
 #endif
@@ -250,11 +250,11 @@ TCPListener::TCPListener(std::string port, std::shared_ptr<Factory> factory, std
 void TCPListener::startListening() {
     EndpointType endpoint;
     if (NetUtil::isValidIP(_interface) && NetUtil::isValidPort(_port)) {
-        endpoint = {AddressType::from_string(_interface), (unsigned short)std::stoul(_port)};
+        endpoint = {boost::asio::ip::make_address(_interface), (unsigned short)std::stoul(_port)};
     } else {
-        ResolverType resolver(_reactor->getService());
-        ResolverType::query query(_interface, _port);
-        endpoint = *resolver.resolve(query);
+        ResolverType resolver(_reactor->getIOContext());
+        ResolverType::results_type results = resolver.resolve(_interface, _port);
+        endpoint = (*results.cbegin()).endpoint();
     }
     _acceptor.open(endpoint.protocol());
     _acceptor.set_option(boost::asio::ip::tcp::acceptor::reuse_address(true));
@@ -308,7 +308,7 @@ TCPConnector::TCPConnector(std::string host, std::string port, std::shared_ptr<C
         , _factory(std::move(factory))
         , _timeout(timeout)
         , _bindAddress(std::move(bindAddress))
-        , _resolver(reactor->getService()) {
+        , _resolver(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_TCPConnector_COUNT);
 #endif
@@ -352,7 +352,7 @@ void TCPConnector::stopConnecting() {
 
 void TCPConnector::connectionFailed(std::exception_ptr reason) {
     if (reason) {
-        _error = std::move(reason);
+        _error = reason;
     }
     cancelTimeout();
     _connection.reset();
@@ -366,7 +366,7 @@ void TCPConnector::connectionFailed(std::exception_ptr reason) {
 
 void TCPConnector::connectionLost(std::exception_ptr reason) {
     if (reason) {
-        _error = std::move(reason);
+        _error = reason;
     }
     _state = kDisconnected;
     _factory->clientConnectionLost(shared_from_this(), _error);
@@ -383,14 +383,13 @@ ProtocolPtr TCPConnector::buildProtocol(const Address &address) {
 }
 
 void TCPConnector::doResolve() {
-    ResolverType::query query(_host, _port);
-    _resolver.async_resolve(query, [this, self=shared_from_this()](
-            const boost::system::error_code &ec, ResolverIterator iterator) {
-        cbResolve(ec, std::move(iterator));
+    _resolver.async_resolve(_host, _port, [this, self=shared_from_this()](
+            const boost::system::error_code &ec, ResolverResultsType results) {
+        cbResolve(ec, results);
     });
 }
 
-void TCPConnector::handleResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
+void TCPConnector::handleResolve(const boost::system::error_code &ec, const ResolverResultsType &results) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             NET4CXX_LOG_ERROR(gGenLog, "Resolve error %d :%s", ec.value(), ec.message().c_str());
@@ -402,17 +401,17 @@ void TCPConnector::handleResolve(const boost::system::error_code &ec, ResolverIt
 
 void TCPConnector::doConnect() {
     makeTransport();
-    EndpointType endpoint{AddressType::from_string(_host), (unsigned short)std::stoul(_port)};
+    EndpointType endpoint{boost::asio::ip::make_address(_host), (unsigned short)std::stoul(_port)};
     _connection->getSocket().async_connect(endpoint, [this, self=shared_from_this(), connection=_connection](
             const boost::system::error_code &ec) {
         cbConnect(ec);
     });
 }
 
-void TCPConnector::doConnect(ResolverIterator iterator) {
+void TCPConnector::doConnect(const ResolverResultsType &results) {
     makeTransport();
-    boost::asio::async_connect(_connection->getSocket(), std::move(iterator), [this, self=shared_from_this(),
-            connection=_connection](const boost::system::error_code &ec, ResolverIterator iterator) {
+    boost::asio::async_connect(_connection->getSocket(), results, [this, self=shared_from_this(),
+            connection=_connection](const boost::system::error_code &ec, const EndpointType &endpoint) {
         cbConnect(ec);
     });
 }
@@ -447,7 +446,7 @@ void TCPConnector::handleTimeout() {
 void TCPConnector::makeTransport() {
     _connection = std::make_shared<TCPClientConnection>(_reactor);
     if (!_bindAddress.getAddress().empty()) {
-        EndpointType endpoint{AddressType::from_string(_bindAddress.getAddress()), _bindAddress.getPort()};
+        EndpointType endpoint{boost::asio::ip::make_address(_bindAddress.getAddress()), _bindAddress.getPort()};
         _connection->getSocket().open(endpoint.protocol());
         _connection->getSocket().bind(endpoint);
     }

@@ -13,7 +13,7 @@ ObjectManager::~ObjectManager() {
 }
 
 void ObjectManager::cleanup() {
-    std::lock_guard<std::mutex> lock(_objectsLock);
+    std::lock_guard<std::mutex> lock(_lock);
     if (_cleaned) {
         return;
     }

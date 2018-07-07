@@ -264,7 +264,7 @@ public:
     using AddressType = boost::asio::ip::address;
     using SocketType = boost::asio::ssl::stream<boost::asio::ip::tcp::socket>;
     using ResolverType = boost::asio::ip::tcp::resolver;
-    using ResolverIterator = ResolverType::iterator;
+    using ResolverResultsType = ResolverType::results_type;
     using EndpointType = boost::asio::ip::tcp::endpoint;
 
     SSLConnector(std::string host, std::string port, std::shared_ptr<ClientFactory> factory, SSLOptionPtr sslOption,
@@ -294,18 +294,18 @@ protected:
 
     void doResolve();
 
-    void cbResolve(const boost::system::error_code &ec, ResolverIterator iterator) {
-        handleResolve(ec, iterator);
+    void cbResolve(const boost::system::error_code &ec, const ResolverResultsType &results) {
+        handleResolve(ec, results);
         if (_state == kConnecting) {
-            doConnect(std::move(iterator));
+            doConnect(results);
         }
     }
 
-    void handleResolve(const boost::system::error_code &ec, ResolverIterator iterator);
+    void handleResolve(const boost::system::error_code &ec, const ResolverResultsType &results);
 
     void doConnect();
 
-    void doConnect(ResolverIterator iterator);
+    void doConnect(const ResolverResultsType &results);
 
     void cbConnect(const boost::system::error_code &ec) {
         handleConnect(ec);

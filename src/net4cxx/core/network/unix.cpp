@@ -13,7 +13,7 @@ NS_BEGIN
 
 UNIXConnection::UNIXConnection(const ProtocolPtr &protocol, Reactor *reactor)
         : Connection(protocol, reactor)
-        , _socket(reactor->getService()) {
+        , _socket(reactor->getIOContext()) {
 
 }
 
@@ -219,7 +219,7 @@ UNIXListener::UNIXListener(std::string path, std::shared_ptr<Factory> factory, R
         : Listener(reactor)
         , _path(std::move(path))
         , _factory(std::move(factory))
-        , _acceptor(reactor->getService()) {
+        , _acceptor(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UNIXListener_COUNT);
 #endif
@@ -314,7 +314,7 @@ void UNIXConnector::stopConnecting() {
 
 void UNIXConnector::connectionFailed(std::exception_ptr reason) {
     if (reason) {
-        _error = std::move(reason);
+        _error = reason;
     }
     cancelTimeout();
     _connection.reset();
@@ -328,7 +328,7 @@ void UNIXConnector::connectionFailed(std::exception_ptr reason) {
 
 void UNIXConnector::connectionLost(std::exception_ptr reason) {
     if (reason) {
-        _error = std::move(reason);
+        _error = reason;
     }
     _state = kDisconnected;
     _factory->clientConnectionLost(shared_from_this(), _error);
@@ -388,7 +388,7 @@ void UNIXConnector::makeTransport() {
 UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol,
                                                size_t maxPacketSize, Reactor *reactor)
         : DatagramConnection({std::move(path)}, protocol, maxPacketSize, reactor)
-        , _socket(reactor->getService(), SocketType::protocol_type()) {
+        , _socket(reactor->getIOContext(), SocketType::protocol_type()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UNIXDatagramConnection_COUNT);
 #endif
@@ -397,7 +397,7 @@ UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramP
 UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramProtocolPtr &protocol,
                                                size_t maxPacketSize, std::string bindPath, Reactor *reactor)
         : DatagramConnection({std::move(path)}, protocol, maxPacketSize, {std::move(bindPath)}, reactor)
-        , _socket(reactor->getService(), SocketType::protocol_type()) {
+        , _socket(reactor->getIOContext(), SocketType::protocol_type()) {
 #ifdef NET4CXX_DEBUG
     NET4CXX_Watcher->inc(NET4CXX_UNIXDatagramConnection_COUNT);
 #endif

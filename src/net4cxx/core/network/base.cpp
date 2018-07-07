@@ -76,7 +76,7 @@ SSLOption::SSLOption(const SSLParams &sslParams)
 
 
 Timeout::Timeout(Reactor *reactor)
-        : _timer(reactor->getService()) {
+        : _timer(reactor->getIOContext()) {
 
 }
 
