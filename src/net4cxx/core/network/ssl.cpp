@@ -32,7 +32,7 @@ void SSLConnection::loseConnection() {
     if (_disconnecting || _disconnected || !_connected) {
         return;
     }
-    _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
+    _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "");
     _disconnecting = true;
     doClose();
 }
@@ -41,7 +41,7 @@ void SSLConnection::abortConnection() {
     if (_disconnecting || _disconnected || !_connected) {
         return;
     }
-    _error = NET4CXX_EXCEPTION_PTR(ConnectionAbort, "");
+    _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionAbort, "");
     _disconnecting = true;
     _aborting = true;
     doAbort();
@@ -150,12 +150,12 @@ void SSLConnection::handleRead(const boost::system::error_code &ec, size_t trans
             if (ec == boost::asio::error::operation_aborted) {
                 NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
-                _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
+                _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "");
             } else if (ec.category() != boost::asio::error::get_ssl_category() ||
                        ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ) {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             } else {
-                _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "SSL Short Read");
+                _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "SSL Short Read");
             }
             _disconnecting = true;
             startShutdown();
@@ -206,12 +206,12 @@ void SSLConnection::handleWrite(const boost::system::error_code &ec, size_t tran
             if (ec == boost::asio::error::operation_aborted) {
                 NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
-                _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "");
+                _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "");
             } else if (ec.category() != boost::asio::error::get_ssl_category() ||
                        ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ) {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             } else {
-                _error = NET4CXX_EXCEPTION_PTR(ConnectionDone, "SSL Short Read");
+                _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "SSL Short Read");
             }
             _disconnecting = true;
             startShutdown();
@@ -389,7 +389,7 @@ void SSLConnector::stopConnecting() {
     if (_state != kConnecting) {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
-    _error = NET4CXX_EXCEPTION_PTR(UserAbort, "");
+    _error = NET4CXX_MAKE_EXCEPTION_PTR(UserAbort, "");
     if (_connection) {
         _connection->getSocket().lowest_layer().close();
         _connection.reset();
@@ -491,7 +491,7 @@ void SSLConnector::handleConnect(const boost::system::error_code &ec) {
 
 void SSLConnector::handleTimeout() {
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
-    _error = NET4CXX_EXCEPTION_PTR(TimeoutError, "");
+    _error = NET4CXX_MAKE_EXCEPTION_PTR(TimeoutError, "");
     connectionFailed();
 }
 

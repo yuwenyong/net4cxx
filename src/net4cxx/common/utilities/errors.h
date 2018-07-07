@@ -66,7 +66,7 @@ NET4CXX_DECLARE_EXCEPTION(PermissionError, Exception);
     net4cxx::errinfo_stack_trace(boost::stacktrace::stacktrace()) << \
     net4cxx::errinfo_message(msg)
 
-#define NET4CXX_EXCEPTION_PTR(Exception, msg, ...) \
+#define NET4CXX_MAKE_EXCEPTION_PTR(Exception, msg, ...) \
     std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(Exception, msg, ##__VA_ARGS__))
 
 #define NET4CXX_THROW_EXCEPTION(Exception, msg, ...) \

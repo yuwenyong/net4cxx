@@ -245,7 +245,6 @@ public:
         }
     }
 protected:
-    int _tickCount{0};
     std::set<WebSocketServerProtocolPtr> _clients;
 };
 
@@ -1368,9 +1367,9 @@ std::string getRemoteAddress() const;
 unsigned short getRemotePort() const;
 ```
 
-### web模块(待实现)
+### Web模块(待实现)
 
-### webSocket模块
+### WebSocket模块
 
 #### WebSocketProtocol
 

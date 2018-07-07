@@ -14,11 +14,12 @@ ObjectManager::~ObjectManager() {
 
 void ObjectManager::cleanup() {
     std::lock_guard<std::mutex> lock(_objectsLock);
-    if (cleaned()) {
+    if (_cleaned) {
         return;
     }
-    BOOST_REVERSE_FOREACH(CleanupObject *object, _cleanupObjects) { object->cleanup(); }
-    _cleanupObjects.clear();
+    BOOST_REVERSE_FOREACH(CleanupObject *object, _cleanupObjectList) { object->cleanup(); }
+    _cleanupObjectList.clear();
+    _cleanupObjectMap.clear();
     _cleaned = true;
 }
 

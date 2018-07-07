@@ -7,6 +7,7 @@
 
 #include "net4cxx/common/common.h"
 #include <mutex>
+#include <typeindex>
 #include <boost/checked_delete.hpp>
 #include <boost/functional/factory.hpp>
 
@@ -18,7 +19,6 @@ public:
 
     virtual void cleanup() = 0;
 };
-
 
 template<typename ObjectT>
 class Singleton : public CleanupObject {
@@ -45,7 +45,8 @@ Singleton<ObjectT> *Singleton<ObjectT>::_singleton = nullptr;
 
 class ObjectManager {
 public:
-    typedef std::list<CleanupObject *> CleanupObjectContainer;
+    typedef std::list<CleanupObject *> CleanupObjectList;
+    typedef std::map<std::type_index, CleanupObject *> CleanupObjectMap;
 
     ObjectManager() = default;
 
@@ -54,17 +55,23 @@ public:
     template<typename ObjectT>
     Singleton<ObjectT> *registerObject() {
         std::lock_guard<std::mutex> lock(_objectsLock);
-        if (cleaned()) {
+        if (_cleaned) {
             return nullptr;
         }
+        auto iter = _cleanupObjectMap.find(std::type_index(typeid(ObjectT)));
+        if (iter != _cleanupObjectMap.end()) {
+            return static_cast<Singleton<ObjectT> *>(iter->second);
+        }
         Singleton<ObjectT> *object = boost::factory<Singleton<ObjectT> *>()();
-        _cleanupObjects.push_back(object);
+        _cleanupObjectMap[std::type_index(typeid(ObjectT))] = object;
+        _cleanupObjectList.push_back(object);
         return object;
     }
 
     void cleanup();
 
     bool cleaned() const {
+        std::lock_guard<std::mutex> lock(_objectsLock);
         return _cleaned;
     }
 
@@ -72,7 +79,8 @@ public:
 
 protected:
     bool _cleaned{false};
-    CleanupObjectContainer _cleanupObjects;
+    CleanupObjectList _cleanupObjectList;
+    CleanupObjectMap _cleanupObjectMap;
     std::mutex _objectsLock;
 };
 
