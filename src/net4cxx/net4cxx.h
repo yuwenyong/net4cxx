@@ -28,6 +28,7 @@
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/common/utilities/util.h"
 
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/endpoints.h"
 #include "net4cxx/core/network/unix.h"
 #include "net4cxx/core/network/protocol.h"

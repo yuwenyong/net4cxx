@@ -24,6 +24,7 @@ NET4CXX_DECLARE_EXCEPTION(NotConnectingError, Exception);
 NET4CXX_DECLARE_EXCEPTION(ConnectionDone, IOError);
 NET4CXX_DECLARE_EXCEPTION(ConnectionAbort, IOError);
 NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
+NET4CXX_DECLARE_EXCEPTION(AlreadyCalledError, Exception);
 
 
 class Reactor;

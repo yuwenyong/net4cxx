@@ -51,44 +51,21 @@ protected:
 };
 
 int main () {
-    Archive in, out, lein, leout, bein, beout;
-    Person a{"abcde", 13, "m", 168.3}, b;
-    a.display();
-    std::cout << std::endl;
+    auto d1 = makeDeferred<int, int>();
+    d1->callback(1, 2);
+    d1->addCallback([](int a, int b) {
+        std::cout << "success:" << a << ":" << b << std::endl;
+    })->addErrback([](std::exception_ptr error) {
+        std::cout << "error" << std::endl;
+    });
 
-    in << a;
-    a.display();
-    std::cout << std::endl;
-    out = in;
-    out >> b;
-    b.display();
-    std::cout << std::endl;
-
-    lein << a;
-    a.display();
-    std::cout << std::endl;
-    leout = lein;
-    leout >> b;
-    b.display();
-    std::cout << std::endl;
-
-    bein << a;
-    a.display();
-    std::cout << std::endl;
-    beout = bein;
-    beout >> b;
-    b.display();
-    std::cout << std::endl;
-//    std::map<int, std::unique_ptr<int>> x = {{1, std::make_unique<int>(10)}, {2, std::make_unique<int>(10)}};
-//
-//    for (auto &pr: x) {
-//        std::cerr << pr.first << ',' << *pr.second << std::endl;
-//    }
-//    try {
-//        test3(0, 0);
-//    } catch (std::exception &e) {
-//        std::cerr << e.what() << std::endl;
-//    }
+    auto d2 = makeDeferred<>();
+    d2->addBoth([](){
+        std::cout << "success" << std::endl;
+    }, [](std::exception_ptr error) {
+        std::cout << "error" << std::endl;
+    });
+    d2->errback();
     return 0;
 }
 
