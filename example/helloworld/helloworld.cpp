@@ -26,17 +26,69 @@ std::map<int, std::unique_ptr<int>> x = PtrMapCreator<int, int>()
         (10, std::make_unique<int>(11))
         (11, std::make_unique<int>(12))();
 
-int main () {
-//    std::map<int, std::unique_ptr<int>> x = {{1, std::make_unique<int>(10)}, {2, std::make_unique<int>(10)}};
 
-    for (auto &pr: x) {
-        std::cerr << pr.first << ',' << *pr.second << std::endl;
+class Person {
+public:
+    Person() = default;
+    Person(std::string name, int age, std::string gender, double height)
+            : _name(std::move(name)), _age(age), _gender(std::move(gender)), _height(height) {
+
     }
-    try {
-        test3(0, 0);
-    } catch (std::exception &e) {
-        std::cerr << e.what() << std::endl;
+
+    void display() const {
+        std::cout << _name << ":" << _age << ":" << _gender << ":" << _height;
     }
+
+    template<typename ArchiveT>
+    void serialize(ArchiveT &archive) {
+        archive & _name & _age & _gender & _height;
+    }
+protected:
+    std::string _name;
+    int _age;
+    std::string _gender;
+    double _height{0.0};
+};
+
+int main () {
+    Archive in, out, lein, leout, bein, beout;
+    Person a{"abcde", 13, "m", 168.3}, b;
+    a.display();
+    std::cout << std::endl;
+
+    in << a;
+    a.display();
+    std::cout << std::endl;
+    out = in;
+    out >> b;
+    b.display();
+    std::cout << std::endl;
+
+    lein << a;
+    a.display();
+    std::cout << std::endl;
+    leout = lein;
+    leout >> b;
+    b.display();
+    std::cout << std::endl;
+
+    bein << a;
+    a.display();
+    std::cout << std::endl;
+    beout = bein;
+    beout >> b;
+    b.display();
+    std::cout << std::endl;
+//    std::map<int, std::unique_ptr<int>> x = {{1, std::make_unique<int>(10)}, {2, std::make_unique<int>(10)}};
+//
+//    for (auto &pr: x) {
+//        std::cerr << pr.first << ',' << *pr.second << std::endl;
+//    }
+//    try {
+//        test3(0, 0);
+//    } catch (std::exception &e) {
+//        std::cerr << e.what() << std::endl;
+//    }
     return 0;
 }
 
