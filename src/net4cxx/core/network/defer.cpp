@@ -7,4 +7,8 @@
 
 NS_BEGIN
 
+tagDeferredEmpty DeferredEmpty;
+
+tagDeferredNull DeferredNull;
+
 NS_END

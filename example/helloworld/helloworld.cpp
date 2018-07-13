@@ -51,21 +51,71 @@ protected:
 };
 
 int main () {
-    auto d1 = makeDeferred<int, int>();
-    d1->callback(1, 2);
-    d1->addCallback([](int a, int b) {
-        std::cout << "success:" << a << ":" << b << std::endl;
-    })->addErrback([](std::exception_ptr error) {
-        std::cout << "error" << std::endl;
+    auto d1 = makeDeferred<std::string>();
+    d1->addCallback([](DeferredValue<std::string> &value) {
+        std::cout << "success:" << *value.asValue() << std::endl;
+        value = "yyy";
+    })->addErrback([](DeferredValue<std::string> &value) {
+        std::cout << "error:" << value.isError() << std::endl;
+    })->addCallback([](DeferredValue<std::string> &value) {
+        std::cout << "success:" << *value.asValue() << std::endl;
     });
+    d1->callback("xxx");
 
-    auto d2 = makeDeferred<>();
-    d2->addBoth([](){
-        std::cout << "success" << std::endl;
-    }, [](std::exception_ptr error) {
-        std::cout << "error" << std::endl;
+    auto d2 = makeDeferred<void>();
+    d2->addBoth([](DeferredValue<void> &value){
+        std::cout << "callback isError:" << value.isError() << std::endl;
+        try {
+            value.throwError();
+        } catch (std::exception &e) {
+            std::cout << e.what() << std::endl;
+        }
     });
-    d2->errback();
+    d2->errback(NET4CXX_MAKE_EXCEPTION_PTR(ValueError, "value error"));
+
+//    DeferredPtr<int> d = makeDeferred<int>();
+//    DeferredValue<int> x{d};
+//    std::cout << "IsEmpty:" << x.isEmpty() << std::endl;
+//    std::cout << "IsNull:" << x.isNull() << std::endl;
+//    std::cout << "IsValue:" << x.isValue() << std::endl;
+//    if (x.isValue()) {
+//        std::cout << "Value:" << *x.asValue() << std::endl;
+//        *x.asValue() = 20;
+//        std::cout << "value2:" << *x.asValue() << std::endl;
+//    }
+//    std::cout << "IsError:" << x.isError() << std::endl;
+//    if (x.isError()) {
+//        try {
+//            x.throwError();
+//        } catch (std::exception &e) {
+//            std::cout << "Error:" << e.what() << std::endl;
+//        }
+//    }
+//    std::cout << "IsDeferred:" << x.isDeferred() << std::endl;
+//    if (x.isDeferred()) {
+//        std::cout << "UseCout:" << d.use_count() << std::endl;
+//        d->result() = 10;
+//        std::cout << "Value3:" << *x.asDeferred()->result().asValue() << std::endl;
+//        x.throwError();
+//        x.releaseDeferred();
+//        std::cout << "UseCout:" << d.use_count() << std::endl;
+//        d->result() = 30;
+//        std::cout << "Value4:" << *x.asDeferred()->result().asValue() << std::endl;
+//    }
+//    std::cout << std::endl;
+//
+//    DeferredValue<void> dv2;
+//    std::cout << "IsEmpty:" << dv2.isEmpty() << std::endl;
+//    std::cout << "IsNull:" << dv2.isNull() << std::endl;
+//    std::cout << "IsError:" << dv2.isError() << std::endl;
+//    if (x.isError()) {
+//        try {
+//            x.throwError();
+//        } catch (std::exception &e) {
+//            std::cout << "Error:" << e.what() << std::endl;
+//        }
+//    }
+//    std::cout << "IsDeferred:" << dv2.isDeferred() << std::endl;
     return 0;
 }
 

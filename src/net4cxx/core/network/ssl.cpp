@@ -22,6 +22,9 @@ void SSLConnection::write(const Byte *data, size_t length) {
     if (_disconnecting || _disconnected || !_connected) {
         return;
     }
+    if (!length) {
+        return;
+    }
     MessageBuffer packet(length);
     packet.write(data, length);
     _writeQueue.emplace_back(std::move(packet));

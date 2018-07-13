@@ -25,6 +25,7 @@ NET4CXX_DECLARE_EXCEPTION(ConnectionDone, IOError);
 NET4CXX_DECLARE_EXCEPTION(ConnectionAbort, IOError);
 NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
 NET4CXX_DECLARE_EXCEPTION(AlreadyCalledError, Exception);
+NET4CXX_DECLARE_EXCEPTION(CancelledError, Exception);
 
 
 class Reactor;
@@ -314,6 +315,10 @@ public:
 
     bool cancelled() const {
         return _timeout.expired();
+    }
+
+    bool active() const {
+        return !cancelled();
     }
 
     void cancel();

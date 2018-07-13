@@ -112,6 +112,13 @@ inline T* pointer(T &param) {
     return &param;
 }
 
+
+template<typename T>
+struct Type2Type {
+    typedef T OriginalType;
+};
+
+
 typedef uint8_t Byte;
 typedef std::vector<Byte> ByteArray;
 typedef std::vector<std::string> StringVector;
