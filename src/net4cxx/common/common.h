@@ -113,9 +113,15 @@ inline T* pointer(T &param) {
 }
 
 
-template<typename T>
+template <typename T>
 struct Type2Type {
     typedef T OriginalType;
+};
+
+
+template <typename T>
+struct RemoveCVR {
+    using type = typename std::remove_reference<typename std::remove_cv<T>::type>::type;
 };
 
 

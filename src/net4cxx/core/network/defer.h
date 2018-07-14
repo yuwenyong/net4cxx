@@ -816,11 +816,15 @@ public:
         return _result;
     }
 
-    template <typename CallbackT, typename ErrbackT>
-    std::shared_ptr<Deferred<ValueT>> addCallbacks(CallbackT &&callback, ErrbackT &&errback= nullptr) {
-        NET4CXX_ASSERT(callback);
+    void setCanceller(CancellerType canceller) {
+        _canceller = std::move(canceller);
+    }
+
+    template <typename CallbackT>
+    std::shared_ptr<Deferred<ValueT>> addCallbacks(CallbackT &&callback, CallbackType errback= nullptr) {
+        NET4CXX_ASSERT(CallbackType{callback});
         if (errback) {
-            _callbacks.emplace_back(std::forward<CallbackT>(callback), std::forward<ErrbackT>(errback));
+            _callbacks.emplace_back(std::forward<CallbackT>(callback), std::move(errback));
         } else {
             _callbacks.emplace_back(std::forward<CallbackT>(callback), [](DeferredValue<ValueT> &value){});
         }
@@ -832,7 +836,7 @@ public:
 
     template <typename CallbackT>
     std::shared_ptr<Deferred<ValueT>> addCallback(CallbackT &&callback) {
-        return addCallbacks(std::forward<CallbackT>(callback), [](DeferredValue<ValueT> &value){});
+        return addCallbacks(std::forward<CallbackT>(callback));
     }
 
     template <typename ErrbackT>
@@ -897,9 +901,9 @@ public:
 
     template <typename ResultT>
     void callback(ResultT &&result) {
-        static_assert(!std::is_same<ResultT, tagDeferredEmpty>::value, "");
-        static_assert(!std::is_same<ResultT, std::exception_ptr>::value, "");
-        static_assert(!std::is_same<ResultT, std::shared_ptr<Deferred<ValueT>>>::value, "");
+        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, tagDeferredEmpty>::value, "");
+        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, std::exception_ptr>::value, "");
+        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, std::shared_ptr<Deferred<ValueT>>>::value, "");
         startRunCallbacks(std::forward<ResultT>(result));
     }
 
@@ -1048,12 +1052,13 @@ protected:
                 if (current->_result.isDeferred()) {
                     auto resultDeferred = current->_result.asDeferred();
                     NET4CXX_ASSERT(resultDeferred);
-                    auto &resultResult = current->_result.asDeferred()->_result;
+                    auto &resultResult = resultDeferred->_result;
 
                     if (resultResult.isEmpty() || resultResult.isDeferred() || resultDeferred->_paused > 0) {
                         current->pause();
                         current->_chainTo = resultDeferred;
                         resultDeferred->_callbacks.emplace_back(current->continuation());
+                        break;
                     } else {
                         current->_result = resultResult;
                         resultDeferred->_result = DeferredNull;

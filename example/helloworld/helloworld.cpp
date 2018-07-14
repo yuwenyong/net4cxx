@@ -50,28 +50,64 @@ protected:
     double _height{0.0};
 };
 
-int main () {
-    auto d1 = makeDeferred<std::string>();
-    d1->addCallback([](DeferredValue<std::string> &value) {
-        std::cout << "success:" << *value.asValue() << std::endl;
-        value = "yyy";
-    })->addErrback([](DeferredValue<std::string> &value) {
-        std::cout << "error:" << value.isError() << std::endl;
-    })->addCallback([](DeferredValue<std::string> &value) {
-        std::cout << "success:" << *value.asValue() << std::endl;
-    });
-    d1->callback("xxx");
 
-    auto d2 = makeDeferred<void>();
-    d2->addBoth([](DeferredValue<void> &value){
-        std::cout << "callback isError:" << value.isError() << std::endl;
-        try {
-            value.throwError();
-        } catch (std::exception &e) {
-            std::cout << e.what() << std::endl;
+DeferredPtr<void> callLater(Reactor *reactor, double timeout) {
+    auto d = makeDeferred<void>();
+    auto delayed = reactor->callLater(timeout, [d]() {
+        d->callback(DeferredNull);
+    });
+    d->setCanceller([delayed](DeferredPtr<void>) {
+        auto d2 = delayed;
+        if (d2.active()) {
+            d2.cancel();
         }
     });
-    d2->errback(NET4CXX_MAKE_EXCEPTION_PTR(ValueError, "value error"));
+    return d;
+}
+
+int main (int argc, char **argv) {
+    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+    Reactor reactor;
+    NET4CXX_LOG_INFO(gAppLog, "Started");
+    auto d = callLater(&reactor, 2.0f);
+    d->addCallback([](DeferredValue<void> &result){
+        NET4CXX_LOG_INFO("First callback");
+    })->addErrback([](DeferredValue<void> &result){
+        NET4CXX_LOG_ERROR("Error happend");
+        try {
+            result.throwError();
+        } catch (std::exception &e) {
+            NET4CXX_LOG_ERROR(e.what());
+        }
+    })->addCallback([&reactor](DeferredValue<void> &result){
+        NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
+        result = callLater(&reactor, 2.0f);
+    })->addCallback([](DeferredValue<void> &result) {
+        NET4CXX_LOG_INFO("Yeah triggered");
+    });
+    d->cancel();
+    reactor.run();
+//    auto d1 = makeDeferred<std::string>();
+//    d1->addCallback([](DeferredValue<std::string> &value) {
+//        std::cout << "success:" << *value.asValue() << std::endl;
+//        value = "yyy";
+//    })->addErrback([](DeferredValue<std::string> &value) {
+//        std::cout << "error:" << value.isError() << std::endl;
+//    })->addCallback([](DeferredValue<std::string> &value) {
+//        std::cout << "success:" << *value.asValue() << std::endl;
+//    });
+//    d1->callback("xxx");
+//
+//    auto d2 = makeDeferred<void>();
+//    d2->addBoth([](DeferredValue<void> &value){
+//        std::cout << "callback isError:" << value.isError() << std::endl;
+//        try {
+//            value.throwError();
+//        } catch (std::exception &e) {
+//            std::cout << e.what() << std::endl;
+//        }
+//    });
+//    d2->errback(NET4CXX_MAKE_EXCEPTION_PTR(ValueError, "value error"));
 
 //    DeferredPtr<int> d = makeDeferred<int>();
 //    DeferredValue<int> x{d};
