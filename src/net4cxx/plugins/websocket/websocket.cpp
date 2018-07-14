@@ -10,6 +10,9 @@ NS_BEGIN
 
 ConnectorPtr connectWS(Reactor *reactor, std::shared_ptr<WebSocketClientFactory> factory, SSLOptionPtr sslOption,
                        double timeout, const Address &bindAddress) {
+    if (reactor == nullptr) {
+        reactor = Reactor::current();
+    }
     if (factory->isSecure()) {
         if (!sslOption) {
             SSLParams params(false);
@@ -29,6 +32,9 @@ ConnectorPtr connectWS(Reactor *reactor, std::shared_ptr<WebSocketClientFactory>
 
 ListenerPtr listenWS(Reactor *reactor, std::shared_ptr<WebSocketServerFactory> factory, SSLOptionPtr sslOption,
                      const std::string &interface) {
+    if (reactor == nullptr) {
+        reactor = Reactor::current();
+    }
     ListenerPtr listener;
     if (factory->isSecure()) {
         if (!sslOption) {

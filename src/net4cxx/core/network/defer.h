@@ -872,7 +872,7 @@ public:
             }
         });
 
-        addBoth([delayedCall](DeferredValue<ValueT> &result){
+        addBoth([delayedCall](DeferredValue<ValueT> &result) mutable{
             if (delayedCall.active()) {
                 delayedCall.cancel();
             }
@@ -1103,18 +1103,33 @@ DeferredPtr<ValueT> failDeferred(std::exception_ptr error= nullptr) {
     auto d = makeDeferred<ValueT>();
     d->errback(error);
     return d;
-};
+}
 
 template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> executeDeferrred(CallableT &&callable, Args&&... args) {
-    using ResultT = typename std::result_of<CallableT>::type;
+DeferredPtr<ValueT> _executeDeferred(Type2Type<void> ignore, CallableT &&callable, Args&&... args) {
+    try {
+        callable(std::forward<Args>(args)...);
+        return succeedDeferred<ValueT>(DeferredNull);
+    } catch (...) {
+        return failDeferred<ValueT>();
+    }
+}
+
+template <typename ValueT, typename ResultT, typename CallableT, typename... Args>
+DeferredPtr<ValueT> _executeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args&&... args) {
     try {
         ResultT result = callable(std::forward<Args>(args)...);
         return succeedDeferred<ValueT>(std::move(result));
     } catch (...) {
         return failDeferred<ValueT>();
     }
-};
+}
+
+template <typename ValueT, typename CallableT, typename... Args>
+DeferredPtr<ValueT> executeDeferred(CallableT &&callable, Args&&... args) {
+    using ResultT = typename std::result_of<CallableT>::type;
+    return _executeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
+}
 
 template <typename ValueT, typename CallableT, typename... Args>
 DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredPtr<ValueT>> ignore, CallableT &&callable, Args&&... args) {
@@ -1124,7 +1139,7 @@ DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredPtr<ValueT>> ignore, Callab
     } catch (...) {
         return failDeferred<ValueT>();
     }
-};
+}
 
 template <typename ValueT, typename CallableT, typename... Args>
 DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredValue<ValueT>> ignore, CallableT &&callable, Args&&... args) {
@@ -1140,23 +1155,33 @@ DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredValue<ValueT>> ignore, Call
         return failDeferred(result.asError());
     }
     return succeedDeferred(std::move(result));
-};
+}
+
+template <typename ValueT, typename CallableT, typename... Args>
+DeferredPtr<ValueT> _maybeDeferred(Type2Type<void> ignore, CallableT &&callable, Args&&... args) {
+    try {
+        callable(std::forward<Args>(args)...);
+        return succeedDeferred<ValueT>(DeferredNull);
+    } catch (...) {
+        return failDeferred<ValueT>();
+    }
+}
 
 template <typename ValueT, typename ResultT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _maybeDeferred(Type2Type<ResultT> &&ignore, CallableT &&callable, Args&&... args) {
+DeferredPtr<ValueT> _maybeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args&&... args) {
     try {
         ResultT result = callable(std::forward<Args>(args)...);
         return succeedDeferred<ValueT>(std::move(result));
     } catch (...) {
         return failDeferred<ValueT>();
     }
-};
+}
 
 template <typename ValueT, typename CallableT, typename... Args>
 DeferredPtr<ValueT> maybeDeferred(CallableT &&callable, Args&&... args) {
     using ResultT = typename std::result_of<CallableT>::type;
     return _maybeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
-};
+}
 
 NS_END
 

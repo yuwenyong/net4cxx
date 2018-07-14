@@ -36,6 +36,8 @@
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/core/network/udp.h"
+#include "net4cxx/core/iostream/tcpserver.h"
+#include "net4cxx/core/iostream/util.h"
 
 #include "net4cxx/plugins/websocket/websocket.h"
 

@@ -99,7 +99,7 @@ void Connection::dataReceived(Byte *data, size_t length) {
 void Connection::connectionLost(std::exception_ptr reason) {
     auto protocol = _protocol.lock();
     NET4CXX_ASSERT(protocol);
-    protocol->connectionLost(std::move(reason));
+    protocol->connectionLost(reason);
 }
 
 
@@ -112,7 +112,7 @@ void DatagramConnection::datagramReceived(Byte *datagram, size_t length, Address
 void DatagramConnection::connectionFailed(std::exception_ptr error) {
     auto protocol = _protocol.lock();
     NET4CXX_ASSERT(protocol);
-    protocol->connectionFailed(std::move(error));
+    protocol->connectionFailed(error);
 }
 
 void DatagramConnection::connectionRefused() {
