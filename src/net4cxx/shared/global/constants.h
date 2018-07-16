@@ -2,8 +2,8 @@
 // Created by yuwenyong.vincent on 2018/7/14.
 //
 
-#ifndef NET4CXX_GLOBAL_SHARED_CONSTANTS_H
-#define NET4CXX_GLOBAL_SHARED_CONSTANTS_H
+#ifndef NET4CXX_SHARED_GLOBAL_CONSTANTS_H
+#define NET4CXX_SHARED_GLOBAL_CONSTANTS_H
 
 #include "net4cxx/common/common.h"
 
@@ -20,4 +20,4 @@ public:
 
 NS_END
 
-#endif //NET4CXX_GLOBAL_SHARED_CONSTANTS_H
+#endif //NET4CXX_SHARED_GLOBAL_CONSTANTS_H

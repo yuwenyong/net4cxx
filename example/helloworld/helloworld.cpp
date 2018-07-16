@@ -56,37 +56,67 @@ DeferredPtr<void> callLater(Reactor *reactor, double timeout) {
     auto delayed = reactor->callLater(timeout, [d]() {
         d->callback(DeferredNull);
     });
-    d->setCanceller([delayed](DeferredPtr<void>) {
-        auto d2 = delayed;
-        if (d2.active()) {
-            d2.cancel();
+    d->setCanceller([delayed](DeferredPtr<void>) mutable {
+        if (delayed.active()) {
+            delayed.cancel();
         }
     });
     return d;
 }
 
+void testMyError() {
+    std::string myname = "double";
+    bool boy = true;
+    NET4CXX_THROW_EXCEPTION(ConnectionDeny, "hehe %s, %s", myname, TypeCast<std::string>(boy)) << errinfo_http_code(10);
+}
+
 int main (int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    NET4CXX_LOG_INFO(gAppLog, "Started");
-    auto d = callLater(&reactor, 2.0f);
-    d->addCallback([](DeferredValue<void> &result){
-        NET4CXX_LOG_INFO("First callback");
-    })->addErrback([](DeferredValue<void> &result){
-        NET4CXX_LOG_ERROR("Error happend");
-        try {
-            result.throwError();
-        } catch (std::exception &e) {
-            NET4CXX_LOG_ERROR(e.what());
-        }
-    })->addCallback([&reactor](DeferredValue<void> &result){
-        NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
-        result = callLater(&reactor, 2.0f);
-    })->addCallback([](DeferredValue<void> &result) {
-        NET4CXX_LOG_INFO("Yeah triggered");
-    });
-    d->cancel();
-    reactor.run();
+//    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+//    Reactor reactor;
+//    reactor.makeCurrent();
+//    PeriodicCallback::create([](){
+//        NET4CXX_LOG_INFO("Every two seconds");
+//    }, 2.0f)->start();
+//    reactor.run();
+    try {
+        testMyError();
+    } catch (ConnectionDeny &e) {
+        std::cout << e.what() << std::endl;
+        std::cout << "code:" << e.getCode() << std::endl;
+        std::cout << "reason:" << e.getReason() << std::endl;
+    }
+    return 0;
+};
+
+//int main (int argc, char **argv) {
+//    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+//    Reactor reactor;
+//    NET4CXX_LOG_INFO(gAppLog, "Started");
+//    auto d = callLater(&reactor, 2.0f);
+//    d->addCallback([](DeferredValue<void> &result){
+//        NET4CXX_LOG_INFO("First callback");
+//    })->addErrback([](DeferredValue<void> &result){
+//        NET4CXX_LOG_ERROR("Error happend");
+//        try {
+//            result.throwError();
+//        } catch (std::exception &e) {
+//            NET4CXX_LOG_ERROR(e.what());
+//        }
+//    })->addCallback([&reactor](DeferredValue<void> &result){
+//        NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
+//        result = callLater(&reactor, 2.0f);
+//    })->addCallback([](DeferredValue<void> &result) {
+//        NET4CXX_LOG_INFO("Yeah triggered");
+//    });
+//    auto d2 = makeDeferred<void>();
+//    d2->addCallback([](DeferredValue<void> &result) {
+//        NET4CXX_LOG_INFO("chained");
+//    });
+//    d->chainDeferred(d2);
+//    d->addTimeout(1.0, &reactor, [](DeferredValue<void> &result){
+//        NET4CXX_LOG_INFO("Timeout");
+//    });
+//    reactor.run();
 //    auto d1 = makeDeferred<std::string>();
 //    d1->addCallback([](DeferredValue<std::string> &value) {
 //        std::cout << "success:" << *value.asValue() << std::endl;
@@ -152,8 +182,8 @@ int main (int argc, char **argv) {
 //        }
 //    }
 //    std::cout << "IsDeferred:" << dv2.isDeferred() << std::endl;
-    return 0;
-}
+//    return 0;
+//}
 
 //int main() {
 //    JSONValue root{JSONType::objectValue};

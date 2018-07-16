@@ -13,45 +13,63 @@
 
 NS_BEGIN
 
-inline std::string BytesToString(const ByteArray &bytes) {
-    return {(const char *)bytes.data(), bytes.size()};
+
+class NET4CXX_COMMON_API TypeUtil {
+public:
+    static std::string typeCast(Type2Type<std::string>, const ByteArray &bytes) {
+        return {(const char *)bytes.data(), bytes.size()};
+    }
+
+    static std::string typeCast(Type2Type<std::string>, const Byte *bytes, size_t length) {
+        return {(const char *)bytes, length};
+    }
+
+    static ByteArray typeCast(Type2Type<ByteArray>, const std::string &s) {
+        return ByteArray((const Byte *)s.data(), (const Byte *)s.data() + s.size());
+    }
+
+    static ByteArray typeCast(Type2Type<ByteArray>, const char *s) {
+        return ByteArray((const Byte *)s, (const Byte *)s + strlen(s));
+    }
+
+    static bool typeCast(Type2Type<bool>, const std::string &s) {
+        std::string lowerStr = boost::to_lower_copy(s);
+        return lowerStr == "1" || lowerStr == "true" || lowerStr == "yes";
+    }
+
+    static std::string typeCast(Type2Type<std::string>, bool b) {
+        return b ? "true" : "false";
+    }
+
+    static std::string typeCast(Type2Type<std::string>, const StringMap &m);
+
+    static bool isIntegral(double d) {
+        double integralPart;
+        return modf(d, &integralPart) == 0.0;
+    }
+};
+
+
+template <typename ResultT, typename... Args>
+ResultT TypeCast(Args&&... args) {
+    return TypeUtil::typeCast(Type2Type<ResultT>(), std::forward<Args>(args)...);
 }
 
-inline std::string BytesToString(const Byte *bytes, size_t length) {
-    return {(const char *)bytes, length};
-}
 
-inline ByteArray StringToBytes(const std::string &s) {
-    return ByteArray((const Byte *)s.data(), (const Byte *)s.data() + s.size());
-}
+class NET4CXX_COMMON_API BufferUtil {
+public:
+    static void concat(ByteArray &b1, ByteArray &&b2) {
+        if (b1.empty()) {
+            b1 = std::move(b2);
+        } else {
+            b1.insert(b1.end(), b2.begin(), b2.end());
+        }
+    }
 
-inline ByteArray StringToBytes(const char *s) {
-    return ByteArray((const Byte *)s, (const Byte *)s + strlen(s));
-}
-
-inline bool StringToBool(const std::string &s) {
-    std::string lowerStr = boost::to_lower_copy(s);
-    return lowerStr == "1" || lowerStr == "true" || lowerStr == "yes";
-}
-
-NET4CXX_COMMON_API std::string StringMapToString(const StringMap &m);
-
-inline bool IsIntegral(double d) {
-    double integralPart;
-    return modf(d, &integralPart) == 0.0;
-}
-
-inline void ConcatBuffer(ByteArray &b1, ByteArray &&b2) {
-    if (b1.empty()) {
-        b1 = std::move(b2);
-    } else {
+    static void concat(ByteArray &b1, const ByteArray &b2) {
         b1.insert(b1.end(), b2.begin(), b2.end());
     }
-}
-
-inline void ConcatBuffer(ByteArray &b1, const ByteArray &b2) {
-    b1.insert(b1.end(), b2.begin(), b2.end());
-}
+};
 
 
 class NET4CXX_COMMON_API JsonUtil {

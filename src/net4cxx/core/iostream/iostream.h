@@ -10,7 +10,7 @@
 #include <boost/regex.hpp>
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/reactor.h"
-#include "net4cxx/global/shared/constants.h"
+#include "net4cxx/shared/global/constants.h"
 
 
 NS_BEGIN

@@ -9,22 +9,19 @@
 NS_BEGIN
 
 void ConfigParser::read(const std::string &fileName) {
-    std::string error;
     try {
         ConfigType config;
         boost::property_tree::read_ini(fileName, config);
         if (config.empty()) {
-            error = "empty file (" + fileName + ")";
-            NET4CXX_THROW_EXCEPTION(ParsingError, error);
+            NET4CXX_THROW_EXCEPTION(ParsingError, "empty file (%s)", fileName);
         }
         _config.swap(config);
     } catch (const boost::property_tree::ini_parser_error &e) {
         if (e.line() == 0) {
-            error = e.message() + "(" + e.filename() + ")";
+            NET4CXX_THROW_EXCEPTION(ParsingError, "%s(%s)", e.message(), e.filename());
         } else {
-            error = e.message() + "(" + e.filename() + ":" + std::to_string(e.line()) + ")";
+            NET4CXX_THROW_EXCEPTION(ParsingError, "%s(%s:%lu)", e.message(), e.filename(), e.line());
         }
-        NET4CXX_THROW_EXCEPTION(ParsingError, error);
     }
 }
 
@@ -54,7 +51,7 @@ StringVector ConfigParser::getOptions(const std::string &section, bool ignoreErr
         if (ignoreError) {
             return {};
         } else {
-            NET4CXX_THROW_EXCEPTION(NoSectionError, "No section: " + section);
+            NET4CXX_THROW_EXCEPTION(NoSectionError, "No section: %s", section);
         }
     }
     StringVector options;
@@ -94,7 +91,7 @@ StringMap ConfigParser::getItems(const std::string &section, bool ignoreError) c
         if (ignoreError) {
             return {};
         } else {
-            NET4CXX_THROW_EXCEPTION(NoSectionError, "No section: " + section);
+            NET4CXX_THROW_EXCEPTION(NoSectionError, "No section: %s", section);
         }
     }
     StringMap items;

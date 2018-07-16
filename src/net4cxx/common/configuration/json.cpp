@@ -677,7 +677,8 @@ bool JsonValue::isInt() const {
         }
 
         result_type operator()(double v) const {
-            return v >= std::numeric_limits<int>::min() && v <= std::numeric_limits<int>::max() && IsIntegral(v);
+            return v >= std::numeric_limits<int>::min() && v <= std::numeric_limits<int>::max()
+                   && TypeUtil::isIntegral(v);
         }
 
         result_type operator()(const std::string &v) const {
@@ -716,7 +717,8 @@ bool JsonValue::isInt64() const {
         }
 
         result_type operator()(double v) const {
-            return v >= std::numeric_limits<int64_t>::min() && v < std::numeric_limits<int64_t>::max() && IsIntegral(v);
+            return v >= std::numeric_limits<int64_t>::min() && v < std::numeric_limits<int64_t>::max()
+                   && TypeUtil::isIntegral(v);
         }
 
         result_type operator()(const std::string &v) const {
@@ -755,7 +757,7 @@ bool JsonValue::isUInt() const {
         }
 
         result_type operator()(double v) const {
-            return v >= 0 && v <= std::numeric_limits<unsigned int>::max() && IsIntegral(v);
+            return v >= 0 && v <= std::numeric_limits<unsigned int>::max() && TypeUtil::isIntegral(v);
         }
 
         result_type operator()(const std::string &v) const {
@@ -794,7 +796,7 @@ bool JsonValue::isUInt64() const {
         }
 
         result_type operator()(double v) const {
-            return v >= 0 && v < maxUInt64AsDouble && IsIntegral(v);
+            return v >= 0 && v < maxUInt64AsDouble && TypeUtil::isIntegral(v);
         }
 
         result_type operator()(const std::string &v) const {
@@ -833,7 +835,7 @@ bool JsonValue::isIntegral() const {
         }
 
         result_type operator()(double v) const {
-            return v >= std::numeric_limits<int64_t>::min()  && v < maxUInt64AsDouble && IsIntegral(v);
+            return v >= std::numeric_limits<int64_t>::min()  && v < maxUInt64AsDouble && TypeUtil::isIntegral(v);
         }
 
         result_type operator()(const std::string &v) const {
@@ -2260,7 +2262,7 @@ std::istream& operator>>(std::istream &sin, JsonValue &root) {
     std::string errs;
     bool ok = parseFromStream(b, sin, &root, &errs);
     if (!ok) {
-        NET4CXX_THROW_EXCEPTION(ParsingError, errs);
+        NET4CXX_THROW_EXCEPTION(ParsingError, errs.c_str());
     }
     return sin;
 }

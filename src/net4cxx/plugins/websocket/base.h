@@ -11,6 +11,7 @@
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/common/utilities/errors.h"
 #include "net4cxx/common/utilities/strutil.h"
+#include "net4cxx/shared/global/errorinfo.h"
 
 
 NS_BEGIN
@@ -34,17 +35,18 @@ public:
         SERVICE_UNAVAILABLE = 503
     };
 
-    explicit ConnectionDeny(int code): _code(code) {}
-
     int getCode() const {
-        return _code;
+        return *boost::get_error_info<errinfo_http_code>(*this);
     }
 
     std::string getReason() const {
         return *boost::get_error_info<errinfo_message>(*this);
     }
+
 protected:
-    int _code;
+    const char *getTypeName() const override {
+        return "ConnectionDeny";
+    }
 };
 
 

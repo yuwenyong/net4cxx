@@ -27,15 +27,15 @@ SSLOptionPtr SSLOption::create(const SSLParams &sslParams) {
     }
     const std::string &certFile = sslParams.getCertFile();
     if (!certFile.empty() && !boost::filesystem::exists(certFile)) {
-        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("cert file \"%s\" does not exist", certFile.c_str()));
+        NET4CXX_THROW_EXCEPTION(ValueError, "cert file \"%s\" does not exist", certFile);
     }
     const std::string &keyFile = sslParams.getKeyFile();
     if (!keyFile.empty() && !boost::filesystem::exists(keyFile)) {
-        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("key file \"%s\" does not exist", certFile.c_str()));
+        NET4CXX_THROW_EXCEPTION(ValueError, "key file \"%s\" does not exist", certFile);
     }
     const std::string &verifyFile = sslParams.getVerifyFile();
     if (!verifyFile.empty() && !boost::filesystem::exists(verifyFile)) {
-        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("verify file \"%s\" does not exist", certFile.c_str()));
+        NET4CXX_THROW_EXCEPTION(ValueError, "verify file \"%s\" does not exist", certFile);
     }
     auto sslOption = std::make_shared<EnableMakeShared>(sslParams);
     return sslOption;

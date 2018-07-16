@@ -2,7 +2,7 @@
 // Created by yuwenyong.vincent on 2018/7/14.
 //
 
-#include "net4cxx/global/shared/constants.h"
+#include "net4cxx/shared/global/constants.h"
 
 
 NS_BEGIN

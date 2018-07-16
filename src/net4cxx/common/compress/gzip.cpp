@@ -6,7 +6,6 @@
 #include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/filesystem.hpp>
-#include "net4cxx/common/utilities/strutil.h"
 
 
 NS_BEGIN
@@ -466,7 +465,7 @@ void GzipFile::readEOF() {
     _fileObj->read((char *)&isize, 4);
     boost::endian::little_to_native_inplace(isize);
     if (crc != _crc) {
-        NET4CXX_THROW_EXCEPTION(IOError, StrUtil::format("CRC check failed %x != %x", crc, _crc));
+        NET4CXX_THROW_EXCEPTION(IOError, "CRC check failed %x != %x", crc, _crc);
     } else if (isize != (_size & 0xffffffff)) {
         NET4CXX_THROW_EXCEPTION(IOError, "Incorrect length of data produced");
     }

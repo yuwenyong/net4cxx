@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/serialization/archive.h"
-#include "net4cxx/common/utilities/strutil.h"
 
 
 NS_BEGIN
@@ -90,17 +89,17 @@ Archive& Archive::operator>>(ByteArray &value) {
 
 void Archive::checkSkipOverflow(size_t len) const {
     if (_pos + len > _storage.size()) {
-        std::string error = StrUtil::format("Attempted to skip value with size: %lu in Archive (pos: %lu size: %lu)",
-                                            len, _pos, _storage.size());
-        NET4CXX_THROW_EXCEPTION(ArchivePositionError, error);
+        NET4CXX_THROW_EXCEPTION(ArchivePositionError,
+                                "Attempted to skip value with size: %lu in Archive (pos: %lu size: %lu)",
+                                len, _pos, _storage.size());
     }
 }
 
 void Archive::checkReadOverflow(size_t len) const {
     if (_pos + len > _storage.size()) {
-        std::string error = StrUtil::format("Attempted to skip value with size: %lu in Archive (pos: %lu size: %lu)",
-                                            len, _pos, _storage.size());
-        NET4CXX_THROW_EXCEPTION(ArchivePositionError, error);
+        NET4CXX_THROW_EXCEPTION(ArchivePositionError,
+                                "Attempted to skip value with size: %lu in Archive (pos: %lu size: %lu)",
+                                len, _pos, _storage.size());
     }
 }
 

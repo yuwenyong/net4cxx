@@ -13,7 +13,7 @@ NS_BEGIN
 void CSVReader::open(const std::string &fileName) {
     std::ifstream file(fileName);
     if (!_file.is_open()) {
-        NET4CXX_THROW_EXCEPTION(IOError, "No such file or directory:" + fileName);
+        NET4CXX_THROW_EXCEPTION(IOError, "No such file or directory:%s", fileName);
     }
     _file.swap(file);
 }

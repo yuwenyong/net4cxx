@@ -57,7 +57,7 @@ public:
 
     void onMessage(ByteArray payload, bool isBinary) override {
         if (!isBinary) {
-            auto msg = StrUtil::format("%s from %s", BytesToString(payload), getPeerName());
+            auto msg = StrUtil::format("%s from %s", TypeCast<std::string>(payload), getPeerName());
             getFactory<BroadcastServerFactory>()->broadcast(msg);
         }
     }

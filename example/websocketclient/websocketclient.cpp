@@ -16,7 +16,7 @@ public:
 
     void onMessage(ByteArray payload, bool isBinary) override {
         if (!isBinary) {
-            NET4CXX_LOG_INFO(gAppLog, "Text message received: %s", BytesToString(payload));
+            NET4CXX_LOG_INFO(gAppLog, "Text message received: %s", TypeCast<std::string>(payload));
         }
     }
 

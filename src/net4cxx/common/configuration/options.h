@@ -75,7 +75,7 @@ public:
     template <typename ValueT>
     const ValueT& get(const char *name) const {
         if (!has(name)) {
-            NET4CXX_THROW_EXCEPTION(KeyError, std::string("Unrecognized option ") + name);
+            NET4CXX_THROW_EXCEPTION(KeyError, "Unrecognized option %s", name);
         }
         auto &value = _vm[name];
         return value.as<ValueT>();

@@ -7,7 +7,8 @@
 
 NS_BEGIN
 
-std::string StringMapToString(const StringMap &m) {
+
+std::string TypeUtil::typeCast(Type2Type<std::string>, const StringMap &m) {
     std::stringstream ss;
     bool first = true;
     ss << "{";
@@ -22,6 +23,7 @@ std::string StringMapToString(const StringMap &m) {
     ss << "}";
     return ss.str();
 }
+
 
 std::string DateTimeUtil::formatDate(const DateTime &timeval, bool usegmt) {
     std::string zone;

@@ -58,7 +58,7 @@ void WebSocketProtocol::onOpen() {
 
 void WebSocketProtocol::onMessage(ByteArray payload, bool isBinary) {
     NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onMessage(payload=<%llu bytes)>, isBinary=%s",
-                      payload.size(), isBinary ? "true" : "false");
+                      payload.size(), TypeCast<std::string>(isBinary));
 }
 
 void WebSocketProtocol::onPing(ByteArray payload) {
@@ -75,7 +75,7 @@ void WebSocketProtocol::onPong(ByteArray payload) {
 void WebSocketProtocol::onClose(bool wasClean, boost::optional<unsigned short> code,
                                 boost::optional<std::string> reason) {
     NET4CXX_LOG_DEBUG(gGenLog, "WebSocketProtocol.onClose(wasClean=%s, code=%u, reason=%s)",
-                      wasClean ? "true" : "false", code ? *code : 0u, reason ? reason->c_str() : "None");
+                      TypeCast<std::string>(wasClean), code ? *code : 0u, reason ? reason->c_str() : "None");
 }
 
 void WebSocketProtocol::sendMessage(const Byte *payload, size_t length, bool isBinary, size_t fragmentSize, bool sync,
@@ -101,7 +101,7 @@ void WebSocketProtocol::sendMessage(const Byte *payload, size_t length, bool isB
 
         payload1 = _perMessageCompress->compressMessageData(payload, length);
         auto payload2 = _perMessageCompress->endCompressMessage();
-        ConcatBuffer(payload1, std::move(payload2));
+        BufferUtil::concat(payload1, std::move(payload2));
 
         payload = payload1.data();
         length = payload1.size();
@@ -151,8 +151,7 @@ void WebSocketProtocol::sendPing(const Byte *payload, size_t length) {
     if (length != 0) {
         uint64_t l = length;
         if (l > 125u) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid payload for PING (payload length must "
-                                                               "be <= 125, was %llu)", l));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid payload for PING (payload length must be <= 125, was %llu)", l);
         }
         sendFrame(9u, payload, length);
     } else {
@@ -167,8 +166,7 @@ void WebSocketProtocol::sendPong(const Byte *payload, size_t length) {
     if (length != 0) {
         uint64_t l = length;
         if (l > 125u) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid payload for PONG (payload length must "
-                                                               "be <= 125, was %llu)", l));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid payload for PONG (payload length must be <= 125, was %llu)", l);
         }
         sendFrame(10u, payload, length);
     } else {
@@ -179,8 +177,7 @@ void WebSocketProtocol::sendPong(const Byte *payload, size_t length) {
 void WebSocketProtocol::sendClose(boost::optional<unsigned short> code, boost::optional<std::string> reason) {
     if (code) {
         if (*code != 1000u && !(3000u <= *code && *code <= 4999u)) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid close code %u (must be "
-                                                               "1000 or from [3000, 4999])", *code));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid close code %u (must be 1000 or from [3000, 4999])", *code);
         }
     }
     boost::optional<std::string> reasonUtf8;
@@ -348,11 +345,11 @@ void WebSocketProtocol::onAutoPingTimeout() {
 void WebSocketProtocol::dropConnection(bool abort) {
     if (_state != State::CLOSED) {
         if (_wasClean) {
-            NET4CXX_LOG_DEBUG(gGenLog, "dropping connection to peer %s with abort=%s", _peer.c_str(),
-                              abort ? "true" : "false");
+            NET4CXX_LOG_DEBUG(gGenLog, "dropping connection to peer %s with abort=%s", _peer,
+                              TypeCast<std::string>(abort));
         } else {
-            NET4CXX_LOG_WARN(gGenLog, "dropping connection to peer %s with abort=%s: %s", _peer.c_str(),
-                             abort ? "true" : "false", _wasNotCleanReason ? _wasNotCleanReason->c_str() : "None");
+            NET4CXX_LOG_WARN(gGenLog, "dropping connection to peer %s with abort=%s: %s", _peer,
+                             TypeCast<std::string>(abort), _wasNotCleanReason ? _wasNotCleanReason->c_str() : "None");
         }
         _droppedByMe = true;
         _state = State::CLOSED;
@@ -614,8 +611,8 @@ void WebSocketProtocol::sendFrame(Byte opcode, const Byte *payload, size_t lengt
     size_t l;
     if (payloadLen > 0) {
         if (length == 0) {
-            NET4CXX_THROW_EXCEPTION(Exception, "cannot construct repeated payload with length " +
-                                               std::to_string(payloadLen) + " from payload of length 0");
+            NET4CXX_THROW_EXCEPTION(Exception, "cannot construct repeated payload with length %llu"
+                                               " from payload of length 0", payloadLen);
         }
         l = payloadLen;
         for (size_t i = 0; i < payloadLen / length; ++i) {
@@ -796,7 +793,7 @@ void WebSocketProtocol::onMessageFrameBegin(uint64_t length) {
 
 bool WebSocketProtocol::onFrameData(ByteArray payload) {
     if (_currentFrame->_opcode > 7u) {
-        ConcatBuffer(_controlFrameData, std::move(payload));
+        BufferUtil::concat(_controlFrameData, std::move(payload));
     } else {
         size_t compressedLen, uncompressedLen;
         if (_isMessageCompressed) {
@@ -837,9 +834,9 @@ void WebSocketProtocol::onMessageFrameData(ByteArray payload) {
                 failConnection(CLOSE_STATUS_CODE_MESSAGE_TOO_BIG, "message exceeds payload limit of " +
                                                                   std::to_string(_maxMessagePayloadSize) + " octets");
             }
-            ConcatBuffer(_messageData, std::move(payload));
+            BufferUtil::concat(_messageData, std::move(payload));
         } else {
-            ConcatBuffer(_frameData, std::move(payload));
+            BufferUtil::concat(_frameData, std::move(payload));
         }
     }
 }
@@ -1179,7 +1176,8 @@ void WebSocketServerProtocol::processHandshake() {
         }
 
         NET4CXX_LOG_DEBUG(gGenLog, "received HTTP status line in opening handshake : %s", _httpStatusLine);
-        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP headers in opening handshake : %s", StringMapToString(_httpHeaders));
+        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP headers in opening handshake : %s",
+                          TypeCast<std::string>(_httpHeaders));
 
         auto rl = StrUtil::split(_httpStatusLine);
         if (rl.size() != 3) {
@@ -1265,7 +1263,7 @@ void WebSocketServerProtocol::processHandshake() {
                 if (!((isSecure && externalPort == 443) || (!isSecure && externalPort == 80))) {
                     failHandshake(StrUtil::format("missing port in HTTP Host header '%s' and "
                                                   "server runs on non-standard port %u (wss = %s)",
-                                                  _httpRequestHost, externalPort, isSecure ? "true" : "false"));
+                                                  _httpRequestHost, externalPort, TypeCast<std::string>(isSecure)));
                 }
             } else {
                 NET4CXX_LOG_DEBUG(gGenLog, "skipping opening handshake port checking - "
@@ -1760,7 +1758,7 @@ void WebSocketServerFactory::setVersions(std::vector<int> versions) {
     for (auto v: versions) {
         if (!std::binary_search(WebSocketProtocol::SUPPORTED_PROTOCOL_VERSIONS.begin(),
                                 WebSocketProtocol::SUPPORTED_PROTOCOL_VERSIONS.end(), v)) {
-            NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket protocol version " + std::to_string(v));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket protocol version %d", v);
         }
     }
     _versions = std::move(versions);
@@ -1836,7 +1834,7 @@ void WebSocketClientProtocol::processProxyConnect() {
 
         NET4CXX_LOG_DEBUG(gGenLog, "received HTTP status line for proxy connect request : %s", httpStatusLine);
         NET4CXX_LOG_DEBUG(gGenLog, "received HTTP headers for proxy connect request : %s",
-                          StringMapToString(httpHeaders));
+                          TypeCast<std::string>(httpHeaders));
 
         auto sl = StrUtil::split(httpStatusLine);
         if (sl.size() < 2) {
@@ -1893,7 +1891,8 @@ void WebSocketClientProtocol::processHandshake() {
 
 
         NET4CXX_LOG_DEBUG(gGenLog, "received HTTP status line in opening handshake : %s", _httpStatusLine);
-        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP headers in opening handshake : %s", StringMapToString(_httpHeaders));
+        NET4CXX_LOG_DEBUG(gGenLog, "received HTTP headers in opening handshake : %s",
+                          TypeCast<std::string>(_httpHeaders));
 
         auto sl = StrUtil::split(_httpStatusLine);
         if (sl.size() < 2) {
@@ -2209,7 +2208,7 @@ void WebSocketClientFactory::resetProtocolOptions() {
 void WebSocketClientFactory::setVersion(int version) {
     if (!std::binary_search(WebSocketProtocol::SUPPORTED_SPEC_VERSIONS.begin(),
                             WebSocketProtocol::SUPPORTED_SPEC_VERSIONS.end(), version)) {
-        NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket draft version " + std::to_string(version));
+        NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket draft version %d", version);
     }
     _version = version;
 }

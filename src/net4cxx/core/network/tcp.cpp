@@ -33,7 +33,7 @@ void TCPConnection::loseConnection() {
     if (_disconnecting || _disconnected || !_connected) {
         return;
     }
-    _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "");
+    _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionDone, ""));
     _disconnecting = true;
     doClose();
 }
@@ -42,7 +42,7 @@ void TCPConnection::abortConnection() {
     if (_disconnecting || _disconnected || !_connected) {
         return;
     }
-    _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionAbort, "");
+    _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionAbort, ""));
     _disconnecting = true;
     _aborting = true;
     doAbort();
@@ -105,7 +105,7 @@ void TCPConnection::handleRead(const boost::system::error_code &ec, size_t trans
             if (ec == boost::asio::error::operation_aborted) {
                 NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
-                _error = NET4CXX_MAKE_EXCEPTION_PTR(ConnectionDone, "");
+                _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionDone, ""));
             } else {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             }
@@ -343,7 +343,7 @@ void TCPConnector::stopConnecting() {
     if (_state != kConnecting) {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
-    _error = NET4CXX_MAKE_EXCEPTION_PTR(UserAbort, "");
+    _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(UserAbort, ""));
     if (_connection) {
         _connection->getSocket().close();
         _connection.reset();
@@ -442,7 +442,7 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
 
 void TCPConnector::handleTimeout() {
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
-    _error = NET4CXX_MAKE_EXCEPTION_PTR(TimeoutError, "");
+    _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(TimeoutError, ""));
     connectionFailed();
 }
 

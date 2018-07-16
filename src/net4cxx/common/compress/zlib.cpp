@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/compress/zlib.h"
-#include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/common/debugging/assert.h"
 
 NS_BEGIN
@@ -238,9 +237,9 @@ void Zlib::handleError(z_stream zst, int err, const char *msg) {
         }
     }
     if (zmsg == Z_NULL) {
-        NET4CXX_THROW_EXCEPTION(ZlibError, StrUtil::format("Error %d %s", err, msg));
+        NET4CXX_THROW_EXCEPTION(ZlibError, "Error %d %s", err, msg);
     } else {
-        NET4CXX_THROW_EXCEPTION(ZlibError, StrUtil::format("Error %d %s: %.200s", err, msg, zmsg));
+        NET4CXX_THROW_EXCEPTION(ZlibError, "Error %d %s: %.200s", err, msg, zmsg);
     }
 }
 

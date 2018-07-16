@@ -651,7 +651,7 @@ QueryArgList UrlParse::parseQSL(const std::string &queryString, bool keepBlankVa
         pos = nameValue.find('=');
         if (pos == std::string::npos) {
             if (strictParsing) {
-                NET4CXX_THROW_EXCEPTION(ValueError, "bad query field:" + nameValue);
+                NET4CXX_THROW_EXCEPTION(ValueError, "bad query field:%s", nameValue);
             }
             if (keepBlankValues) {
                 name = nameValue;

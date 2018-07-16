@@ -49,7 +49,7 @@ Severity Logging::toSeverity(std::string severity) {
     boost::to_lower(severity);
     auto iter  = _severityMapping.find(severity);
     if (iter == _severityMapping.end()) {
-        NET4CXX_THROW_EXCEPTION(ValueError, "Invalid severity name:" + severity);
+        NET4CXX_THROW_EXCEPTION(ValueError, "Invalid severity name:%s", severity);
     }
     return iter->second;
 }

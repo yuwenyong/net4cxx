@@ -215,7 +215,7 @@ Morsel::Morsel() {
 std::string& Morsel::operator[](const std::string &key) {
     std::string tempKey = boost::to_lower_copy(key);
     if (reserved.find(tempKey) == reserved.end()) {
-        NET4CXX_THROW_EXCEPTION(CookieError, "Invalid Attribute " + tempKey);
+        NET4CXX_THROW_EXCEPTION(CookieError, "Invalid Attribute %s", tempKey);
     }
     return _items[std::move(tempKey)];
 }
@@ -223,10 +223,10 @@ std::string& Morsel::operator[](const std::string &key) {
 void Morsel::set(const std::string &key, const std::string &val, const std::string &codedVal,
                  const std::vector<char> &legalChars, const std::array<char, 256> &idmap) {
     if (reserved.find(boost::to_lower_copy(key)) != reserved.end()) {
-        NET4CXX_THROW_EXCEPTION(CookieError, "Attempt to set a reserved key: " + key);
+        NET4CXX_THROW_EXCEPTION(CookieError, "Attempt to set a reserved key: %s", key);
     }
     if (!StrUtil::translate(key, idmap, legalChars).empty()) {
-        NET4CXX_THROW_EXCEPTION(CookieError, "Illegal key value: " + key);
+        NET4CXX_THROW_EXCEPTION(CookieError, "Illegal key value: %s", key);
     }
     _key = key;
     _value = val;

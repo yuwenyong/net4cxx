@@ -103,18 +103,18 @@ protected:
     template <typename ValueT>
     ValueT get(const std::string &section, const std::string &option) const {
         if (!hasSection(section)) {
-            NET4CXX_THROW_EXCEPTION(NoSectionError, "No section: " + section);
+            NET4CXX_THROW_EXCEPTION(NoSectionError, "No section: %s", section);
         }
         if (!hasOption(section, option)) {
-            NET4CXX_THROW_EXCEPTION(NoOptionError, "No option " + option + " in section: " + section);
+            NET4CXX_THROW_EXCEPTION(NoOptionError, "No option %s in section: %s", option, section);
         }
         ValueT retVal;
         try {
             retVal = _config.get<ValueT>(section + '.' + option);
         } catch (boost::property_tree::ptree_bad_path &) {
-            NET4CXX_THROW_EXCEPTION(KeyError, "Missing name " + section + '.' + option);
+            NET4CXX_THROW_EXCEPTION(KeyError, "Missing name %s.%s", section, option);
         } catch (boost::property_tree::ptree_bad_data &) {
-            NET4CXX_THROW_EXCEPTION(TypeError, "Bad value for name " + section + '.' + option);
+            NET4CXX_THROW_EXCEPTION(TypeError, "Bad value for name %s.%s", section, option);
         }
         return retVal;
     }

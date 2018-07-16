@@ -92,8 +92,7 @@ WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     auto parsed = UrlParse::urlParse(url);
     const auto &scheme = parsed.getScheme();
     if (scheme != "ws" && scheme != "wss") {
-        NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket URL: protocol scheme '" + scheme +
-                                           "' is not for WebSocket");
+        NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket URL: protocol scheme '%s' is not for WebSocket", scheme);
     }
     auto hostname = parsed.getHostName();
     if (!parsed.getHostName() || (*hostname).empty()) {
@@ -105,7 +104,7 @@ WebSocketUtil::ParseUrlResult WebSocketUtil::parseUrl(const std::string &url) {
     }
     const auto &fragment = parsed.getFragment();
     if (!fragment.empty()) {
-        NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket URL: non-empty fragment '" + fragment + "'");
+        NET4CXX_THROW_EXCEPTION(Exception, "invalid WebSocket URL: non-empty fragment '%s'", fragment);
     }
     std::string path, ppath;
     if (!parsed.getPath().empty()) {
@@ -180,7 +179,7 @@ WebSocketUtil::UrlToOriginResult WebSocketUtil::urlToOrigin(const std::string &u
     }
 
     if (!host || host->empty()) {
-        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("No host part in Origin '%s'", url));
+        NET4CXX_THROW_EXCEPTION(ValueError, "No host part in Origin '%s'", url);
     }
     return std::make_tuple(scheme, *host, port);
 }

@@ -17,8 +17,15 @@ const char* Exception::what() const noexcept {
         ss << *boost::get_error_info<boost::throw_function>(*this);
         ss << ' ';
         ss << getTypeName();
-        ss << "\n\t";
-        ss << *boost::get_error_info<errinfo_message>(*this);
+        const std::string *message = boost::get_error_info<errinfo_message>(*this);
+        if (!message->empty()) {
+            ss << "\n\t";
+            ss << *boost::get_error_info<errinfo_message>(*this);
+        }
+        auto customErrorInfo = getCustomErrorInfo();
+        for (auto &line: customErrorInfo) {
+            ss << "\n\t" << line;
+        }
         if (boost::get_error_info<errinfo_stack_trace>(*this)) {
             ss << "\nBacktrace:\n";
             ss << *boost::get_error_info<errinfo_stack_trace>(*this);

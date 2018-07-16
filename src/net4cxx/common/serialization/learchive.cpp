@@ -3,7 +3,7 @@
 //
 
 #include "net4cxx/common/serialization/learchive.h"
-#include "net4cxx/common/utilities/strutil.h"
+
 
 NS_BEGIN
 
@@ -89,17 +89,17 @@ LEArchive& LEArchive::operator>>(ByteArray &value) {
 
 void LEArchive::checkSkipOverflow(size_t len) const {
     if (_pos + len > _storage.size()) {
-        std::string error = StrUtil::format("Attempted to skip value with size: %lu in LEArchive (pos: %lu size: %lu)",
-                                            len, _pos, _storage.size());
-        NET4CXX_THROW_EXCEPTION(ArchivePositionError, error);
+        NET4CXX_THROW_EXCEPTION(ArchivePositionError,
+                                "Attempted to skip value with size: %lu in LEArchive (pos: %lu size: %lu)",
+                                len, _pos, _storage.size());
     }
 }
 
 void LEArchive::checkReadOverflow(size_t len) const {
     if (_pos + len > _storage.size()) {
-        std::string error = StrUtil::format("Attempted to skip value with size: %lu in LEArchive (pos: %lu size: %lu)",
-                                            len, _pos, _storage.size());
-        NET4CXX_THROW_EXCEPTION(ArchivePositionError, error);
+        NET4CXX_THROW_EXCEPTION(ArchivePositionError,
+                                "Attempted to skip value with size: %lu in LEArchive (pos: %lu size: %lu)",
+                                len, _pos, _storage.size());
     }
 }
 

@@ -943,7 +943,7 @@ public:
                 _suppressAlreadyCalled = true;
             }
             if (!_called) {
-                errback(NET4CXX_MAKE_EXCEPTION_PTR(CancelledError, ""));
+                errback(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(CancelledError, "")));
             }
         } else if (auto result = _result.asDeferred()){
             result->cancel();

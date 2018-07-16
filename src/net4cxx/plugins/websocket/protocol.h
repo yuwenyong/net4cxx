@@ -236,7 +236,7 @@ protected:
 
     void onMessageFrame(ByteArray payload) {
         if (!_failedByMe) {
-            ConcatBuffer(_messageData, std::move(payload));
+            BufferUtil::concat(_messageData, std::move(payload));
         }
     }
 
@@ -249,26 +249,25 @@ protected:
     void sendAutoPing();
 
     void logRxOctets(const Byte *data, size_t len) {
-        NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s: octets = %s", _peer.c_str(),
-                          HexFormatter(data, len).toString().c_str());
+        NET4CXX_LOG_DEBUG(gGenLog, "RxOctets from %s: octets = %s", _peer, HexFormatter(data, len).toString());
     }
 
     void logTxOctets(const Byte *data, size_t len, bool sync) {
-        NET4CXX_LOG_DEBUG(gGenLog, "TxOctets to %s: sync = %s, octets = %s", _peer.c_str(), sync ? "true" : "false",
-                          HexFormatter(data, len).toString().c_str());
+        NET4CXX_LOG_DEBUG(gGenLog, "TxOctets to %s: sync = %s, octets = %s", _peer, TypeCast<std::string>(sync),
+                          HexFormatter(data, len).toString());
     }
 
     void logRxFrame(const FrameHeader &frameHeader, const Byte *payload, size_t len) {
         NET4CXX_LOG_DEBUG(gGenLog, "RX Frame from %s: fin = %s, rsv = %u, opcode = %u, mask = %s, length = %llu, "
                                    "payload = %s",
-                          _peer.c_str(),
-                          frameHeader._fin ? "true" : "false",
+                          _peer,
+                          TypeCast<std::string>(frameHeader._fin),
                           (unsigned)frameHeader._rsv,
                           (unsigned)frameHeader._opcode,
                           frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
                           frameHeader._length,
                           frameHeader._opcode == 1u ?
-                          BytesToString(payload, len) :
+                          TypeCast<std::string>(payload, len) :
                           HexFormatter(payload, len).toString());
     }
 
@@ -276,17 +275,17 @@ protected:
                     size_t chopsize, bool sync) {
         NET4CXX_LOG_DEBUG(gGenLog, "TX Frame to %s: fin = %s, rsv = %u, opcode = %u, mask = %s, length = %llu, "
                                    "repeat_length = %llu, chopsize = %llu, sync = %s, payload = %s",
-                          _peer.c_str(),
-                          frameHeader._fin ? "true" : "false",
+                          _peer,
+                          TypeCast<std::string>(frameHeader._fin),
                           (unsigned)frameHeader._rsv,
                           (unsigned)frameHeader._opcode,
                           frameHeader._mask ? HexFormatter(*frameHeader._mask).toString().c_str() : "-",
                           frameHeader._length,
                           (uint64_t)repeatLength,
                           (uint64_t)chopsize,
-                          sync ? "true" : "false",
+                          TypeCast<std::string>(sync),
                           frameHeader._opcode == 1u ?
-                          BytesToString(payload, len) :
+                          TypeCast<std::string>(payload, len) :
                           HexFormatter(payload, len).toString());
     }
 

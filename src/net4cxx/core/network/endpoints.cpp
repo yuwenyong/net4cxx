@@ -132,7 +132,7 @@ ServerEndpointPtr serverFromString(Reactor *reactor, const std::string &descript
         NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unsupported endpoint type: '%s'", endpointType.c_str()));
 #endif
     } else {
-        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unknown endpoint type: '%s'", endpointType.c_str()));
+        NET4CXX_THROW_EXCEPTION(ValueError, "Unknown endpoint type: '%s'", endpointType);
     }
 }
 
@@ -272,7 +272,7 @@ ClientEndpointPtr clientFromString(Reactor *reactor, const std::string &descript
         NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unsupported endpoint type: '%s'", endpointType.c_str()));
 #endif
     } else {
-        NET4CXX_THROW_EXCEPTION(ValueError, StrUtil::format("Unknown endpoint type: '%s'", endpointType.c_str()));
+        NET4CXX_THROW_EXCEPTION(ValueError, "Unknown endpoint type: '%s'", endpointType);
     }
 }
 

@@ -51,9 +51,9 @@ PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(PerMessageCompressOff
     }
 
     if (requestNoContextTakeover && !_offer->getAcceptNoContextTakeover()) {
-        NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %s for request_no_context_takeover"
-                                                           " - feature unsupported by client",
-                                                           requestNoContextTakeover ? "true" : "false"));
+        NET4CXX_THROW_EXCEPTION(Exception, "invalid value %s for request_no_context_takeover"
+                                           " - feature unsupported by client",
+                                TypeCast<std::string>(requestNoContextTakeover));
     }
     _requestNoContextTakeover = requestNoContextTakeover;
 
@@ -61,22 +61,20 @@ PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(PerMessageCompressOff
         !std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                             PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(),
                             requestMaxWindowBits)) {
-        NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for request_max_window_bits",
-                                                           requestMaxWindowBits));
+        NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for request_max_window_bits", requestMaxWindowBits);
     }
 
     if (requestMaxWindowBits != 0 && !_offer->getAcceptMaxWindowBits()) {
-        NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for request_max_window_bits"
-                                                           " - feature unsupported by client",
-                                                           requestMaxWindowBits));
+        NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for request_max_window_bits"
+                                           " - feature unsupported by client",
+                                requestMaxWindowBits);
     }
     _requestMaxWindowBits = requestMaxWindowBits;
 
     if (noContextTakeover) {
         if (_offer->getRequestNoContextTakeover() && !*noContextTakeover) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %s for no_context_takeover"
-                                                               " - client requested feature",
-                                                               *noContextTakeover ? "true" : "false"));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %s for no_context_takeover - client requested feature",
+                                    TypeCast<std::string>(*noContextTakeover));
         }
     }
     _noContextTakeover = noContextTakeover;
@@ -84,12 +82,13 @@ PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(PerMessageCompressOff
     if (windowBits) {
         if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                                 PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), *windowBits)) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for window_bits", *windowBits));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for window_bits", *windowBits);
         }
 
         if (_offer->getRequestMaxWindowBits() != 0 && *windowBits > _offer->getRequestMaxWindowBits()) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for window_bits"
-                                                               " - client requested lower maximum value", *windowBits));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for window_bits"
+                                               " - client requested lower maximum value",
+                                    *windowBits);
         }
     }
     _windowBits = windowBits;
@@ -97,7 +96,7 @@ PerMessageDeflateOfferAccept::PerMessageDeflateOfferAccept(PerMessageCompressOff
     if (memLevel) {
         if (!std::binary_search(PerMessageDeflateConstants::MEM_LEVEL_PERMISSIBLE_VALUES.begin(),
                                 PerMessageDeflateConstants::MEM_LEVEL_PERMISSIBLE_VALUES.end(), *memLevel)) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for mem_level", *memLevel));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for mem_level", *memLevel);
         }
     }
     _memLevel = memLevel;
@@ -143,9 +142,8 @@ PerMessageDeflateResponseAccept::PerMessageDeflateResponseAccept(PerMessageCompr
 
     if (noContextTakeover) {
         if (_response->getClientNoContextTakeover() && !*noContextTakeover) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %s for no_context_takeover"
-                                                               " - server requested feature",
-                                                               *noContextTakeover ? "true" : "false"));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %s for no_context_takeover - server requested feature",
+                                    TypeCast<std::string>(*noContextTakeover));
         }
     }
     _noContextTakeover = noContextTakeover;
@@ -153,12 +151,13 @@ PerMessageDeflateResponseAccept::PerMessageDeflateResponseAccept(PerMessageCompr
     if (windowBits) {
         if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                                 PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), *windowBits)) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for window_bits", *windowBits));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for window_bits", *windowBits);
         }
 
         if (_response->getClientMaxWindowBits() != 0 && *windowBits > _response->getClientMaxWindowBits()) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for window_bits"
-                                                               " - server requested lower maximum value", *windowBits));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for window_bits"
+                                               " - server requested lower maximum value",
+                                    *windowBits);
         }
     }
     _windowBits = windowBits;
@@ -166,7 +165,7 @@ PerMessageDeflateResponseAccept::PerMessageDeflateResponseAccept(PerMessageCompr
     if (memLevel) {
         if (!std::binary_search(PerMessageDeflateConstants::MEM_LEVEL_PERMISSIBLE_VALUES.begin(),
                                 PerMessageDeflateConstants::MEM_LEVEL_PERMISSIBLE_VALUES.end(), *memLevel)) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("invalid value %d for mem_level", *memLevel));
+            NET4CXX_THROW_EXCEPTION(Exception, "invalid value %d for mem_level", *memLevel);
         }
     }
     _memLevel = memLevel;
@@ -244,9 +243,8 @@ PerMessageCompressOfferPtr PerMessageDeflateFactory::createOfferFromParams(const
     for (auto &param: params) {
         auto &p = param.first;
         if (param.second.size() > 1) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("multiple occurrence of extension parameter '%s' "
-                                                               "for extension '%s'", p,
-                                                               PerMessageDeflateConstants::EXTENSION_NAME));
+            NET4CXX_THROW_EXCEPTION(Exception, "multiple occurrence of extension parameter '%s' for extension '%s'", p,
+                                    PerMessageDeflateConstants::EXTENSION_NAME);
         }
 
         auto &val = param.second.front();
@@ -257,15 +255,15 @@ PerMessageCompressOfferPtr PerMessageDeflateFactory::createOfferFromParams(const
                 try {
                     value = std::stoi(*val);
                 } catch (...) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 }
                 if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                                         PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), value)) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 } else {
                     acceptMaxWindowBits = true;
                 }
@@ -274,9 +272,9 @@ PerMessageCompressOfferPtr PerMessageDeflateFactory::createOfferFromParams(const
             }
         } else if (p == "client_no_context_takeover") {
             if (val) {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", *val, p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", *val, p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             } else {
                 acceptNoContextTakeover = true;
             }
@@ -286,34 +284,34 @@ PerMessageCompressOfferPtr PerMessageDeflateFactory::createOfferFromParams(const
                 try {
                     value = std::stoi(*val);
                 } catch (...) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 }
                 if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                                         PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), value)) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 } else {
                     requestMaxWindowBits = value;
                 }
             } else {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", "", p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", "", p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             }
         } else if (p == "server_no_context_takeover") {
             if (val) {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", *val, p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", *val, p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             } else {
                 requestNoContextTakeover = true;
             }
         } else {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter '%s' for extension '%s'", p,
-                                                               PerMessageDeflateConstants::EXTENSION_NAME));
+            NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter '%s' for extension '%s'", p,
+                                    PerMessageDeflateConstants::EXTENSION_NAME);
         }
     }
     return std::make_shared<PerMessageDeflateOffer>(acceptNoContextTakeover, acceptMaxWindowBits,
@@ -330,9 +328,8 @@ PerMessageCompressResponsePtr PerMessageDeflateFactory::createResponseFromParams
     for (auto &param: params) {
         auto &p = param.first;
         if (param.second.size() > 1) {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("multiple occurrence of extension parameter '%s' "
-                                                               "for extension '%s'", p,
-                                                               PerMessageDeflateConstants::EXTENSION_NAME));
+            NET4CXX_THROW_EXCEPTION(Exception, "multiple occurrence of extension parameter '%s' for extension '%s'", p,
+                                    PerMessageDeflateConstants::EXTENSION_NAME);
         }
 
         auto &val = param.second.front();
@@ -343,28 +340,28 @@ PerMessageCompressResponsePtr PerMessageDeflateFactory::createResponseFromParams
                 try {
                     value = std::stoi(*val);
                 } catch (...) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 }
                 if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                                         PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), value)) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 } else {
                     clientMaxWindowBits = value;
                 }
             } else {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", "", p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", "", p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             }
         } else if (p == "client_no_context_takeover") {
             if (val) {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", *val, p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", *val, p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             } else {
                 clientNoContextTakeover = true;
             }
@@ -374,34 +371,34 @@ PerMessageCompressResponsePtr PerMessageDeflateFactory::createResponseFromParams
                 try {
                     value = std::stoi(*val);
                 } catch (...) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 }
                 if (!std::binary_search(PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.begin(),
                                         PerMessageDeflateConstants::WINDOW_SIZE_PERMISSIBLE_VALUES.end(), value)) {
-                    NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                       "for parameter '%s' of extension '%s'", *val, p,
-                                                                       PerMessageDeflateConstants::EXTENSION_NAME));
+                    NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                       "for parameter '%s' of extension '%s'", *val, p,
+                                            PerMessageDeflateConstants::EXTENSION_NAME);
                 } else {
                     serverMaxWindowBits = value;
                 }
             } else {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", "", p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", "", p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             }
         } else if (p == "server_no_context_takeover") {
             if (val) {
-                NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter value '%s' "
-                                                                   "for parameter '%s' of extension '%s'", *val, p,
-                                                                   PerMessageDeflateConstants::EXTENSION_NAME));
+                NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter value '%s' "
+                                                   "for parameter '%s' of extension '%s'", *val, p,
+                                        PerMessageDeflateConstants::EXTENSION_NAME);
             } else {
                 serverNoContextTakeover = true;
             }
         } else {
-            NET4CXX_THROW_EXCEPTION(Exception, StrUtil::format("illegal extension parameter '%s' for extension '%s'", p,
-                                                               PerMessageDeflateConstants::EXTENSION_NAME));
+            NET4CXX_THROW_EXCEPTION(Exception, "illegal extension parameter '%s' for extension '%s'", p,
+                                    PerMessageDeflateConstants::EXTENSION_NAME);
         }
     }
     return std::make_shared<PerMessageDeflateResponse>(clientMaxWindowBits, clientNoContextTakeover,
