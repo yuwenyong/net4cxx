@@ -23,7 +23,7 @@ constexpr size_t DEFAULT_READ_CHUNK_SIZE = 4096;
 constexpr size_t DEFAULT_MAX_BUFFER_SIZE = 104857600;
 
 
-class BaseIOStream: public std::enable_shared_from_this<BaseIOStream> {
+class NET4CXX_COMMON_API BaseIOStream: public std::enable_shared_from_this<BaseIOStream> {
 public:
     using SocketType = boost::asio::ip::tcp::socket;
     using EndpointType = boost::asio::ip::tcp::endpoint;
@@ -232,7 +232,10 @@ protected:
 };
 
 
-class IOStream: public BaseIOStream {
+using BaseIOStreamPtr = std::shared_ptr<BaseIOStream>;
+
+
+class NET4CXX_COMMON_API IOStream: public BaseIOStream {
 public:
     IOStream(SocketType &&socket,
              Reactor *reactor,
@@ -262,7 +265,7 @@ public:
 };
 
 
-class SSLIOStream: public BaseIOStream {
+class NET4CXX_COMMON_API SSLIOStream: public BaseIOStream {
 public:
     typedef boost::asio::ssl::stream<boost::asio::ip::tcp::socket&> SSLSocketType;
 

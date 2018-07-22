@@ -2262,7 +2262,7 @@ std::istream& operator>>(std::istream &sin, JsonValue &root) {
     std::string errs;
     bool ok = parseFromStream(b, sin, &root, &errs);
     if (!ok) {
-        NET4CXX_THROW_EXCEPTION(ParsingError, errs.c_str());
+        NET4CXX_THROW_EXCEPTION(ParsingError, errs);
     }
     return sin;
 }

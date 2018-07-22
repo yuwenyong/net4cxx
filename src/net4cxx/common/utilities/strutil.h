@@ -65,6 +65,11 @@ public:
         return formatter.str();
     }
 
+    template <typename... Args>
+    static std::string format(const std::string &fmt, Args&&... args) {
+        return format(fmt.c_str(), std::forward<Args>(args)...);
+    }
+
     static PartitionResult partition(const std::string &s, const std::string &sep);
 
     static PartitionResult rpartition(const std::string &s, const std::string &sep);

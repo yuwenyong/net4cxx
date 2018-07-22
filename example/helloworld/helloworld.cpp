@@ -67,7 +67,7 @@ DeferredPtr<void> callLater(Reactor *reactor, double timeout) {
 void testMyError() {
     std::string myname = "double";
     bool boy = true;
-    NET4CXX_THROW_EXCEPTION(ConnectionDeny, "hehe %s, %s", myname, TypeCast<std::string>(boy)) << errinfo_http_code(10);
+    NET4CXX_THROW_EXCEPTION(ConnectionDeny, "hehe %s, %s", myname, TypeCast<std::string>(boy)) << errinfo_http_code(404);
 }
 
 int main (int argc, char **argv) {

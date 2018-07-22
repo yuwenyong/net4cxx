@@ -36,17 +36,18 @@ public:
     };
 
     int getCode() const {
-        return *boost::get_error_info<errinfo_http_code>(*this);
+        auto code = boost::get_error_info<errinfo_http_code>(*this);
+        NET4CXX_ASSERT(code != nullptr);
+        return *code;
     }
 
-    std::string getReason() const {
-        return *boost::get_error_info<errinfo_message>(*this);
-    }
-
+    std::string getReason() const;
 protected:
     const char *getTypeName() const override {
         return "ConnectionDeny";
     }
+
+    StringVector getCustomErrorInfo() const override;
 };
 
 

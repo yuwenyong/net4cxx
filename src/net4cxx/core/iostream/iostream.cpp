@@ -137,6 +137,7 @@ void BaseIOStream::close(std::exception_ptr error) {
         _closing = true;
         closeSocket();
     }
+    maybeRunCloseCallback();
 }
 
 void BaseIOStream::onConnect(const boost::system::error_code &ec) {
@@ -239,21 +240,14 @@ void BaseIOStream::onClose(const boost::system::error_code &ec) {
 }
 
 void BaseIOStream::maybeRunCloseCallback() {
-    if (_closeCallback) {
-        if (_closed && _pendingCallbacks == 0) {
+    if (_closed && _pendingCallbacks == 0) {
+        if (_closeCallback) {
             CloseCallbackType callback(std::move(_closeCallback));
             _closeCallback = nullptr;
             runCallback(std::move(callback));
-            clearCallbacks();
-        } else {
-            _readCallback = nullptr;
-            _writeCallback = nullptr;
         }
+        clearCallbacks();
         _writeQueue.clear();
-    } else {
-        if (_pendingCallbacks == 0) {
-            clearCallbacks();
-        }
     }
 }
 
