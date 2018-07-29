@@ -108,12 +108,14 @@ public:
         return endpoint.port();
     }
 
-    void start() {
+    void onAccept() {
         _socket.non_blocking(true);
         maybeAddErrorListener();
     }
 
     virtual void clearCallbacks();
+
+    virtual void realConnect(ResolverResultsType addresses) = 0;
 
     virtual void realConnect(const std::string &address, unsigned short port) = 0;
 
@@ -122,6 +124,8 @@ public:
     virtual void writeToSocket() = 0;
 
     virtual void readFromSocket() = 0;
+
+    void connect(ResolverResultsType addresses, ConnectCallbackType callback= nullptr);
 
     void connect(const std::string &address, unsigned short port, ConnectCallbackType callback= nullptr);
 
@@ -253,6 +257,7 @@ public:
     }
 #endif
 
+    void realConnect(ResolverResultsType addresses) override;
     void realConnect(const std::string &address, unsigned short port) override;
     void readFromSocket() override;
     void writeToSocket() override;
@@ -289,6 +294,7 @@ public:
 #endif
 
     void clearCallbacks() override;
+    void realConnect(ResolverResultsType addresses) override;
     void realConnect(const std::string &address, unsigned short port) override;
     void readFromSocket() override;
     void writeToSocket() override;

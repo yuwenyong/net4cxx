@@ -1,0 +1,3 @@
+add_executable(httpclient httpclient.cpp)
+add_dependencies(httpclient net4cxx)
+target_link_libraries(httpclient net4cxx)

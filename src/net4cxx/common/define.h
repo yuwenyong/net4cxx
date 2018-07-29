@@ -102,5 +102,7 @@ NS_END
 #define NET4CXX_VERSION      "1.0.0"
 #define NET4CXX_VER          "net4cxx/" NET4CXX_VERSION
 
+#define BOOST_PARAMETER_MAX_ARITY 30
+
 
 #endif //NET4CXX_COMMON_DEFINE_H

@@ -28,7 +28,7 @@ public:
     void bind(unsigned short port, std::string address);
 
     void start() {
-        accept();
+        doAccept();
     }
 
     unsigned short getLocalPort() const {
@@ -41,7 +41,7 @@ public:
     virtual void handleStream(std::shared_ptr<BaseIOStream> stream, std::string address) = 0;
 
 protected:
-    void accept() {
+    void doAccept() {
         _acceptor.async_accept(_socket, std::bind(&TCPServer::onAccept, shared_from_this(), std::placeholders::_1));
     }
 

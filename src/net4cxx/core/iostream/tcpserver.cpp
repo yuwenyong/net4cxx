@@ -49,13 +49,13 @@ void TCPServer::onAccept(const boost::system::error_code &ec) {
             } else {
                 stream = IOStream::create(std::move(_socket), _reactor, _maxBufferSize);
             }
-            stream->start();
+            stream->onAccept();
             std::string remoteAddress = stream->getRemoteAddress();
             handleStream(std::move(stream), std::move(remoteAddress));
         } catch (std::exception &e) {
             NET4CXX_LOG_ERROR(gAppLog, "Error in connection callback:%s", e.what());
         }
-        accept();
+        doAccept();
     }
 }
 

@@ -78,13 +78,22 @@ int main (int argc, char **argv) {
 //        NET4CXX_LOG_INFO("Every two seconds");
 //    }, 2.0f)->start();
 //    reactor.run();
+//    try {
+//        testMyError();
+//    } catch (ConnectionDeny &e) {
+//        std::cout << e.what() << std::endl;
+//        std::cout << "code:" << e.getCode() << std::endl;
+//        std::cout << "reason:" << e.getReason() << std::endl;
+//    }
     try {
-        testMyError();
-    } catch (ConnectionDeny &e) {
+        int i =3;
+        NET4CXX_ASSERT_THROW(i == 3, "i must be 4");
+    } catch (std::exception &e) {
         std::cout << e.what() << std::endl;
-        std::cout << "code:" << e.getCode() << std::endl;
-        std::cout << "reason:" << e.getReason() << std::endl;
     }
+    auto request = HTTPRequest::create("http://baidu.com", ARG_method="POST");
+    std::cout << request->getUrl() << std::endl;
+    std::cout << request->getMethod() << std::endl;
     return 0;
 };
 

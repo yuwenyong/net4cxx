@@ -23,6 +23,12 @@ void BaseIOStream::clearCallbacks() {
     _connectCallback = nullptr;
 }
 
+void BaseIOStream::connect(ResolverResultsType addresses, ConnectCallbackType callback) {
+    _connecting = true;
+    _connectCallback = std::move(callback);
+    realConnect(std::move(addresses));
+}
+
 void BaseIOStream::connect(const std::string &address, unsigned short port, ConnectCallbackType callback) {
     _connecting = true;
     _connectCallback = std::move(callback);
@@ -367,22 +373,27 @@ void BaseIOStream::maybeAddErrorListener() {
 }
 
 
-void IOStream::realConnect(const std::string &address, unsigned short port) {
-    ResolverType resolver(_reactor->getIOContext());
-    boost::system::error_code ec;
-    auto results = resolver.resolve(address, std::to_string(port), ec);
-    if (ec) {
-        onConnect(ec);
-        return;
-    }
-//    auto op = std::make_shared<Wrapper2>(shared_from_this(), [this](const boost::system::error_code &ec) {
+void IOStream::realConnect(ResolverResultsType addresses) {
+//    ResolverType resolver(_reactor->getIOContext());
+//    boost::system::error_code ec;
+//    auto results = resolver.resolve(address, std::to_string(port), ec);
+//    if (ec) {
 //        onConnect(ec);
-//    });
-//    boost::asio::async_connect(_socket, iter, std::bind(&Wrapper2::operator(), std::move(op), std::placeholders::_1));
+//        return;
+//    }
     Wrapper4 op(shared_from_this(), [this](const boost::system::error_code &ec, const EndpointType &ep) {
         onConnect(ec);
     });
-    boost::asio::async_connect(_socket, results, std::move(op));
+    boost::asio::async_connect(_socket, addresses, std::move(op));
+    _state |= S_WRITE;
+}
+
+void IOStream::realConnect(const std::string &address, unsigned short port) {
+    EndpointType endpoint(boost::asio::ip::make_address(address), port);
+    Wrapper2 op(shared_from_this(), [this](const boost::system::error_code &ec) {
+        onConnect(ec);
+    });
+    _socket.async_connect(endpoint, std::move(op));
     _state |= S_WRITE;
 }
 
@@ -462,21 +473,31 @@ void SSLIOStream::clearCallbacks() {
     _sslConnectCallback = nullptr;
 }
 
-void SSLIOStream::realConnect(const std::string &address, unsigned short port) {
-    ResolverType resolver(_reactor->getIOContext());
-    boost::system::error_code ec;
-    auto results = resolver.resolve(address, std::to_string(port), ec);
-    if (ec) {
-        onConnect(ec);
-        return;
-    }
+void SSLIOStream::realConnect(ResolverResultsType addresses) {
+//    ResolverType resolver(_reactor->getIOContext());
+//    boost::system::error_code ec;
+//    auto results = resolver.resolve(address, std::to_string(port), ec);
+//    if (ec) {
+//        onConnect(ec);
+//        return;
+//    }
     _sslConnectCallback = std::move(_connectCallback);
     _connectCallback = nullptr;
     Wrapper4 op(shared_from_this(), [this](const boost::system::error_code &ec, const EndpointType &ep) {
         onConnect(ec);
     });
-    boost::asio::async_connect(_sslSocket.lowest_layer(), results, std::move(op));
+    boost::asio::async_connect(_sslSocket.lowest_layer(), addresses, std::move(op));
     _state |= S_WRITE;
+}
+
+void SSLIOStream::realConnect(const std::string &address, unsigned short port) {
+    EndpointType endpoint(boost::asio::ip::make_address(address), port);
+    _sslConnectCallback = std::move(_connectCallback);
+    _connectCallback = nullptr;
+    Wrapper2 op(shared_from_this(), [this](const boost::system::error_code &ec) {
+        onConnect(ec);
+    });
+    _sslSocket.lowest_layer().async_connect(endpoint, std::move(op));
 }
 
 void SSLIOStream::readFromSocket() {

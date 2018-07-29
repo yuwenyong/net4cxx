@@ -105,8 +105,6 @@ public:
 
     void parseLines(const std::string &headers);
 
-    std::string toString() const;
-
     static std::unique_ptr<HTTPHeaders> parse(const std::string &headers) {
         auto h = HTTPHeaders::create();
         h->parseLines(headers);
@@ -117,6 +115,10 @@ public:
     static std::unique_ptr<HTTPHeaders> create(Args&& ...args) {
         return std::make_unique<HTTPHeaders>(std::forward<Args>(args)...);
     }
+
+    const StringMap& items() const {
+        return _items;
+    }
 protected:
     static std::string normalizeName(const std::string &name);
 
@@ -125,6 +127,9 @@ protected:
     std::string _lastKey;
     static const boost::regex _normalizedHeader;
 };
+
+
+std::ostream& NET4CXX_COMMON_API operator<<(std::ostream &os, const HTTPHeaders &headers);
 
 
 class NET4CXX_COMMON_API HTTPFile {
