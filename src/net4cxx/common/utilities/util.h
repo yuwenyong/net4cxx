@@ -89,12 +89,12 @@ public:
 
 class NET4CXX_COMMON_API DateTimeUtil {
 public:
-    static std::string formatDate(bool usegmt=false) {
+    static std::string formatDate(bool usegmt=false, bool localtime=false) {
         DateTime now = boost::posix_time::second_clock::universal_time();
-        return formatDate(now, usegmt);
+        return formatDate(now, localtime, usegmt);
     }
 
-    static std::string formatDate(const DateTime &timeval, bool usegmt=false);
+    static std::string formatDate(const DateTime &timeval, bool localtime=false, bool usegmt=false);
 
     static std::string formatUTCDate(const DateTime &ts);
 

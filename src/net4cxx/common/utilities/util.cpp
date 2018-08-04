@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/common/utilities/util.h"
+#include <boost/date_time/c_local_time_adjustor.hpp>
 #include "net4cxx/common/utilities/strutil.h"
 
 NS_BEGIN
@@ -25,12 +26,26 @@ std::string TypeUtil::typeCast(Type2Type<std::string>, const StringMap &m) {
 }
 
 
-std::string DateTimeUtil::formatDate(const DateTime &timeval, bool usegmt) {
+std::string DateTimeUtil::formatDate(const DateTime &timeval, bool localtime, bool usegmt) {
+    DateTime now;
     std::string zone;
-    if (usegmt) {
-        zone = "GMT";
+    if (localtime) {
+        now = boost::date_time::c_local_adjustor<DateTime>::utc_to_local(timeval);
+        auto offset = timeval - now;
+        if (offset.is_negative()) {
+            zone = "-";
+            offset.invert_sign();
+        } else {
+            zone = "+";
+        }
+        zone += StrUtil::format("%02d%02d", offset.hours(), offset.minutes());
     } else {
-        zone = "-0000";
+        now = timeval;
+        if (usegmt) {
+            zone = "GMT";
+        } else {
+            zone = "-0000";
+        }
     }
     const char *weekdayNames[] = {
             "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
@@ -39,10 +54,10 @@ std::string DateTimeUtil::formatDate(const DateTime &timeval, bool usegmt) {
             "Jan", "Feb", "Mar", "Apr", "May", "Jun",
             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
     };
-    const Date date = timeval.date();
-    const Time time = timeval.time_of_day();
+    const Date date = now.date();
+    const Time time = now.time_of_day();
     return StrUtil::format("%s, %02d %s %04d %02d:%02d:%02d %s", weekdayNames[date.day_of_week().as_number()],
-                           date.day(), monthNames[date.month() - 1], date.year(), time.hours(), time.minutes(),
+                           date.day(), monthNames[(size_t)date.month() - 1], date.year(), time.hours(), time.minutes(),
                            time.seconds(), zone.c_str());
 }
 

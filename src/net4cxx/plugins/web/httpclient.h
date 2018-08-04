@@ -269,7 +269,7 @@ protected:
                     (authMode, (std::string), "")
                     (connectTimeout, (double), 20.0)
                     (requestTimeout, (double), 20.0)
-                    (ifModifiedSince, (boost::optional<DateTime>), boost::none)
+                    (ifModifiedSince, (DateTime), DateTime())
                     (followRedirects, (bool), true)
                     (maxRedirects, (int), 5)
                     (userAgent, (std::string), "")
@@ -288,8 +288,8 @@ protected:
                     (clientCert, (std::string), "")
     )) {
         _headers = headers;
-        if (ifModifiedSince) {
-            _headers["If-Modified-Since"] = HTTPUtil::formatTimestamp(ifModifiedSince.get());
+        if (!ifModifiedSince.is_not_a_date_time()) {
+            _headers["If-Modified-Since"] = HTTPUtil::formatTimestamp(ifModifiedSince);
         }
 
         _proxyHost = proxyHost;
