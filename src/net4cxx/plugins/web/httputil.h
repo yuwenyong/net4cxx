@@ -189,7 +189,7 @@ public:
                                        HTTPFileListMap &files);
 
     static std::string formatTimestamp(const DateTime &ts) {
-        return DateTimeUtil::formatDate(ts, true);
+        return DateTimeUtil::formatDate(ts, false, true);
     }
 
     static std::string formatTimestamp(time_t ts) {

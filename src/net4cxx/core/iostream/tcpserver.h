@@ -38,7 +38,7 @@ public:
 
     void stop();
 
-    virtual void handleStream(std::shared_ptr<BaseIOStream> stream, std::string address) = 0;
+    virtual void handleStream(BaseIOStreamPtr stream, std::string address) = 0;
 
 protected:
     void doAccept() {

@@ -17,6 +17,8 @@ public:
     static const char *SSLIOStreamCount;
     static const char *HTTPClientCount;
     static const char *HTTPClientConnectionCount;
+    static const char *HTTPConnectionCount;
+    static const char *HTTPServerRequestCount;
 };
 
 
