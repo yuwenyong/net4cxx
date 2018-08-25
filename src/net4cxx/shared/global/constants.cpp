@@ -15,5 +15,6 @@ const char* WatchKeys::HTTPClientCount = "sys.HTTPClientCount";
 const char* WatchKeys::HTTPClientConnectionCount = "sys.HTTPClientConnectionCount";
 const char* WatchKeys::HTTPConnectionCount = "sys.HTTPConnectionCount";
 const char* WatchKeys::HTTPServerRequestCount = "sys.HTTPServerRequestCount";
+const char* WatchKeys::RequestHandlerCount = "sys.RequestHandlerCount";
 
 NS_END

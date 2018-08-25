@@ -1467,7 +1467,7 @@ void sendClose(boost::optional<unsigned short> code=boost::none, boost::optional
 
 ```c++
 template <typename SelfT>
-std::shared_ptr<SelfT> getSelf() const;
+std::shared_ptr<const SelfT> getSelf() const;
 
 template <typename SelfT>
 std::shared_ptr<SelfT> getSelf();

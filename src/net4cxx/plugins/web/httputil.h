@@ -263,6 +263,8 @@ public:
     }
 
     std::string getReason() const;
+
+    bool hasReason() const;
 protected:
     const char *getTypeName() const override {
         return "HTTPError";

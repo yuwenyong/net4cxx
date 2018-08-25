@@ -18,6 +18,7 @@ NS_BEGIN
 class HTTPServerRequest;
 
 using HTTPServerRequestPtr = std::shared_ptr<HTTPServerRequest>;
+using HTTPServerRequestConstPtr = std::shared_ptr<const HTTPServerRequest>;
 
 
 class NET4CXX_COMMON_API HTTPServer: public TCPServer {

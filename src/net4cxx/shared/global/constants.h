@@ -19,6 +19,7 @@ public:
     static const char *HTTPClientConnectionCount;
     static const char *HTTPConnectionCount;
     static const char *HTTPServerRequestCount;
+    static const char *RequestHandlerCount;
 };
 
 

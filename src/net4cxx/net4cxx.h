@@ -40,6 +40,7 @@
 #include "net4cxx/core/iostream/util.h"
 
 #include "net4cxx/plugins/web/httpclient.h"
+#include "net4cxx/plugins/web/web.h"
 #include "net4cxx/plugins/websocket/websocket.h"
 
 #endif //NET4CXX_NET4CXX_H

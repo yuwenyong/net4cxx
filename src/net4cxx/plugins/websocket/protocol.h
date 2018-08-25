@@ -131,7 +131,7 @@ public:
     }
 
     template <typename SelfT>
-    std::shared_ptr<SelfT> getSelf() const {
+    std::shared_ptr<const SelfT> getSelf() const {
         return std::static_pointer_cast<SelfT>(shared_from_this());
     }
 
