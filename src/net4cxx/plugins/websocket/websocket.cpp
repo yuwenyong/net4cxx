@@ -15,8 +15,8 @@ ConnectorPtr connectWS(Reactor *reactor, std::shared_ptr<WebSocketClientFactory>
     }
     if (factory->isSecure()) {
         if (!sslOption) {
-            SSLParams params(false);
-            sslOption = SSLOption::create(params);
+            SSLClientOptionBuilder builder;
+            sslOption = builder.build();
         }
     }
     ConnectorPtr conn;

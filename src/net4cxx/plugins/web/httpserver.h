@@ -8,7 +8,7 @@
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/common/httputils/urlparse.h"
-#include "net4cxx/core/iostream/tcpserver.h"
+#include "net4cxx/core/streams/tcpserver.h"
 #include "net4cxx/plugins/web/httputil.h"
 
 

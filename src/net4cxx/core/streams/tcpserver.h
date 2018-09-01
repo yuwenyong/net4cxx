@@ -2,11 +2,11 @@
 // Created by yuwenyong.vincent on 2018/7/14.
 //
 
-#ifndef NET4CXX_CORE_IOSTREAM_TCPSERVER_H
-#define NET4CXX_CORE_IOSTREAM_TCPSERVER_H
+#ifndef NET4CXX_CORE_STREAMS_TCPSERVER_H
+#define NET4CXX_CORE_STREAMS_TCPSERVER_H
 
 #include "net4cxx/common/common.h"
-#include "net4cxx/core/iostream/iostream.h"
+#include "net4cxx/core/streams/iostream.h"
 
 
 NS_BEGIN
@@ -56,4 +56,4 @@ protected:
 
 NS_END
 
-#endif //NET4CXX_CORE_IOSTREAM_TCPSERVER_H
+#endif //NET4CXX_CORE_STREAMS_TCPSERVER_H

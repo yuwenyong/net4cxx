@@ -8,7 +8,7 @@
 #include "net4cxx/common/common.h"
 #include "net4cxx/shared/global/params.h"
 #include <boost/optional.hpp>
-#include "net4cxx/core/iostream/iostream.h"
+#include "net4cxx/core/streams/iostream.h"
 #include "net4cxx/plugins/web/httputil.h"
 
 

@@ -119,26 +119,26 @@ void HTTPClientConnection::onResolve(const boost::system::error_code &ec, BaseIO
 std::shared_ptr<BaseIOStream> HTTPClientConnection::createStream() const {
     BaseIOStream::SocketType socket(_reactor->getIOContext());
     if (_parsed.getScheme() == "https") {
-        SSLParams sslParams(false);
+        SSLClientOptionBuilder builder;
         if (_request->isValidateCert()) {
-            sslParams.setVerifyMode(SSLVerifyMode::CERT_REQUIRED);
-            sslParams.setCheckHost(_parsedHostname);
+            builder.setVerifyMode(SSLVerifyMode::CERT_REQUIRED);
+            builder.setCheckHost(_parsedHostname);
         } else {
-            sslParams.setVerifyMode(SSLVerifyMode::CERT_NONE);
+            builder.setVerifyMode(SSLVerifyMode::CERT_NONE);
         }
         const std::string &caCerts = _request->getCACerts();
         if (!caCerts.empty()) {
-            sslParams.setVerifyFile(caCerts);
+            builder.setVerifyFile(caCerts);
         }
         const std::string &clientKey = _request->getClientKey();
         if (!clientKey.empty()) {
-            sslParams.setKeyFile(clientKey);
+            builder.setKeyFile(clientKey);
         }
         const std::string &clientCert = _request->getClientCert();
         if (!clientCert.empty()) {
-            sslParams.setCertFile(clientCert);
+            builder.setCertFile(clientCert);
         }
-        auto sslOption = SSLOption::create(sslParams);
+        auto sslOption = builder.build();
         return SSLIOStream::create(std::move(socket), std::move(sslOption), _reactor, _maxBufferSize);
     } else {
         return IOStream::create(std::move(socket), _reactor, _maxBufferSize);

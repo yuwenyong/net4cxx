@@ -2,7 +2,7 @@
 // Created by yuwenyong.vincent on 2018/7/14.
 //
 
-#include "net4cxx/core/iostream/tcpserver.h"
+#include "net4cxx/core/streams/tcpserver.h"
 
 
 NS_BEGIN

@@ -2,8 +2,8 @@
 // Created by yuwenyong.vincent on 2018/7/14.
 //
 
-#ifndef NET4CXX_CORE_IOSTREAM_UTIL_H
-#define NET4CXX_CORE_IOSTREAM_UTIL_H
+#ifndef NET4CXX_CORE_STREAMS_UTIL_H
+#define NET4CXX_CORE_STREAMS_UTIL_H
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/debugging/watcher.h"
@@ -80,4 +80,4 @@ using PeriodicCallbackPtr = std::shared_ptr<PeriodicCallback>;
 
 NS_END
 
-#endif //NET4CXX_CORE_IOSTREAM_UTIL_H
+#endif //NET4CXX_CORE_STREAMS_UTIL_H

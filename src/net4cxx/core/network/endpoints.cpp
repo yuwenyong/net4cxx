@@ -47,12 +47,12 @@ ServerEndpointPtr _parseSSL(Reactor *reactor, const StringVector &args, const St
     if (params.find("certKey") != params.end()) {
         certKey = params.at("certKey");
     }
-    SSLParams sslParams(true);
-    sslParams.setKeyFile(privateKey);
+    SSLServerOptionBuilder builder;
+    builder.setKeyFile(privateKey);
     if (!certKey.empty()) {
-        sslParams.setCertFile(certKey);
+        builder.setCertFile(certKey);
     }
-    return std::make_shared<SSLServerEndpoint>(reactor, port, SSLOption::create(sslParams), std::move(interface));
+    return std::make_shared<SSLServerEndpoint>(reactor, port, builder.build(), std::move(interface));
 }
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
@@ -208,22 +208,22 @@ ClientEndpointPtr _parseClientSSL(Reactor *reactor, const StringVector &args, co
         bindAddress.setAddress(iter->second);
     }
 
-    SSLParams sslParams(false);
+    SSLClientOptionBuilder builder;
     if ((iter = params.find("hostname")) != params.end()) {
-        sslParams.setCheckHost(iter->second);
+        builder.setCheckHost(iter->second);
     }
     if ((iter = params.find("certKey")) != params.end()) {
-        sslParams.setCertFile(iter->second);
+        builder.setCertFile(iter->second);
     }
     if ((iter = params.find("privateKey")) != params.end()) {
-        sslParams.setKeyFile(iter->second);
+        builder.setKeyFile(iter->second);
     }
     if ((iter = params.find("caCertsDir")) != params.end()) {
-        sslParams.setVerifyMode(SSLVerifyMode::CERT_REQUIRED);
-        sslParams.setVerifyFile(iter->second);
+        builder.setVerifyMode(SSLVerifyMode::CERT_REQUIRED);
+        builder.setVerifyFile(iter->second);
     }
-    return std::make_shared<SSLClientEndpoint>(reactor, std::move(host), std::move(port), SSLOption::create(sslParams),
-                                               timeout, std::move(bindAddress));
+    return std::make_shared<SSLClientEndpoint>(reactor, std::move(host), std::move(port), builder.build(), timeout,
+                                               std::move(bindAddress));
 }
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS

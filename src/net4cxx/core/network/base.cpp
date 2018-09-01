@@ -12,65 +12,95 @@
 NS_BEGIN
 
 
-SSLOptionPtr SSLOption::create(const SSLParams &sslParams) {
-    struct EnableMakeShared: public SSLOption {
-        explicit EnableMakeShared(const SSLParams &params): SSLOption(params) {}
+SSLOption::SSLOption()
+        : _context(boost::asio::ssl::context::sslv23) {
+    boost::system::error_code ec;
+    _context.set_options(boost::asio::ssl::context::no_sslv3, ec);
+}
+
+
+void SSLOptionBuilder::verifyParams() const {
+    if (!_certFile.empty() && !boost::filesystem::exists(_certFile)) {
+        NET4CXX_THROW_EXCEPTION(ValueError, "cert file \"%s\" does not exist", _certFile);
+    }
+    if (!_keyFile.empty() && !boost::filesystem::exists(_keyFile)) {
+        NET4CXX_THROW_EXCEPTION(ValueError, "key file \"%s\" does not exist", _keyFile);
+    }
+    if (!_verifyFile.empty() && !boost::filesystem::exists(_verifyFile)) {
+        NET4CXX_THROW_EXCEPTION(ValueError, "verify file \"%s\" does not exist", _verifyFile);
+    }
+}
+
+void SSLOptionBuilder::buildContext(SSLOptionPtr option) const {
+    if (!_certFile.empty()) {
+        option->setCertFile(_certFile);
+    }
+    if (!_keyFile.empty()) {
+        option->setKeyFile(_keyFile);
+    }
+    if (!_password.empty()) {
+        option->setPassword(_password);
+    }
+}
+
+
+void SSLServerOptionBuilder::verifyParams() const {
+    if (_certFile.empty()) {
+        NET4CXX_THROW_EXCEPTION(KeyError, "missing cert file in sslOption");
+    }
+    SSLOptionBuilder::verifyParams();
+}
+
+SSLOptionPtr SSLServerOptionBuilder::buildOption() const {
+    class SSLServerOption: public SSLOption {
+    public:
+        bool isServerSide() const override {
+            return true;
+        }
+
+        bool isClientSide() const override {
+            return false;
+        }
     };
-    if (sslParams.isServerSide()) {
-        if (sslParams.getCertFile().empty()) {
-            NET4CXX_THROW_EXCEPTION(KeyError, "missing cert file in sslParams");
-        }
-    } else {
-        if (sslParams.getVerifyMode() != SSLVerifyMode::CERT_NONE && sslParams.getVerifyFile().empty()) {
-            NET4CXX_THROW_EXCEPTION(KeyError, "missing verify file in sslParams");
-        }
-    }
-    const std::string &certFile = sslParams.getCertFile();
-    if (!certFile.empty() && !boost::filesystem::exists(certFile)) {
-        NET4CXX_THROW_EXCEPTION(ValueError, "cert file \"%s\" does not exist", certFile);
-    }
-    const std::string &keyFile = sslParams.getKeyFile();
-    if (!keyFile.empty() && !boost::filesystem::exists(keyFile)) {
-        NET4CXX_THROW_EXCEPTION(ValueError, "key file \"%s\" does not exist", certFile);
-    }
-    const std::string &verifyFile = sslParams.getVerifyFile();
-    if (!verifyFile.empty() && !boost::filesystem::exists(verifyFile)) {
-        NET4CXX_THROW_EXCEPTION(ValueError, "verify file \"%s\" does not exist", certFile);
-    }
-    auto sslOption = std::make_shared<EnableMakeShared>(sslParams);
+
+    auto sslOption = std::make_shared<SSLServerOption>();
     return sslOption;
 }
 
-SSLOption::SSLOption(const SSLParams &sslParams)
-        : _serverSide(sslParams.isServerSide())
-        , _context(boost::asio::ssl::context::sslv23) {
-    boost::system::error_code ec;
-    _context.set_options(boost::asio::ssl::context::no_sslv3, ec);
-    const std::string &certFile = sslParams.getCertFile();
-    if (!certFile.empty()) {
-        setCertFile(certFile);
+
+void SSLClientOptionBuilder::verifyParams() const {
+    if (_verifyMode != SSLVerifyMode::CERT_NONE && _verifyFile.empty()) {
+        NET4CXX_THROW_EXCEPTION(KeyError, "missing verify file in sslOption");
     }
-    const std::string &keyFile = sslParams.getKeyFile();
-    if (!keyFile.empty()) {
-        setKeyFile(keyFile);
-    }
-    const std::string &password = sslParams.getPassword();
-    if (!password.empty()) {
-        setPassword(password);
-    }
-    if (!_serverSide) {
-        auto verifyMode = sslParams.getVerifyMode();
-        setVerifyMode(verifyMode);
-        const std::string &verifyFile = sslParams.getVerifyFile();
-        if (!verifyFile.empty()) {
-            setVerifyFile(verifyFile);
-        } else if(verifyMode != SSLVerifyMode::CERT_NONE) {
-            setDefaultVerifyPath();
+    SSLOptionBuilder::verifyParams();
+}
+
+SSLOptionPtr SSLClientOptionBuilder::buildOption() const {
+    class SSLClientOption: public SSLOption {
+    public:
+        bool isServerSide() const override {
+            return false;
         }
-        const std::string &checkHost = sslParams.getCheckHost();
-        if (!checkHost.empty()) {
-            setCheckHost(checkHost);
+
+        bool isClientSide() const override {
+            return true;
         }
+    };
+
+    auto sslOption = std::make_shared<SSLClientOption>();
+    return sslOption;
+}
+
+void SSLClientOptionBuilder::buildContext(SSLOptionPtr option) const {
+    SSLOptionBuilder::buildContext(option);
+    option->setVerifyMode(_verifyMode);
+    if (!_verifyFile.empty()) {
+        option->setVerifyFile(_verifyFile);
+    } else if(_verifyMode != SSLVerifyMode::CERT_NONE) {
+        option->setDefaultVerifyPath();
+    }
+    if (!_checkHost.empty()) {
+        option->setCheckHost(_checkHost);
     }
 }
 

@@ -45,12 +45,66 @@ enum class SSLVerifyMode {
 };
 
 
-class SSLParams {
+class NET4CXX_COMMON_API SSLOption: public boost::noncopyable {
 public:
-    explicit SSLParams(bool serverSide= false)
-            : _serverSide(serverSide) {
+    friend class SSLOptionBuilder;
+    friend class SSLClientOptionBuilder;
+    friend class SSLServerOptionBuilder;
+
+    typedef boost::asio::ssl::context SSLContextType;
+
+    virtual bool isServerSide() const = 0;
+
+    virtual bool isClientSide() const = 0;
+
+    SSLContextType &context() {
+        return _context;
+    }
+protected:
+    SSLOption();
+
+    void setCertFile(const std::string &certFile) {
+        _context.use_certificate_chain_file(certFile);
     }
 
+    void setKeyFile(const std::string &keyFile) {
+        _context.use_private_key_file(keyFile, boost::asio::ssl::context::pem);
+    }
+
+    void setPassword(const std::string &password) {
+        _context.set_password_callback([password](size_t, boost::asio::ssl::context::password_purpose) {
+            return password;
+        });
+    }
+
+    void setVerifyMode(SSLVerifyMode verifyMode) {
+        if (verifyMode == SSLVerifyMode::CERT_NONE) {
+            _context.set_verify_mode(boost::asio::ssl::verify_none);
+        } else if (verifyMode == SSLVerifyMode::CERT_OPTIONAL) {
+            _context.set_verify_mode(boost::asio::ssl::verify_peer);
+        } else {
+            _context.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
+        }
+    }
+
+    void setVerifyFile(const std::string &verifyFile) {
+        _context.load_verify_file(verifyFile);
+    }
+
+    void setDefaultVerifyPath() {
+        _context.set_default_verify_paths();
+    }
+
+    void setCheckHost(const std::string &hostName) {
+        _context.set_verify_callback(boost::asio::ssl::rfc2818_verification(hostName));
+    }
+
+    SSLContextType _context;
+};
+
+
+class NET4CXX_COMMON_API SSLOptionBuilder {
+public:
     void setCertFile(const std::string &certFile) {
         _certFile = certFile;
     }
@@ -99,12 +153,19 @@ public:
         return _checkHost;
     }
 
-    bool isServerSide() const {
-        return _serverSide;
+    SSLOptionPtr build() const {
+        verifyParams();
+        auto option = buildOption();
+        buildContext(option);
+        return option;
     }
-
 protected:
-    bool _serverSide;
+    virtual void verifyParams() const;
+
+    virtual SSLOptionPtr buildOption() const = 0;
+
+    virtual void buildContext(SSLOptionPtr option) const;
+
     SSLVerifyMode _verifyMode{SSLVerifyMode::CERT_NONE};
     std::string _certFile;
     std::string _keyFile;
@@ -114,60 +175,21 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API SSLOption: public boost::noncopyable {
-public:
-    typedef boost::asio::ssl::context SSLContextType;
-
-    bool isServerSide() const {
-        return _serverSide;
-    }
-
-    SSLContextType &context() {
-        return _context;
-    }
-
-    static SSLOptionPtr create(const SSLParams &sslParams);
+class NET4CXX_COMMON_API SSLServerOptionBuilder: public SSLOptionBuilder {
 protected:
-    explicit SSLOption(const SSLParams &sslParams);
+    void verifyParams() const override;
 
-    void setCertFile(const std::string &certFile) {
-        _context.use_certificate_chain_file(certFile);
-    }
+    SSLOptionPtr buildOption() const override;
+};
 
-    void setKeyFile(const std::string &keyFile) {
-        _context.use_private_key_file(keyFile, boost::asio::ssl::context::pem);
-    }
 
-    void setPassword(const std::string &password) {
-        _context.set_password_callback([password](size_t, boost::asio::ssl::context::password_purpose) {
-            return password;
-        });
-    }
+class NET4CXX_COMMON_API SSLClientOptionBuilder: public SSLOptionBuilder {
+protected:
+    void verifyParams() const override;
 
-    void setVerifyMode(SSLVerifyMode verifyMode) {
-        if (verifyMode == SSLVerifyMode::CERT_NONE) {
-            _context.set_verify_mode(boost::asio::ssl::verify_none);
-        } else if (verifyMode == SSLVerifyMode::CERT_OPTIONAL) {
-            _context.set_verify_mode(boost::asio::ssl::verify_peer);
-        } else {
-            _context.set_verify_mode(boost::asio::ssl::verify_peer | boost::asio::ssl::verify_fail_if_no_peer_cert);
-        }
-    }
+    SSLOptionPtr buildOption() const override;
 
-    void setVerifyFile(const std::string &verifyFile) {
-        _context.load_verify_file(verifyFile);
-    }
-
-    void setDefaultVerifyPath() {
-        _context.set_default_verify_paths();
-    }
-
-    void setCheckHost(const std::string &hostName) {
-        _context.set_verify_callback(boost::asio::ssl::rfc2818_verification(hostName));
-    }
-
-    bool _serverSide;
-    SSLContextType _context;
+    void buildContext(SSLOptionPtr option) const override;
 };
 
 

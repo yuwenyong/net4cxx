@@ -2,8 +2,8 @@
 // Created by yuwenyong.vincent on 2018/7/14.
 //
 
-#ifndef NET4CXX_CORE_IOSTREAM_IOSTREAM_H
-#define NET4CXX_CORE_IOSTREAM_IOSTREAM_H
+#ifndef NET4CXX_CORE_STREAMS_IOSTREAM_H
+#define NET4CXX_CORE_STREAMS_IOSTREAM_H
 
 #include "net4cxx/common/common.h"
 #include <boost/optional.hpp>
@@ -321,4 +321,4 @@ protected:
 
 NS_END
 
-#endif //NET4CXX_CORE_IOSTREAM_IOSTREAM_H
+#endif //NET4CXX_CORE_STREAMS_IOSTREAM_H
