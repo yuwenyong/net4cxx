@@ -8,6 +8,9 @@
 NS_BEGIN
 
 
+const char* WatchKeys::WebSocketServerProtocolCount = "sys.WebSocketServerProtocolCount";
+const char* WatchKeys::WebSocketClientProtocolCount = "sys.WebSocketClientProtocolCount";
+
 const char* WatchKeys::PeriodicCallbackCount = "sys.PeriodicCallbackCount";
 const char* WatchKeys::IOStreamCount = "sys.IOStreamCount";
 const char* WatchKeys::SSLIOStreamCount = "sys.SSLIOStreamCount";

@@ -12,6 +12,9 @@ NS_BEGIN
 
 class NET4CXX_COMMON_API WatchKeys {
 public:
+    static const char *WebSocketServerProtocolCount;
+    static const char *WebSocketClientProtocolCount;
+
     static const char *PeriodicCallbackCount;
     static const char *IOStreamCount;
     static const char *SSLIOStreamCount;

@@ -247,58 +247,55 @@ void TrafficStats::reset() {
     _preopenIncomingOctetsWireLevel = 0;
 }
 
-
-JsonValue TrafficStats::toJson() const {
+std::ostream& operator<<(std::ostream &sout, const TrafficStats &trafficStats) {
     JsonValue result;
-    result["outgoingOctetsWireLevel"] = (uint64_t)_outgoingOctetsWireLevel;
-    result["outgoingOctetsWebSocketLevel"] = (uint64_t)_outgoingOctetsWebSocketLevel;
-    result["outgoingOctetsAppLevel"] = (uint64_t)_outgoingOctetsAppLevel;
+    result["outgoingOctetsWireLevel"] = (uint64_t)trafficStats.getOutgoingOctetsWireLevel();
+    result["outgoingOctetsWebSocketLevel"] = (uint64_t)trafficStats.getOutgoingOctetsWebSocketLevel();
+    result["outgoingOctetsAppLevel"] = (uint64_t)trafficStats.getOutgoingOctetsAppLevel();
 
-    if (_outgoingOctetsAppLevel > 0) {
-        result["outgoingCompressionRatio"] = 1.0 * _outgoingOctetsWebSocketLevel / _outgoingOctetsAppLevel;
+    if (trafficStats.getOutgoingOctetsAppLevel() > 0) {
+        result["outgoingCompressionRatio"] = 1.0 * trafficStats.getOutgoingOctetsWebSocketLevel() /
+                                             trafficStats.getOutgoingOctetsAppLevel();
     } else {
         result["outgoingCompressionRatio"] = nullptr;
     }
 
-    if (_outgoingOctetsWebSocketLevel > 0) {
-        result["outgoingWebSocketOverhead"] = 1.0 * (_outgoingOctetsWireLevel - _outgoingOctetsWebSocketLevel) /
-                                              _outgoingOctetsWebSocketLevel;
+    if (trafficStats.getOutgoingOctetsWebSocketLevel() > 0) {
+        result["outgoingWebSocketOverhead"] = 1.0 * (trafficStats.getOutgoingOctetsWireLevel() -
+                                                     trafficStats.getOutgoingOctetsWebSocketLevel()) /
+                                              trafficStats.getOutgoingOctetsWebSocketLevel();
     } else {
         result["outgoingWebSocketOverhead"] = nullptr;
     }
 
-    result["outgoingWebSocketFrames"] = (uint64_t)_outgoingWebSocketFrames;
-    result["outgoingWebSocketMessages"] = (uint64_t)_outgoingWebSocketMessages;
-    result["preopenOutgoingOctetsWireLevel"] = (uint64_t)_preopenOutgoingOctetsWireLevel;
+    result["outgoingWebSocketFrames"] = (uint64_t)trafficStats.getOutgoingWebSocketFrames();
+    result["outgoingWebSocketMessages"] = (uint64_t)trafficStats.getOutgoingWebSocketMessages();
+    result["preopenOutgoingOctetsWireLevel"] = (uint64_t)trafficStats.getPreopenOutgoingOctetsWireLevel();
 
-    result["incomingOctetsWireLevel"] = (uint64_t)_incomingOctetsWireLevel;
-    result["incomingOctetsWebSocketLevel"] = (uint64_t)_incomingOctetsWebSocketLevel;
-    result["incomingOctetsAppLevel"] = (uint64_t)_incomingOctetsAppLevel;
+    result["incomingOctetsWireLevel"] = (uint64_t)trafficStats.getIncomingOctetsWireLevel();
+    result["incomingOctetsWebSocketLevel"] = (uint64_t)trafficStats.getIncomingOctetsWebSocketLevel();
+    result["incomingOctetsAppLevel"] = (uint64_t)trafficStats.getIncomingOctetsAppLevel();
 
-    if (_incomingOctetsAppLevel > 0) {
-        result["incomingCompressionRatio"] = 1.0 * _incomingOctetsWebSocketLevel / _incomingOctetsAppLevel;
+    if (trafficStats.getIncomingOctetsAppLevel() > 0) {
+        result["incomingCompressionRatio"] = 1.0 * trafficStats.getIncomingOctetsWebSocketLevel() /
+                                             trafficStats.getIncomingOctetsAppLevel();
     } else {
         result["incomingCompressionRatio"] = nullptr;
     }
 
-    if (_incomingOctetsWebSocketLevel > 0) {
-        result["incomingWebSocketOverhead"] = 1.0 * (_incomingOctetsWireLevel - _incomingOctetsWebSocketLevel) /
-                                              _incomingOctetsWebSocketLevel;
+    if (trafficStats.getIncomingOctetsWebSocketLevel() > 0) {
+        result["incomingWebSocketOverhead"] = 1.0 * (trafficStats.getIncomingOctetsWireLevel() -
+                                                     trafficStats.getIncomingOctetsWebSocketLevel()) /
+                                              trafficStats.getIncomingOctetsWebSocketLevel();
     } else {
         result["incomingWebSocketOverhead"] = nullptr;
     }
 
-    result["incomingWebSocketFrames"] = (uint64_t)_incomingWebSocketFrames;
-    result["incomingWebSocketMessages"] = (uint64_t)_incomingWebSocketMessages;
-    result["preopenIncomingOctetsWireLevel"] = (uint64_t)_preopenIncomingOctetsWireLevel;
-    return result;
-}
-
-std::string TrafficStats::toString() const {
-    JsonValue value = toJson();
-    std::ostringstream os;
-    os << value;
-    return os.str();
+    result["incomingWebSocketFrames"] = (uint64_t)trafficStats.getIncomingWebSocketFrames();
+    result["incomingWebSocketMessages"] = (uint64_t)trafficStats.getIncomingWebSocketMessages();
+    result["preopenIncomingOctetsWireLevel"] = (uint64_t)trafficStats.getPreopenIncomingOctetsWireLevel();
+    sout << result;
+    return sout;
 }
 
 

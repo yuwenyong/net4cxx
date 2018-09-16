@@ -439,7 +439,7 @@ protected:
 };
 
 
-std::ostream& NET4CXX_COMMON_API operator<<(std::ostream &os, const HTTPResponse &response);
+NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &os, const HTTPResponse &response);
 
 
 class NET4CXX_COMMON_API HTTPClient: public std::enable_shared_from_this<HTTPClient> {

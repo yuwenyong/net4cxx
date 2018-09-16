@@ -129,7 +129,7 @@ protected:
 };
 
 
-std::ostream& NET4CXX_COMMON_API operator<<(std::ostream &os, const HTTPHeaders &headers);
+NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &os, const HTTPHeaders &headers);
 
 
 class NET4CXX_COMMON_API HTTPFile {

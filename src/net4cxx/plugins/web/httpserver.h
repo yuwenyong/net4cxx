@@ -403,7 +403,7 @@ protected:
     mutable CookiesType _cookies;
 };
 
-std::ostream& NET4CXX_COMMON_API operator<<(std::ostream &os, const HTTPServerRequest &request);
+NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &os, const HTTPServerRequest &request);
 
 NS_END
 

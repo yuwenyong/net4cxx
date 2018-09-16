@@ -53,6 +53,8 @@ public:
 
     typedef boost::asio::ssl::context SSLContextType;
 
+    virtual ~SSLOption() = default;
+
     virtual bool isServerSide() const = 0;
 
     virtual bool isClientSide() const = 0;
@@ -105,6 +107,8 @@ protected:
 
 class NET4CXX_COMMON_API SSLOptionBuilder {
 public:
+    virtual ~SSLOptionBuilder() = default;
+
     void setCertFile(const std::string &certFile) {
         _certFile = certFile;
     }

@@ -132,9 +132,53 @@ public:
 
     void reset();
 
-    JsonValue toJson() const;
+    size_t getOutgoingOctetsWireLevel() const {
+        return _outgoingOctetsWireLevel;
+    }
 
-    std::string toString() const;
+    size_t getOutgoingOctetsWebSocketLevel() const {
+        return _outgoingOctetsWebSocketLevel;
+    }
+
+    size_t getOutgoingOctetsAppLevel() const {
+        return _outgoingOctetsAppLevel;
+    }
+
+    size_t getOutgoingWebSocketFrames() const {
+        return _outgoingWebSocketFrames;
+    }
+
+    size_t getOutgoingWebSocketMessages() const {
+        return _outgoingWebSocketMessages;
+    }
+
+    size_t getIncomingOctetsWireLevel() const {
+        return _incomingOctetsWireLevel;
+    }
+
+    size_t getIncomingOctetsWebSocketLevel() const {
+        return _incomingOctetsWebSocketLevel;
+    }
+
+    size_t getIncomingOctetsAppLevel() const {
+        return _incomingOctetsAppLevel;
+    }
+
+    size_t getIncomingWebSocketFrames() const {
+        return _incomingWebSocketFrames;
+    }
+
+    size_t getIncomingWebSocketMessages() const {
+        return _incomingWebSocketMessages;
+    }
+
+    size_t getPreopenOutgoingOctetsWireLevel() const {
+        return _preopenOutgoingOctetsWireLevel;
+    }
+
+    size_t getPreopenIncomingOctetsWireLevel() const {
+        return _preopenIncomingOctetsWireLevel;
+    }
 protected:
     size_t _outgoingOctetsWireLevel{0};
     size_t _outgoingOctetsWebSocketLevel{0};
@@ -152,6 +196,8 @@ protected:
     size_t _preopenIncomingOctetsWireLevel{0};
 };
 
+
+NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &sout, const TrafficStats &trafficStats);
 
 class FrameHeader {
 public:

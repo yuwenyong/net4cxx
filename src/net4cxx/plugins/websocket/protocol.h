@@ -9,6 +9,7 @@
 #include <boost/logic/tribool.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
+#include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/plugins/websocket/compress.h"
@@ -16,6 +17,7 @@
 #include "net4cxx/plugins/websocket/utf8validator.h"
 #include "net4cxx/plugins/websocket/util.h"
 #include "net4cxx/plugins/websocket/xormasker.h"
+#include "net4cxx/shared/global/constants.h"
 
 
 NS_BEGIN
@@ -128,6 +130,14 @@ public:
 
     std::string getPeerName() const {
         return _peer;
+    }
+
+    const Timings* getTrackedTimings() const {
+        return _trackedTimings.get_ptr();
+    }
+
+    const TrafficStats& getTrafficStats() const {
+        return _trafficStats;
     }
 
     template <typename SelfT>
@@ -376,6 +386,16 @@ public:
     using BaseType = WebSocketProtocol;
 
     virtual std::pair<std::string, WebSocketHeaders> onConnect(ConnectionRequest request);
+
+#ifdef NET4CXX_DEBUG
+    WebSocketServerProtocol() {
+        NET4CXX_Watcher->inc(WatchKeys::WebSocketServerProtocolCount);
+    }
+
+    ~WebSocketServerProtocol() override {
+        NET4CXX_Watcher->dec(WatchKeys::WebSocketServerProtocolCount);
+    }
+#endif
 
     void connectionMade() override;
 
@@ -739,6 +759,16 @@ protected:
 class NET4CXX_COMMON_API WebSocketClientProtocol: public WebSocketProtocol {
 public:
     using BaseType = WebSocketProtocol;
+
+#ifdef NET4CXX_DEBUG
+    WebSocketClientProtocol() {
+        NET4CXX_Watcher->inc(WatchKeys::WebSocketClientProtocolCount);
+    }
+
+    ~WebSocketClientProtocol() override {
+        NET4CXX_Watcher->dec(WatchKeys::WebSocketClientProtocolCount);
+    }
+#endif
 
     virtual void onConnect(ConnectionResponse response);
 
