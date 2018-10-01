@@ -6,6 +6,7 @@
 #define NET4CXX_CORE_NETWORK_DEFER_H
 
 #include "net4cxx/common/common.h"
+#include <boost/any.hpp>
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include "net4cxx/common/debugging/assert.h"
@@ -14,211 +15,104 @@
 
 NS_BEGIN
 
-
-struct tagDeferredEmpty {
-
-};
-
-extern tagDeferredEmpty DeferredEmpty;
-
-struct tagDeferredNull {
-
-};
-
-extern tagDeferredNull DeferredNull;
-
-
-struct tagDeferredError {
-    tagDeferredError() = default;
-
-    tagDeferredError(std::exception_ptr err): error(err) {}
-
-    std::exception_ptr error;
-};
-
-
-template <typename ValueT>
 class Deferred;
 
-
-template <typename ValueT>
-class DeferredValue {
+class NET4CXX_COMMON_API DeferredValue {
 public:
+    struct tagDeferredEmpty {
+
+    };
+
+    struct tagDeferredError {
+        tagDeferredError() = default;
+
+        tagDeferredError(std::exception_ptr err): error(err) {}
+
+        std::exception_ptr error;
+    };
+
+
     struct tagDeferredValue {
         tagDeferredValue() = default;
 
+        template <typename ValueT>
         tagDeferredValue(ValueT &&val): value(std::forward<ValueT>(val)) {}
 
-        template <typename ArgT>
-        tagDeferredValue(ArgT &&val): value(std::forward<ValueT>(val)) {}
-
-        ValueT value;
+        boost::any value;
     };
 
     struct tagDeferredSharedPtr {
         tagDeferredSharedPtr() = default;
 
-        tagDeferredSharedPtr(std::shared_ptr<Deferred<ValueT>> val): value(std::move(val)) {}
+        tagDeferredSharedPtr(std::shared_ptr<Deferred> val): value(std::move(val)) {}
 
-        std::shared_ptr<Deferred<ValueT>> value;
+        std::shared_ptr<Deferred> value;
     };
 
     struct tagDeferredWeakPtr {
         tagDeferredWeakPtr() = default;
 
-        tagDeferredWeakPtr(const std::shared_ptr<Deferred<ValueT>> &val): value(val) {}
+        tagDeferredWeakPtr(const std::shared_ptr<Deferred> &val): value(val) {}
 
-        std::weak_ptr<Deferred<ValueT>> value;
+        std::weak_ptr<Deferred> value;
     };
 
     using ValueType = boost::variant<
-            tagDeferredNull,
-            tagDeferredEmpty,
             tagDeferredValue,
+            tagDeferredEmpty,
             tagDeferredError,
             tagDeferredSharedPtr,
             tagDeferredWeakPtr>;
 
     DeferredValue() = default;
 
-    DeferredValue(tagDeferredNull): _value(tagDeferredNull{}) {}
-
     DeferredValue(tagDeferredEmpty): _value(tagDeferredEmpty{}) {}
 
+    template <typename ValueT>
     DeferredValue(ValueT &&value): _value(tagDeferredValue{std::forward<ValueT>(value)}) {}
 
-    DeferredValue(nullptr_t): _value(tagDeferredValue{nullptr}) {}
-
-    template <typename ArgT>
-    DeferredValue(ArgT &&arg): _value(tagDeferredValue{std::forward<ValueT>(arg)}) {}
+    DeferredValue(nullptr_t): _value(tagDeferredValue{}) {}
 
     DeferredValue(std::exception_ptr error): _value(tagDeferredError(error)) {}
 
-    DeferredValue(std::shared_ptr<Deferred<ValueT>> value): _value(tagDeferredSharedPtr{std::move(value)}) {}
+    DeferredValue(std::shared_ptr<Deferred> value): _value(tagDeferredSharedPtr{std::move(value)}) {}
 
     bool isNull() const {
-        struct IsNullVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return true;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsNullVisitor(), _value);
+        if (auto v = boost::get<const tagDeferredValue>(&_value)) {
+            return v->value.empty();
+        } else {
+            return false;
+        }
     }
 
     bool isEmpty() const {
-        struct IsEmptyVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsEmptyVisitor(), _value);
+        if (boost::get<const tagDeferredEmpty>(&_value)) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     bool isValue() const {
-        struct IsValueVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsValueVisitor(), _value);
+        if (auto v = boost::get<const tagDeferredValue>(&_value)) {
+            return !v->value.empty();
+        } else {
+            return false;
+        }
     }
 
     bool isError() const {
-        struct IsValueVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsValueVisitor(), _value);
+        if (boost::get<const tagDeferredError>(&_value)) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     bool isDeferred() const {
         struct IsDeferredVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
 
-            result_type operator()(tagDeferredEmpty v) const {
+            result_type operator()(const tagDeferredEmpty &v) const {
                 return false;
             }
 
@@ -241,135 +135,37 @@ public:
         return boost::apply_visitor(IsDeferredVisitor(), _value);
     }
 
-    bool isAssigned() const {
-        struct IsAssignedVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return true;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return true;
-            }
-        };
-        return boost::apply_visitor(IsAssignedVisitor(), _value);
-    }
-
+    template <typename ValueT>
     const ValueT* asValue() const {
-        struct AsValueVisitor: public boost::static_visitor<const ValueT*> {
-            using result_type = const ValueT*;
-
-            result_type operator()(tagDeferredNull v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return &v.value;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return nullptr;
-            }
-        };
-        return boost::apply_visitor(AsValueVisitor(), _value);
+        if (auto v = boost::get<const tagDeferredValue>(&_value)) {
+            return boost::any_cast<const ValueT>(&v->value);;
+        } else {
+            return nullptr;
+        }
     }
 
+    template <typename ValueT>
     ValueT* asValue() {
-        struct AsValueVisitor: public boost::static_visitor<ValueT *> {
-            using result_type = ValueT*;
-
-            result_type operator()(tagDeferredNull v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredValue &v) const {
-                return &v.value;
-            }
-
-            result_type operator()(tagDeferredError &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredSharedPtr &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredWeakPtr &v) const {
-                return nullptr;
-            }
-        };
-        return boost::apply_visitor(AsValueVisitor(), _value);
+        if (auto v = boost::get<tagDeferredValue>(&_value)) {
+            return boost::any_cast<ValueT>(&v->value);;
+        } else {
+            return nullptr;
+        }
     }
 
     std::exception_ptr asError() const {
-        struct AsErrorVisitor: public boost::static_visitor<std::exception_ptr> {
-            result_type operator()(tagDeferredNull v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return v.error;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return nullptr;
-            }
-        };
-        return boost::apply_visitor(AsErrorVisitor(), _value);
+        if (auto v = boost::get<const tagDeferredError>(&_value)) {
+            return v->error;
+        } else {
+            return nullptr;
+        }
     }
 
-    std::shared_ptr<Deferred<ValueT>> asDeferred() const {
-        struct AsDeferredVisitor: public boost::static_visitor<std::shared_ptr<Deferred<ValueT>>> {
-            using result_type = std::shared_ptr<Deferred<ValueT>>;
+    std::shared_ptr<Deferred> asDeferred() const {
+        struct AsDeferredVisitor: public boost::static_visitor<std::shared_ptr<Deferred>> {
+            using result_type = std::shared_ptr<Deferred>;
 
-            result_type operator()(tagDeferredNull v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
+            result_type operator()(const tagDeferredEmpty &v) const {
                 return nullptr;
             }
 
@@ -393,426 +189,54 @@ public:
     }
 
     void throwError() const {
-        struct ThrowErrorVisitor: public boost::static_visitor<void> {
-            result_type operator()(tagDeferredNull v) const {
-
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-
-            }
-
-            result_type operator()(const tagDeferredValue &v) const {
-
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                if (v.error) {
-                    std::rethrow_exception(v.error);
-                }
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-
-            }
-        };
-        boost::apply_visitor(ThrowErrorVisitor(), _value);
+        if (auto v = boost::get<const tagDeferredError>(&_value)) {
+            std::rethrow_exception(v->error);
+        }
     }
 
     void releaseDeferred() {
-        struct ReleaseDeferredVisitor: public boost::static_visitor<void> {
-            explicit ReleaseDeferredVisitor(ValueType *val): value(val) {}
-
-            result_type operator()(tagDeferredNull v) const {
-
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-
-            }
-
-            result_type operator()(tagDeferredValue &v) const {
-
-            }
-
-            result_type operator()(tagDeferredError &v) const {
-
-            }
-
-            result_type operator()(tagDeferredSharedPtr &v) const {
-                *value = tagDeferredWeakPtr{v.value};
-            }
-
-            result_type operator()(tagDeferredWeakPtr &v) const {
-
-            }
-
-            ValueType *value;
-        };
-        boost::apply_visitor(ReleaseDeferredVisitor(&_value), _value);
+        if (auto v = boost::get<const tagDeferredSharedPtr>(&_value)) {
+            _value = tagDeferredWeakPtr{v->value};
+        }
     }
 
     void restoreDeferred() {
-        struct RestoreDeferredVisitor: public boost::static_visitor<void> {
-            explicit RestoreDeferredVisitor(ValueType *val): value(val) {}
-
-            result_type operator()(tagDeferredNull v) const {
-
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-
-            }
-
-            result_type operator()(tagDeferredValue &v) const {
-
-            }
-
-            result_type operator()(tagDeferredError &v) const {
-
-            }
-
-            result_type operator()(tagDeferredSharedPtr &v) const {
-
-            }
-
-            result_type operator()(tagDeferredWeakPtr &v) const {
-                *value = tagDeferredSharedPtr{v.value.lock()};
-            }
-
-            ValueType *value;
-        };
-        boost::apply_visitor(RestoreDeferredVisitor(&_value), _value);
+        if (auto v = boost::get<const tagDeferredWeakPtr>(&_value)) {
+            _value = tagDeferredSharedPtr{v->value.lock()};
+        }
     }
+
+    static const tagDeferredEmpty DeferredEmpty;
 protected:
     ValueType _value;
 };
 
+class Reactor;
 
-template <>
-class DeferredValue<void> {
+class NET4CXX_COMMON_API Deferred: public std::enable_shared_from_this<Deferred> {
 public:
-    struct tagDeferredSharedPtr {
-        tagDeferredSharedPtr() = default;
-
-        tagDeferredSharedPtr(std::shared_ptr<Deferred<void>> val): value(std::move(val)) {}
-
-        std::shared_ptr<Deferred<void>> value;
-    };
-
-    struct tagDeferredWeakPtr {
-        tagDeferredWeakPtr() = default;
-
-        tagDeferredWeakPtr(const std::shared_ptr<Deferred<void>> &val): value(val) {}
-
-        std::weak_ptr<Deferred<void>> value;
-    };
-
-    using ValueType = boost::variant<
-            tagDeferredNull,
-            tagDeferredEmpty,
-            tagDeferredError,
-            tagDeferredSharedPtr,
-            tagDeferredWeakPtr>;
-
-    DeferredValue() = default;
-
-    DeferredValue(tagDeferredNull): _value(tagDeferredNull{}) {}
-
-    DeferredValue(tagDeferredEmpty): _value(tagDeferredEmpty{}) {}
-
-    DeferredValue(std::exception_ptr error): _value(tagDeferredError(error)) {}
-
-    DeferredValue(std::shared_ptr<Deferred<void>> value): _value(tagDeferredSharedPtr{std::move(value)}) {}
-
-    bool isNull() const {
-        struct IsNullVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return true;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsNullVisitor(), _value);
-    }
-
-    bool isEmpty() const {
-        struct IsEmptyVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsEmptyVisitor(), _value);
-    }
-
-    bool isError() const {
-        struct IsValueVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return false;
-            }
-        };
-        return boost::apply_visitor(IsValueVisitor(), _value);
-    }
-
-    bool isDeferred() const {
-        struct IsDeferredVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return false;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return true;
-            }
-        };
-        return boost::apply_visitor(IsDeferredVisitor(), _value);
-    }
-
-    bool isAssigned() const {
-        struct IsAssignedVisitor: public boost::static_visitor<bool> {
-            result_type operator()(tagDeferredNull v) const {
-                return true;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return false;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return true;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return true;
-            }
-        };
-        return boost::apply_visitor(IsAssignedVisitor(), _value);
-    }
-
-    std::exception_ptr asError() const {
-        struct AsErrorVisitor: public boost::static_visitor<std::exception_ptr> {
-            result_type operator()(tagDeferredNull v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return v.error;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return nullptr;
-            }
-        };
-        return boost::apply_visitor(AsErrorVisitor(), _value);
-    }
-
-    std::shared_ptr<Deferred<void>> asDeferred() const {
-        struct AsDeferredVisitor: public boost::static_visitor<std::shared_ptr<Deferred<void>>> {
-            using result_type = std::shared_ptr<Deferred<void>>;
-
-            result_type operator()(tagDeferredNull v) const {
-                return nullptr;
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                return nullptr;
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-                return v.value;
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-                return v.value.lock();
-            }
-        };
-        return boost::apply_visitor(AsDeferredVisitor(), _value);
-    }
-
-    void throwError() const {
-        struct ThrowErrorVisitor: public boost::static_visitor<void> {
-            result_type operator()(tagDeferredNull v) const {
-
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-
-            }
-
-            result_type operator()(const tagDeferredError &v) const {
-                if (v.error) {
-                    std::rethrow_exception(v.error);
-                }
-            }
-
-            result_type operator()(const tagDeferredSharedPtr &v) const {
-
-            }
-
-            result_type operator()(const tagDeferredWeakPtr &v) const {
-
-            }
-        };
-        boost::apply_visitor(ThrowErrorVisitor(), _value);
-    }
-
-    void releaseDeferred() {
-        struct ReleaseDeferredVisitor: public boost::static_visitor<void> {
-            explicit ReleaseDeferredVisitor(ValueType *val): value(val) {}
-
-            result_type operator()(tagDeferredNull v) const {
-
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-
-            }
-
-            result_type operator()(tagDeferredError &v) const {
-
-            }
-
-            result_type operator()(tagDeferredSharedPtr &v) const {
-                *value = tagDeferredWeakPtr{v.value};
-            }
-
-            result_type operator()(tagDeferredWeakPtr &v) const {
-
-            }
-
-            ValueType *value;
-        };
-        boost::apply_visitor(ReleaseDeferredVisitor(&_value), _value);
-    }
-
-    void restoreDeferred() {
-        struct RestoreDeferredVisitor: public boost::static_visitor<void> {
-            explicit RestoreDeferredVisitor(ValueType *val): value(val) {}
-
-            result_type operator()(tagDeferredNull v) const {
-
-            }
-
-            result_type operator()(tagDeferredEmpty v) const {
-
-            }
-
-            result_type operator()(tagDeferredError &v) const {
-
-            }
-
-            result_type operator()(tagDeferredSharedPtr &v) const {
-
-            }
-
-            result_type operator()(tagDeferredWeakPtr &v) const {
-                *value = tagDeferredSharedPtr{v.value.lock()};
-            }
-
-            ValueType *value;
-        };
-        boost::apply_visitor(RestoreDeferredVisitor(&_value), _value);
-    }
-protected:
-    ValueType _value;
-};
-
-
-template <typename ValueT>
-class Deferred: public std::enable_shared_from_this<Deferred<ValueT>> {
-public:
-    using CallbackType = std::function<void (DeferredValue<ValueT> &)>;
+    using CallbackType = std::function<DeferredValue (DeferredValue)>;
     using CallbacksType = std::pair<CallbackType, CallbackType>;
     using CallbacksList = std::deque<CallbacksType>;
-    using CancellerType = std::function<void (std::shared_ptr<Deferred<ValueT>>)>;
+    using CancellerType = std::function<void (std::shared_ptr<Deferred>)>;
+    using TimeoutCancelType = std::function<DeferredValue (DeferredValue)>;
 
     explicit Deferred(CancellerType canceller= nullptr)
             : _canceller(std::move(canceller)) {
 
     }
 
+    virtual ~Deferred() = default;
+
     bool called() const {
         return _called;
     }
 
-    DeferredValue<ValueT>& result() {
+    const DeferredValue& result() const {
+        return _result;
+    }
+
+    DeferredValue& result() {
         return _result;
     }
 
@@ -821,12 +245,11 @@ public:
     }
 
     template <typename CallbackT>
-    std::shared_ptr<Deferred<ValueT>> addCallbacks(CallbackT &&callback, CallbackType errback= nullptr) {
-        NET4CXX_ASSERT(CallbackType{callback});
+    std::shared_ptr<Deferred> addCallbacks(CallbackT &&callback, CallbackType errback= nullptr) {
         if (errback) {
             _callbacks.emplace_back(std::forward<CallbackT>(callback), std::move(errback));
         } else {
-            _callbacks.emplace_back(std::forward<CallbackT>(callback), [](DeferredValue<ValueT> &value){});
+            _callbacks.emplace_back(std::forward<CallbackT>(callback), [](DeferredValue value){ return value; });
         }
         if (_called) {
             runCallbacks();
@@ -835,64 +258,41 @@ public:
     }
 
     template <typename CallbackT>
-    std::shared_ptr<Deferred<ValueT>> addCallback(CallbackT &&callback) {
+    std::shared_ptr<Deferred> addCallback(CallbackT &&callback) {
         return addCallbacks(std::forward<CallbackT>(callback));
     }
 
     template <typename ErrbackT>
-    std::shared_ptr<Deferred<ValueT>> addErrback(ErrbackT &&errback) {
-        return addCallbacks([](DeferredValue<ValueT> &value){}, std::forward<ErrbackT>(errback));
+    std::shared_ptr<Deferred> addErrback(ErrbackT &&errback) {
+        return addCallbacks([](DeferredValue value){ return value; }, std::forward<ErrbackT>(errback));
     }
 
     template <typename CallbackT>
-    std::shared_ptr<Deferred<ValueT>> addBoth(CallbackT &&callback) {
+    std::shared_ptr<Deferred> addBoth(CallbackT &&callback) {
         return addCallbacks(callback, callback);
     }
 
-    template <typename ClockT, typename TimeoutCancelT>
-    std::shared_ptr<Deferred<ValueT>> addTimeout(double timeout, ClockT *clock,
-                                                 TimeoutCancelT &&onTimeoutCancel= nullptr) {
-        auto timeOut = std::make_shared<bool>(false);
-        auto self = this->shared_from_this();
+    std::shared_ptr<Deferred> addTimeout(double timeout, Reactor *reactor, TimeoutCancelType onTimeoutCancel= nullptr);
 
-        auto delayedCall = clock->callLater(timeout, [this, self, timeOut](){
-            *timeOut = true;
-            cancel();
-        });
-
-        addBoth([timeOut, onTimeoutCancel=std::forward<TimeoutCancelT>(onTimeoutCancel)](DeferredValue<ValueT> &value){
-            if (*timeOut) {
-                if (onTimeoutCancel) {
-                    onTimeoutCancel(value);
-                } else {
-                    if (value.isError()) {
-                        NET4CXX_THROW_EXCEPTION(TimeoutError, "Deferred");
-                    }
-                }
-            }
-        });
-
-        addBoth([delayedCall](DeferredValue<ValueT> &result) mutable{
-            if (delayedCall.active()) {
-                delayedCall.cancel();
-            }
-        });
-
-        return self;
-    }
-
-    std::shared_ptr<Deferred<ValueT>> chainDeferred(std::shared_ptr<Deferred<ValueT>> d) {
+    std::shared_ptr<Deferred> chainDeferred(std::shared_ptr<Deferred> d) {
         d->_chainTo = this->shared_from_this();
-        return addCallbacks([d](DeferredValue<ValueT> &result) {
-            d->callback(result);
-            result = DeferredNull;
-        }, [d](DeferredValue<ValueT> &result) {
-            d->errback(result);
-            result = DeferredNull;
+        return addCallbacks([d](DeferredValue result) {
+            d->callback(std::move(result));
+            return nullptr;
+        }, [d](DeferredValue result) {
+            d->errback(std::move(result));
+            return nullptr;
         });
     }
 
-    void callback(const DeferredValue<ValueT> &result) {
+    void callback(DeferredValue &&result) {
+        NET4CXX_ASSERT(!result.isEmpty());
+        NET4CXX_ASSERT(!result.isError());
+        NET4CXX_ASSERT(!result.isDeferred());
+        startRunCallbacks(std::move(result));
+    }
+
+    void callback(const DeferredValue &result) {
         NET4CXX_ASSERT(!result.isEmpty());
         NET4CXX_ASSERT(!result.isError());
         NET4CXX_ASSERT(!result.isDeferred());
@@ -901,15 +301,20 @@ public:
 
     template <typename ResultT>
     void callback(ResultT &&result) {
-        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, tagDeferredEmpty>::value, "");
+        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, DeferredValue::tagDeferredEmpty>::value, "");
         static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, std::exception_ptr>::value, "");
-        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, std::shared_ptr<Deferred<ValueT>>>::value, "");
+        static_assert(!std::is_same<typename RemoveCVR<ResultT>::type, std::shared_ptr<Deferred>>::value, "");
         startRunCallbacks(std::forward<ResultT>(result));
     }
 
-    void errback(const DeferredValue<ValueT> &result) {
+    void errback(const DeferredValue &result) {
         NET4CXX_ASSERT(result.isError() && result.asError());
         startRunCallbacks(result);
+    }
+
+    void errback(DeferredValue &&result) {
+        NET4CXX_ASSERT(result.isError() && result.asError());
+        startRunCallbacks(std::move(result));
     }
 
     void errback(std::exception_ptr error= nullptr) {
@@ -935,44 +340,31 @@ public:
         }
     }
 
-    void cancel() {
-        if (!_called) {
-            if (_canceller) {
-                _canceller(this->shared_from_this());
-            } else {
-                _suppressAlreadyCalled = true;
-            }
-            if (!_called) {
-                errback(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(CancelledError, "")));
-            }
-        } else if (auto result = _result.asDeferred()){
-            result->cancel();
-        }
-    }
+    virtual void cancel();
 protected:
     class Continuation {
     public:
         Continuation() = default;
 
-        explicit Continuation(std::shared_ptr<Deferred<ValueT>> deferred)
+        explicit Continuation(std::shared_ptr<Deferred> deferred)
                 : _deferred(std::move(deferred)) {
 
         }
 
-        std::shared_ptr<Deferred<ValueT>> getDeferred() const {
+        std::shared_ptr<Deferred> getDeferred() const {
             return _deferred;
         }
 
-        void operator()(DeferredValue<ValueT>&) {
-
+        DeferredValue operator()(DeferredValue value) {
+            return value;
         }
     protected:
-        std::shared_ptr<Deferred<ValueT>> _deferred;
+        std::shared_ptr<Deferred> _deferred;
     };
 
     class RunningGuard {
     public:
-        explicit RunningGuard(std::shared_ptr<Deferred<ValueT>> deferred)
+        explicit RunningGuard(std::shared_ptr<Deferred> deferred)
                 : _deferred(std::move(deferred)) {
             _deferred->_runningCallbacks = true;
         }
@@ -981,7 +373,7 @@ protected:
             _deferred->_runningCallbacks = false;
         }
     protected:
-        std::shared_ptr<Deferred<ValueT>> _deferred;
+        std::shared_ptr<Deferred> _deferred;
     };
 
     template <typename ResultT>
@@ -1002,152 +394,111 @@ protected:
         return std::make_pair(Continuation(this->shared_from_this()), Continuation(this->shared_from_this()));
     }
 
-    void runCallbacks() {
-        if (_runningCallbacks) {
-            return;
-        }
-
-        std::vector<std::shared_ptr<Deferred<ValueT>>> chain = {this->shared_from_this()};
-        std::shared_ptr<Deferred<ValueT>> current;
-        bool finished;
-        CallbackType callback;
-
-        while (!chain.empty()) {
-            current = chain.back();
-
-            if (current->_paused > 0) {
-                return;
-            }
-
-            finished = true;
-            current->_chainTo.reset();
-
-            while (!current->_callbacks.empty()) {
-                if (current->_result.isError()) {
-                    callback = std::move(current->_callbacks.front().second);
-                } else {
-                    callback = std::move(current->_callbacks.front().first);
-                }
-                current->_callbacks.pop_front();
-
-                if (Continuation *cb = callback.template target<Continuation>()) {
-                    auto chainee = cb->getDeferred();
-                    chainee->_result = std::move(current->_result);
-                    current->_result = DeferredNull;
-
-                    --chainee->_paused;
-                    chain.emplace_back(std::move(chainee));
-                    finished = false;
-                    break;
-                }
-
-                try {
-                    RunningGuard guard(current);
-                    callback(current->_result);
-                    NET4CXX_ASSERT(current->_result.asDeferred() != current);
-                } catch (...) {
-                    current->_result = std::current_exception();
-                }
-
-                if (current->_result.isDeferred()) {
-                    auto resultDeferred = current->_result.asDeferred();
-                    NET4CXX_ASSERT(resultDeferred);
-                    auto &resultResult = resultDeferred->_result;
-
-                    if (resultResult.isEmpty() || resultResult.isDeferred() || resultDeferred->_paused > 0) {
-                        current->pause();
-                        current->_chainTo = resultDeferred;
-                        resultDeferred->_callbacks.emplace_back(current->continuation());
-                        break;
-                    } else {
-                        current->_result = resultResult;
-                        resultDeferred->_result = DeferredNull;
-                    }
-                }
-            }
-
-            if (finished) {
-                chain.pop_back();
-            }
-        }
-    }
+    void runCallbacks();
 
     bool _called{false};
     bool _suppressAlreadyCalled{false};
     bool _runningCallbacks{false};
     int _paused{0};
-    std::weak_ptr<Deferred<ValueT>> _chainTo;
+    std::weak_ptr<Deferred> _chainTo;
     CallbacksList _callbacks;
     CancellerType _canceller;
-    DeferredValue<ValueT> _result{DeferredEmpty};
+    DeferredValue _result{DeferredValue::DeferredEmpty};
 };
 
+using DeferredPtr = std::shared_ptr<Deferred>;
 
-template <typename ValueT>
-using DeferredPtr = std::shared_ptr<Deferred<ValueT>>;
 
-template <typename ValueT>
-DeferredPtr<ValueT> makeDeferred() {
-    return std::make_shared<Deferred<ValueT>>();
+class DeferredList: public Deferred {
+public:
+    DeferredList(): Deferred(nullptr) {}
+
+    std::shared_ptr<Deferred> wait(std::vector<std::shared_ptr<Deferred>> deferredList, bool fireOnOneCallback=false, 
+                                   bool fireOnOneErrback=false, bool consumeErrors=false);
+
+    void cancel() override;
+
+    const std::vector<DeferredValue>& results() const {
+        return _resultList;
+    }
+
+    std::vector<DeferredValue>& results() {
+        return _resultList;
+    }
+protected:
+    DeferredValue cbDeferred(DeferredValue result, size_t index, bool succeeded);
+
+    std::vector<std::weak_ptr<Deferred>> _deferredList;
+    std::vector<DeferredValue> _resultList;
+    bool _fireOnOneCallback{false};
+    bool _fireOnOneErrback{false};
+    bool _consumeErrors{false};
+    size_t _finishedCount{0};
+};
+
+using DeferredListPtr = std::shared_ptr<DeferredList>;
+
+
+inline DeferredPtr makeDeferred() {
+    return std::make_shared<Deferred>();
 }
 
-template <typename ValueT, typename ResultT>
-DeferredPtr<ValueT> succeedDeferred(ResultT &&result) {
-    auto d = makeDeferred<ValueT>();
+template <typename ResultT>
+DeferredPtr succeedDeferred(ResultT &&result) {
+    auto d = makeDeferred();
     d->callback(std::forward<ResultT>(result));
     return d;
 }
 
-template <typename ValueT>
-DeferredPtr<ValueT> failDeferred(std::exception_ptr error= nullptr) {
-    auto d = makeDeferred<ValueT>();
+inline DeferredPtr failDeferred(std::exception_ptr error= nullptr) {
+    auto d = makeDeferred();
     d->errback(error);
     return d;
 }
 
-template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _executeDeferred(Type2Type<void> ignore, CallableT &&callable, Args&&... args) {
+template <typename CallableT, typename... Args>
+DeferredPtr _executeDeferred(Type2Type<void> ignore, CallableT &&callable, Args&&... args) {
     try {
         callable(std::forward<Args>(args)...);
-        return succeedDeferred<ValueT>(DeferredNull);
+        return succeedDeferred(nullptr);
     } catch (...) {
-        return failDeferred<ValueT>();
+        return failDeferred();
     }
 }
 
-template <typename ValueT, typename ResultT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _executeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args&&... args) {
+template <typename ResultT, typename CallableT, typename... Args>
+DeferredPtr _executeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args&&... args) {
     try {
         ResultT result = callable(std::forward<Args>(args)...);
-        return succeedDeferred<ValueT>(std::move(result));
+        return succeedDeferred(std::move(result));
     } catch (...) {
-        return failDeferred<ValueT>();
+        return failDeferred();
     }
 }
 
-template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> executeDeferred(CallableT &&callable, Args&&... args) {
+template <typename CallableT, typename... Args>
+DeferredPtr executeDeferred(CallableT &&callable, Args&&... args) {
     using ResultT = typename std::result_of<CallableT>::type;
     return _executeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
 }
 
-template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredPtr<ValueT>> ignore, CallableT &&callable, Args&&... args) {
+template <typename CallableT, typename... Args>
+DeferredPtr _maybeDeferred(Type2Type<DeferredPtr> ignore, CallableT &&callable, Args&&... args) {
     try {
-        DeferredPtr<ValueT> result = callable(std::forward<Args>(args)...);
+        DeferredPtr result = callable(std::forward<Args>(args)...);
         return result;
     } catch (...) {
-        return failDeferred<ValueT>();
+        return failDeferred();
     }
 }
 
-template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredValue<ValueT>> ignore, CallableT &&callable, Args&&... args) {
-    DeferredValue<ValueT> result{DeferredEmpty};
+template <typename CallableT, typename... Args>
+DeferredPtr _maybeDeferred(Type2Type<DeferredValue> ignore, CallableT &&callable, Args&&... args) {
+    DeferredValue result{DeferredValue::DeferredEmpty};
     try {
         result = callable(std::forward<Args>(args)...);
     } catch (...) {
-        return failDeferred<ValueT>();
+        return failDeferred();
     }
     if (result.isDeferred()) {
         return result.asDeferred();
@@ -1157,28 +508,28 @@ DeferredPtr<ValueT> _maybeDeferred(Type2Type<DeferredValue<ValueT>> ignore, Call
     return succeedDeferred(std::move(result));
 }
 
-template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _maybeDeferred(Type2Type<void> ignore, CallableT &&callable, Args&&... args) {
+template <typename CallableT, typename... Args>
+DeferredPtr _maybeDeferred(Type2Type<void> ignore, CallableT &&callable, Args&&... args) {
     try {
         callable(std::forward<Args>(args)...);
-        return succeedDeferred<ValueT>(DeferredNull);
+        return succeedDeferred(nullptr);
     } catch (...) {
-        return failDeferred<ValueT>();
+        return failDeferred();
     }
 }
 
-template <typename ValueT, typename ResultT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> _maybeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args&&... args) {
+template <typename ResultT, typename CallableT, typename... Args>
+DeferredPtr _maybeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args&&... args) {
     try {
         ResultT result = callable(std::forward<Args>(args)...);
-        return succeedDeferred<ValueT>(std::move(result));
+        return succeedDeferred(std::move(result));
     } catch (...) {
-        return failDeferred<ValueT>();
+        return failDeferred();
     }
 }
 
-template <typename ValueT, typename CallableT, typename... Args>
-DeferredPtr<ValueT> maybeDeferred(CallableT &&callable, Args&&... args) {
+template <typename CallableT, typename... Args>
+DeferredPtr maybeDeferred(CallableT &&callable, Args&&... args) {
     using ResultT = typename std::result_of<CallableT>::type;
     return _maybeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
 }

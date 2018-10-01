@@ -568,6 +568,7 @@ protected:
 
 class NET4CXX_COMMON_API BasicOutputTransformFactory {
 public:
+    virtual ~BasicOutputTransformFactory() = default;
     virtual OutputTransformPtr create(HTTPServerRequestPtr request) = 0;
 
 };

@@ -51,12 +51,12 @@ protected:
 };
 
 
-DeferredPtr<void> callLater(Reactor *reactor, double timeout) {
-    auto d = makeDeferred<void>();
+DeferredPtr callLater(Reactor *reactor, double timeout) {
+    auto d = makeDeferred();
     auto delayed = reactor->callLater(timeout, [d]() {
-        d->callback(DeferredNull);
+        d->callback(nullptr);
     });
-    d->setCanceller([delayed](DeferredPtr<void>) mutable {
+    d->setCanceller([delayed](DeferredPtr) mutable {
         if (delayed.active()) {
             delayed.cancel();
         }
@@ -70,7 +70,7 @@ void testMyError() {
     NET4CXX_THROW_EXCEPTION(ConnectionDeny, "hehe %s, %s", myname, TypeCast<std::string>(boy)) << errinfo_http_code(404);
 }
 
-int main (int argc, char **argv) {
+// int main (int argc, char **argv) {
 //    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
 //    Reactor reactor;
 //    reactor.makeCurrent();
@@ -85,68 +85,78 @@ int main (int argc, char **argv) {
 //        std::cout << "code:" << e.getCode() << std::endl;
 //        std::cout << "reason:" << e.getReason() << std::endl;
 //    }
-    try {
-        int i =3;
-        NET4CXX_ASSERT_THROW(i == 3, "i must be 4");
-    } catch (std::exception &e) {
-        std::cout << e.what() << std::endl;
-    }
-    auto request = HTTPRequest::create("http://baidu.com", ARG_method="POST");
-    std::cout << request->getUrl() << std::endl;
-    std::cout << request->getMethod() << std::endl;
-    return 0;
-};
+//    try {
+//        int i =3;
+//        NET4CXX_ASSERT_THROW(i == 3, "i must be 4");
+//    } catch (std::exception &e) {
+//        std::cout << e.what() << std::endl;
+//    }
+//    auto request = HTTPRequest::create("http://baidu.com", ARG_method="POST");
+//    std::cout << request->getUrl() << std::endl;
+//    std::cout << request->getMethod() << std::endl;
+    // TrafficStats stats;
+    // std::cout << boost::lexical_cast<JsonValue>(stats) << std::endl;
+    // return 0;
+// };
 
-//int main (int argc, char **argv) {
-//    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-//    Reactor reactor;
-//    NET4CXX_LOG_INFO(gAppLog, "Started");
-//    auto d = callLater(&reactor, 2.0f);
-//    d->addCallback([](DeferredValue<void> &result){
-//        NET4CXX_LOG_INFO("First callback");
-//    })->addErrback([](DeferredValue<void> &result){
-//        NET4CXX_LOG_ERROR("Error happend");
-//        try {
-//            result.throwError();
-//        } catch (std::exception &e) {
-//            NET4CXX_LOG_ERROR(e.what());
-//        }
-//    })->addCallback([&reactor](DeferredValue<void> &result){
-//        NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
-//        result = callLater(&reactor, 2.0f);
-//    })->addCallback([](DeferredValue<void> &result) {
-//        NET4CXX_LOG_INFO("Yeah triggered");
-//    });
-//    auto d2 = makeDeferred<void>();
-//    d2->addCallback([](DeferredValue<void> &result) {
-//        NET4CXX_LOG_INFO("chained");
-//    });
-//    d->chainDeferred(d2);
-//    d->addTimeout(1.0, &reactor, [](DeferredValue<void> &result){
-//        NET4CXX_LOG_INFO("Timeout");
-//    });
-//    reactor.run();
-//    auto d1 = makeDeferred<std::string>();
-//    d1->addCallback([](DeferredValue<std::string> &value) {
-//        std::cout << "success:" << *value.asValue() << std::endl;
-//        value = "yyy";
-//    })->addErrback([](DeferredValue<std::string> &value) {
+int main (int argc, char **argv) {
+   NET4CXX_PARSE_COMMAND_LINE(argc, argv);
+   Reactor reactor;
+   NET4CXX_LOG_INFO(gAppLog, "Started");
+   auto d = callLater(&reactor, 2.0f);
+   d->addCallback([](DeferredValue result){
+       NET4CXX_LOG_INFO("First callback");
+       return result;
+   })->addErrback([](DeferredValue result){
+       NET4CXX_LOG_ERROR("Error happend");
+       try {
+           result.throwError();
+       } catch (std::exception &e) {
+           NET4CXX_LOG_ERROR(e.what());
+       }
+       return nullptr;
+   })->addCallback([&reactor](DeferredValue result){
+       NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
+       return callLater(&reactor, 2.0f);
+   })->addCallback([](DeferredValue result) {
+       NET4CXX_LOG_INFO("Yeah triggered");
+       return result;
+   });
+   auto d2 = makeDeferred();
+   d2->addCallback([](DeferredValue result) {
+       NET4CXX_LOG_INFO("chained");
+       return nullptr;
+   });
+   d->chainDeferred(d2);
+   d->addTimeout(1.0, &reactor, [](DeferredValue result){
+       NET4CXX_LOG_INFO("Timeout");
+       return nullptr;
+   });
+   reactor.run();
+//    auto d1 = makeDeferred();
+//    d1->addCallback([](DeferredValue value) {
+//        std::cout << "success:" << *value.asValue<std::string>() << std::endl;
+//        return std::string{"yyy"};
+//    })->addErrback([](DeferredValue value) {
 //        std::cout << "error:" << value.isError() << std::endl;
-//    })->addCallback([](DeferredValue<std::string> &value) {
-//        std::cout << "success:" << *value.asValue() << std::endl;
+//        return nullptr;
+//    })->addCallback([](DeferredValue value) {
+//        std::cout << "success:" << *value.asValue<std::string>() << std::endl;
+//        return 2;
 //    });
-//    d1->callback("xxx");
-//
-//    auto d2 = makeDeferred<void>();
-//    d2->addBoth([](DeferredValue<void> &value){
+//    d1->callback(std::string{"xxx"});
+
+//    auto d2 = makeDeferred();
+//    d2->addBoth([](DeferredValue value){
 //        std::cout << "callback isError:" << value.isError() << std::endl;
 //        try {
 //            value.throwError();
 //        } catch (std::exception &e) {
 //            std::cout << e.what() << std::endl;
 //        }
+//        return value;
 //    });
-//    d2->errback(NET4CXX_MAKE_EXCEPTION_PTR(ValueError, "value error"));
+//    d2->errback(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ValueError, "value error")));
 
 //    DeferredPtr<int> d = makeDeferred<int>();
 //    DeferredValue<int> x{d};
@@ -178,7 +188,7 @@ int main (int argc, char **argv) {
 //        std::cout << "Value4:" << *x.asDeferred()->result().asValue() << std::endl;
 //    }
 //    std::cout << std::endl;
-//
+
 //    DeferredValue<void> dv2;
 //    std::cout << "IsEmpty:" << dv2.isEmpty() << std::endl;
 //    std::cout << "IsNull:" << dv2.isNull() << std::endl;
@@ -191,8 +201,8 @@ int main (int argc, char **argv) {
 //        }
 //    }
 //    std::cout << "IsDeferred:" << dv2.isDeferred() << std::endl;
-//    return 0;
-//}
+   return 0;
+}
 
 //int main() {
 //    JSONValue root{JSONType::objectValue};
