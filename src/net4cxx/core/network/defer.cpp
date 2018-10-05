@@ -131,20 +131,16 @@ void Deferred::runCallbacks() {
 }
 
 
-std::shared_ptr<Deferred> DeferredList::wait(std::vector<std::shared_ptr<Deferred>> deferredList,
-                                             bool fireOnOneCallback, bool fireOnOneErrback, bool consumeErrors) {
+std::shared_ptr<Deferred> DeferredList::wait(std::vector<std::shared_ptr<Deferred>> deferredList) {
     NET4CXX_ASSERT(_deferredList.empty());
     for (auto &deferred: deferredList) {
         _deferredList.emplace_back(deferred);
     }
     _resultList.resize(_deferredList.size());
-    if (_deferredList.empty() && !fireOnOneCallback) {
+    if (_deferredList.empty() && !_fireOnOneCallback) {
         callback(_resultList);
     }
 
-    _fireOnOneCallback = fireOnOneCallback;
-    _fireOnOneErrback = fireOnOneErrback;
-    _consumeErrors = consumeErrors;
     _finishedCount = 0;
 
     auto self = shared_from_this();

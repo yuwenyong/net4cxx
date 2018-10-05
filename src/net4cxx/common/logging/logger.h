@@ -126,7 +126,13 @@ public:
         return _name;
     }
 
-    Logger* getChild(const std::string &suffix) const;
+    void setSeverity(Severity severity) {
+        _severity = severity;
+    }
+
+    Severity getSeverity() const {
+        return _severity;
+    }
 
     template <typename... Args>
     void trace(const char *format, Args&&... args) {
@@ -251,23 +257,27 @@ protected:
 
     template <typename... Args>
     void write(Severity severity, const char *format, Args&&... args) {
-        logging::record rec = _logger.open_record(keywords::severity=severity);
-        if (rec) {
-            logging::record_ostream strm(rec);
-            strm << StrUtil::format(format, std::forward<Args>(args)...);
-            _logger.push_record(std::move(rec));
+        if (severity >= _severity) {
+            logging::record rec = _logger.open_record(keywords::severity=severity);
+            if (rec) {
+                logging::record_ostream strm(rec);
+                strm << StrUtil::format(format, std::forward<Args>(args)...);
+                _logger.push_record(std::move(rec));
+            }
         }
     }
 
     template <typename... Args>
     void write(const StringLiteral &file, size_t line, const StringLiteral &func, Severity severity, const char *format,
                Args&&... args) {
-        logging::record rec = _logger.open_record((keywords::severity=severity, logger_keywords::file=file,
-                                                   logger_keywords::line=line, logger_keywords::func=func));
-        if (rec) {
-            logging::record_ostream strm(rec);
-            strm << StrUtil::format(format, std::forward<Args>(args)...);
-            _logger.push_record(std::move(rec));
+        if (severity >= _severity) {
+            logging::record rec = _logger.open_record((keywords::severity=severity, logger_keywords::file=file,
+                                                       logger_keywords::line=line, logger_keywords::func=func));
+            if (rec) {
+                logging::record_ostream strm(rec);
+                strm << StrUtil::format(format, std::forward<Args>(args)...);
+                _logger.push_record(std::move(rec));
+            }
         }
     }
 
@@ -277,6 +287,7 @@ protected:
                const Byte *data, size_t length, size_t limit=0);
 
     std::string _name;
+    Severity _severity{SEVERITY_TRACE};
     PositionLoggerMT<Severity> _logger;
 };
 

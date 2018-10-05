@@ -10,56 +10,33 @@
 
 NS_BEGIN
 
-void BaseSink::setFilter(const std::string &name, Severity severity) {
-    _name = Logging::getLoggerName(name);
-    setFilter(severity);
-}
-
-
-void BaseSink::onSetFilter(FrontendSinkPtr sink) const {
-    if (_filter) {
-        sink->set_filter(logging::parse_filter(*_filter));
-    } else if (_name) {
-        sink->set_filter(boost::phoenix::bind(&BaseSink::filter, attr_severity.or_none(), attr_channel.or_none(),
-                                              *_name, _severity));
+SinkPtr SinkBuilder::build() const {
+    FrontendSinkPtr sink;
+    if (_async) {
+        sink = createAsyncSink();
     } else {
-        sink->set_filter(attr_severity >= _severity);
+        sink = createSink();
     }
-}
-
-void BaseSink::onSetFormatter(FrontendSinkPtr sink) const {
-    if (_formatter) {
-        sink->set_formatter(logging::parse_formatter(*_formatter));
-    } else {
-        sink->set_formatter(expr::stream << '[' << expr::format_date_time<DateTime>("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
-                                         << "][" << expr::attr<Severity>("Severity") << ']' << expr::smessage);
-    }
-}
-
-bool BaseSink::filter(const logging::value_ref <Severity, tag::attr_severity> &sev,
-                      const logging::value_ref <std::string, tag::attr_channel> &channel,
-                      const std::string &name, Severity severity) {
-    if (sev < severity) {
-        return false;
-    }
-    return ChannelFilterFactory::isChildOf(channel.get(), name);
+    onSetFilter(sink);
+    onSetFormatter(sink);
+    return sink;
 }
 
 
-ConsoleSink::FrontendSinkPtr ConsoleSink::createSink() const {
+ConsoleSinkBuilder::FrontendSinkPtr ConsoleSinkBuilder::createSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::synchronous_sink<BackendSink>>(backend);
     return sink;
 }
 
-ConsoleSink::FrontendSinkPtr ConsoleSink::createAsyncSink() const {
+ConsoleSinkBuilder::FrontendSinkPtr ConsoleSinkBuilder::createAsyncSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::asynchronous_sink<BackendSink>>(backend);
     sink->set_exception_handler(logging::nop());
     return sink;
 }
 
-ConsoleSink::BackendSinkPtr ConsoleSink::createBackend() const {
+ConsoleSinkBuilder::BackendSinkPtr ConsoleSinkBuilder::createBackend() const {
     auto backend = boost::make_shared<BackendSink>();
     backend->add_stream(boost::shared_ptr<std::ostream>(&std::clog, boost::null_deleter()));
     backend->auto_flush(_autoFlush);
@@ -67,7 +44,7 @@ ConsoleSink::BackendSinkPtr ConsoleSink::createBackend() const {
 }
 
 
-FileSink::BackendSinkPtr FileSink::createBackend() const {
+FileSinkBuilder::BackendSinkPtr FileSinkBuilder::createBackend() const {
     auto backend = boost::make_shared<BackendSink>();
     backend->add_stream(boost::make_shared<std::ofstream>(_fileName));
     backend->auto_flush(_autoFlush);
@@ -75,20 +52,20 @@ FileSink::BackendSinkPtr FileSink::createBackend() const {
 }
 
 
-RotatingFileSink::FrontendSinkPtr RotatingFileSink::createSink() const {
+RotatingFileSinkBuilder::FrontendSinkPtr RotatingFileSinkBuilder::createSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::synchronous_sink<BackendSink>>(backend);
     return sink;
 }
 
-RotatingFileSink::FrontendSinkPtr RotatingFileSink::createAsyncSink() const {
+RotatingFileSinkBuilder::FrontendSinkPtr RotatingFileSinkBuilder::createAsyncSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::asynchronous_sink<BackendSink>>(backend);
     sink->set_exception_handler(logging::nop());
     return sink;
 }
 
-RotatingFileSink::BackendSinkPtr RotatingFileSink::createBackend() const {
+RotatingFileSinkBuilder::BackendSinkPtr RotatingFileSinkBuilder::createBackend() const {
     auto backend = boost::make_shared<BackendSink>(
             keywords::file_name = _fileName,
             keywords::open_mode = _mode,
@@ -99,26 +76,27 @@ RotatingFileSink::BackendSinkPtr RotatingFileSink::createBackend() const {
 }
 
 
-TimedRotatingFileSink::BackendSinkPtr TimedRotatingFileSink::createBackend() const {
+TimedRotatingFileSinkBuilder::BackendSinkPtr TimedRotatingFileSinkBuilder::createBackend() const {
     return boost::apply_visitor(RotationTimeVisitor(_fileName, _maxFileSize, _mode, _autoFlush), _rotationTime);
 }
 
+
 #ifndef BOOST_LOG_WITHOUT_SYSLOG
 
-SyslogSink::FrontendSinkPtr SyslogSink::createSink() const {
+SyslogSinkBuilder::FrontendSinkPtr SyslogSinkBuilder::createSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::synchronous_sink<BackendSink>>(backend);
     return sink;
 }
 
-SyslogSink::FrontendSinkPtr SyslogSink::createAsyncSink() const {
+SyslogSinkBuilder::FrontendSinkPtr SyslogSinkBuilder::createAsyncSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::asynchronous_sink<BackendSink>>(backend);
     sink->set_exception_handler(logging::nop());
     return sink;
 }
 
-SyslogSink::BackendSinkPtr SyslogSink::createBackend() const {
+SyslogSinkBuilder::BackendSinkPtr SyslogSinkBuilder::createBackend() const {
     auto backend = boost::make_shared<BackendSink>(keywords::facility=_facility);
     if (_targetAddress) {
         backend->set_target_address(*_targetAddress, _targetPort);
@@ -139,20 +117,20 @@ SyslogSink::BackendSinkPtr SyslogSink::createBackend() const {
 
 #ifndef BOOST_LOG_WITHOUT_EVENT_LOG
 
-SimpleEventLogSink::FrontendSinkPtr SimpleEventLogSink::createSink() const {
+SimpleEventLogSinkBuilder::FrontendSinkPtr SimpleEventLogSinkBuilder::createSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::synchronous_sink<BackendSink>>(backend);
     return sink;
 }
 
-SimpleEventLogSink::FrontendSinkPtr SimpleEventLogSink::createAsyncSink() const {
+SimpleEventLogSinkBuilder::FrontendSinkPtr SimpleEventLogSinkBuilder::createAsyncSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::asynchronous_sink<BackendSink>>(backend);
     sink->set_exception_handler(logging::nop());
     return sink;
 }
 
-SimpleEventLogSink::BackendSinkPtr SimpleEventLogSink::createBackend() const {
+SimpleEventLogSinkBuilder::BackendSinkPtr SimpleEventLogSinkBuilder::createBackend() const {
     std::string logName = _logName, logSource = _logSource;
     if (logName.empty()) {
         logName = BackendSink::get_default_log_name();
@@ -181,20 +159,20 @@ SimpleEventLogSink::BackendSinkPtr SimpleEventLogSink::createBackend() const {
 
 #ifndef BOOST_LOG_WITHOUT_DEBUG_OUTPUT
 
-DebuggerSink::FrontendSinkPtr DebuggerSink::createSink() const {
+DebuggerSinkBuilder::FrontendSinkPtr DebuggerSinkBuilder::createSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::synchronous_sink<BackendSink>>(backend);
     return sink;
 }
 
-DebuggerSink::FrontendSinkPtr DebuggerSink::createAsyncSink() const {
+DebuggerSinkBuilder::FrontendSinkPtr DebuggerSinkBuilder::createAsyncSink() const {
     auto backend = createBackend();
     auto sink = boost::make_shared<sinks::asynchronous_sink<BackendSink>>(backend);
     sink->set_exception_handler(logging::nop());
     return sink;
 }
 
-DebuggerSink::BackendSinkPtr DebuggerSink::createBackend() const {
+DebuggerSinkBuilder::BackendSinkPtr DebuggerSinkBuilder::createBackend() const {
     auto backend = boost::make_shared<BackendSink>();
     return backend;
 }

@@ -50,6 +50,10 @@ public:
         logging::core::get()->set_filter(logging::parse_filter(filter));
     }
 
+    static void setFilter(const logging::filter &filter) {
+        logging::core::get()->set_filter(filter);
+    }
+
     static void resetFilter() {
         logging::core::get()->reset_filter();
     }
@@ -59,31 +63,40 @@ public:
     }
 
     static bool  isInitialized() {
-        return _rootLogger != nullptr;
+        return _initialized;
     }
 
     static Logger* getLogger(const std::string &name="") {
-        std::string loggerName = getLoggerName(name);
-        return getLoggerByName(std::move(loggerName));
-    }
-
-    static std::string getLoggerName(const std::string &name) {
-        std::string prefix("root");
         if (name.empty()) {
-            return prefix;
+            if (!_rootLogger) {
+                _rootLogger = getLoggerByName(_rootLoggerName);
+            }
+            return _rootLogger;
         } else {
-            return prefix + '.' + name;
+            return getLoggerByName(name);
         }
     }
 
-    static void addSink(const BaseSink &sink) {
-        logging::core::get()->add_sink(sink.makeSink());
+    static std::string getRootLoggerName() {
+        return _rootLoggerName;
+    }
+
+    static void addSink(const SinkPtr &sink) {
+        _sinkRegistered = true;
+        logging::core::get()->add_sink(sink);
+    }
+
+    static void removeSink(const SinkPtr &sink) {
+        logging::core::get()->remove_sink(sink);
     }
 
     static Severity toSeverity(std::string severity);
 
     template <typename... Args>
     static void trace(const char *format, Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(format, std::forward<Args>(args)...);
     }
@@ -91,23 +104,35 @@ public:
     template <typename... Args>
     static void trace(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void trace(const Byte *data, size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(data, length, limit);
     }
 
     static void trace(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->trace(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void debug(const char *format, Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(format, std::forward<Args>(args)...);
     }
@@ -115,23 +140,35 @@ public:
     template <typename... Args>
     static void debug(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void debug(const Byte *data, size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(data, length, limit);
     }
 
     static void debug(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->debug(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void info(const char *format, Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(format, std::forward<Args>(args)...);
     }
@@ -139,23 +176,35 @@ public:
     template <typename... Args>
     static void info(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                      Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void info(const Byte *data, size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(data, length, limit);
     }
 
     static void info(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                      size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->info(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void warn(const char *format, Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(format, std::forward<Args>(args)...);
     }
@@ -163,23 +212,35 @@ public:
     template <typename... Args>
     static void warn(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                         Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void warn(const Byte *data, size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(data, length, limit);
     }
 
     static void warn(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                         size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->warn(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void error(const char *format, Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(format, std::forward<Args>(args)...);
     }
@@ -187,23 +248,35 @@ public:
     template <typename... Args>
     static void error(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void error(const Byte *data, size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(data, length, limit);
     }
 
     static void error(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->error(file, line, func, data, length, limit);
     }
 
     template <typename... Args>
     static void fatal(const char *format, Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(format, std::forward<Args>(args)...);
     }
@@ -211,39 +284,40 @@ public:
     template <typename... Args>
     static void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                       Args&&... args) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(file, line, func, format, std::forward<Args>(args)...);
     }
 
     static void fatal(const Byte *data, size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(data, length, limit);
     }
 
     static void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data,
                       size_t length, size_t limit=0) {
+        if (!_initialized) {
+            doInit(true);
+        }
         NET4CXX_ASSERT(_rootLogger != nullptr);
         _rootLogger->fatal(file, line, func, data, length, limit);
     }
 protected:
-    static void onPreInit();
-
-    static void onPostInit();
+    static void doInit(bool registerSink=false);
 
     static Logger* getLoggerByName(std::string loggerName);
 
-    static Logger* getChildLogger(const Logger *logger, const std::string &suffix) {
-        std::string loggerName = joinLoggerName(logger->getName(), suffix);
-        return getLoggerByName(std::move(loggerName));
-    }
-
-    static std::string joinLoggerName(const std::string &name, const std::string &suffix) {
-        NET4CXX_ASSERT(!name.empty() && !suffix.empty());
-        return name + '.' + suffix;
-    }
-
-    static std::mutex _lock;
+    static volatile bool _initialized;
+    static volatile bool _sinkRegistered;
+    static std::mutex _initLock;
+    static std::mutex _loggersLock;
     static LoggerMap _loggers;
+    static const std::string _rootLoggerName;
     static Logger *_rootLogger;
     static const std::map<std::string, Severity> _severityMapping;
 };

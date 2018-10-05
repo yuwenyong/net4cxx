@@ -17,70 +17,91 @@ NS_BEGIN
 namespace sinks = boost::log::sinks;
 namespace keywords = boost::log::keywords;
 
+using SinkPtr = boost::shared_ptr<sinks::sink>;
 
-class NET4CXX_COMMON_API BaseSink {
+
+class NET4CXX_COMMON_API SinkBuilder {
 public:
     typedef sinks::basic_formatting_sink_frontend<char> FrontendSink;
     typedef boost::shared_ptr<FrontendSink> FrontendSinkPtr;
 
-    void setFilter(Severity severity) {
-        _severity = severity;
-    }
-
-    void setFilter(const std::string &name, Severity severity);
-
-    void setFilter(std::string filter) {
-        _filter = std::move(filter);
-    }
-
-    void setFormatter(std::string formatter) {
-        _formatter = std::move(formatter);
-    }
+    virtual ~SinkBuilder() = default;
 
     void setAsync(bool async) {
         _async = async;
     }
 
-    FrontendSinkPtr makeSink() const {
-        FrontendSinkPtr sink;
-        if (_async) {
-            sink = createAsyncSink();
-        } else {
-            sink = createSink();
-        }
-        onSetFilter(sink);
-        onSetFormatter(sink);
-        return sink;
+    void setFormatter() {
+        _formatter = expr::stream << '[' << expr::format_date_time<DateTime>("TimeStamp", "%Y-%m-%d %H:%M:%S.%f")
+                << "][" << expr::attr<Severity>("Severity") << ']' << expr::smessage;
     }
 
-    virtual ~BaseSink() = default;
+    void setFormatter(const std::string &formatter) {
+        _formatter = logging::parse_formatter(formatter);
+    }
+
+    void setFormatter(const logging::formatter &formatter) {
+        _formatter = formatter;
+    }
+
+    void resetFormatter() {
+        _formatter = boost::none;
+    }
+
+    void setFilter(Severity severity) {
+        _filter = (attr_severity >= severity);
+    }
+
+    void setFilter(Severity severity, const std::string &name, bool beginsWith=false) {
+        if (beginsWith) {
+            _filter = (expr::begins_with(attr_channel, name) && attr_severity >= severity);
+        } else {
+            _filter = (attr_channel == name && attr_severity >= severity);
+        }
+    }
+
+    void setFilter(const std::string &filter) {
+        _filter = logging::parse_filter(filter);
+    }
+
+    void setFilter(const logging::filter &filter) {
+        _filter = filter;
+    }
+
+    void resetFilter() {
+        _filter = boost::none;
+    }
+
+    SinkPtr build() const;
 protected:
     virtual FrontendSinkPtr createSink() const= 0;
 
     virtual FrontendSinkPtr createAsyncSink() const= 0;
 
-    void onSetFilter(FrontendSinkPtr sink) const;
+    void onSetFilter(FrontendSinkPtr sink) const {
+        if (_filter) {
+            sink->set_filter(*_filter);
+        }
+    }
 
-    void onSetFormatter(FrontendSinkPtr sink) const;
+    void onSetFormatter(FrontendSinkPtr sink) const {
+        if (_formatter) {
+            sink->set_formatter(*_formatter);
+        }
+    }
 
-    static bool filter(const logging::value_ref<Severity, tag::attr_severity> &sev,
-                       const logging::value_ref<std::string, tag::attr_channel> &channel,
-                       const std::string &name, Severity severity);
-
-    Severity _severity{SEVERITY_INFO};
-    boost::optional<std::string> _name;
-    boost::optional<std::string> _formatter;
-    boost::optional<std::string> _filter;
     bool _async{false};
+    boost::optional<logging::formatter> _formatter;
+    boost::optional<logging::filter> _filter;
 };
 
 
-class NET4CXX_COMMON_API ConsoleSink: public BaseSink {
+class NET4CXX_COMMON_API ConsoleSinkBuilder: public SinkBuilder {
 public:
     typedef sinks::text_ostream_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
 
-    explicit ConsoleSink(bool autoFlush=true)
+    explicit ConsoleSinkBuilder(bool autoFlush=true)
             : _autoFlush(autoFlush) {
 
     }
@@ -100,10 +121,11 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API FileSink: public ConsoleSink {
+class NET4CXX_COMMON_API FileSinkBuilder: public ConsoleSinkBuilder {
 public:
-    explicit FileSink(std::string fileName, bool autoFlush=true)
-            : ConsoleSink(autoFlush)
+    explicit FileSinkBuilder(std::string fileName,
+                             bool autoFlush=true)
+            : ConsoleSinkBuilder(autoFlush)
             , _fileName(std::move(fileName)) {
 
     }
@@ -114,14 +136,15 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API RotatingFileSink: public BaseSink {
+class NET4CXX_COMMON_API RotatingFileSinkBuilder: public SinkBuilder {
 public:
     typedef sinks::text_file_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
 
-    explicit RotatingFileSink(std::string fileName, size_t maxFileSize = 5 * 1024 * 1024,
-                              std::ios_base::openmode mode = std::ios_base::app|std::ios_base::out,
-                              bool autoFlush = true)
+    explicit RotatingFileSinkBuilder(std::string fileName,
+                                     size_t maxFileSize = 5 * 1024 * 1024,
+                                     std::ios_base::openmode mode = std::ios_base::app|std::ios_base::out,
+                                     bool autoFlush = true)
             : _fileName(std::move(fileName))
             , _maxFileSize(maxFileSize)
             , _mode(mode)
@@ -154,14 +177,16 @@ protected:
 };
 
 
-class TimedRotatingFileSink: public RotatingFileSink {
+class TimedRotatingFileSinkBuilder: public RotatingFileSinkBuilder {
 public:
     using TimePoint = sinks::file::rotation_at_time_point;
     using TimeInterval = sinks::file::rotation_at_time_interval;
 
     class RotationTimeVisitor: public boost::static_visitor<BackendSinkPtr> {
     public:
-        RotationTimeVisitor(std::string fileName, size_t maxFileSize, std::ios_base::openmode mode, bool autoFlush)
+        RotationTimeVisitor(std::string fileName,
+                            size_t maxFileSize, std::ios_base::openmode mode,
+                            bool autoFlush)
                 : _fileName(std::move(fileName))
                 , _maxFileSize(maxFileSize)
                 , _mode(mode)
@@ -198,21 +223,22 @@ public:
         bool _autoFlush;
     };
 
-    explicit TimedRotatingFileSink(std::string fileName,
-                                   const TimePoint &timePoint = sinks::file::rotation_at_time_point(0, 0, 0),
-                                   size_t maxFileSize = 5 * 1024 * 1024,
-                                   std::ios_base::openmode mode = std::ios_base::app | std::ios_base::out,
-                                   bool autoFlush = true)
-            : RotatingFileSink(std::move(fileName), maxFileSize, mode, autoFlush)
+    explicit TimedRotatingFileSinkBuilder(std::string fileName,
+                                          const TimePoint &timePoint = sinks::file::rotation_at_time_point(0, 0, 0),
+                                          size_t maxFileSize = 5 * 1024 * 1024,
+                                          std::ios_base::openmode mode = std::ios_base::app | std::ios_base::out,
+                                          bool autoFlush = true)
+            : RotatingFileSinkBuilder(std::move(fileName), maxFileSize, mode, autoFlush)
             , _rotationTime(timePoint) {
 
     }
 
-    TimedRotatingFileSink(std::string fileName, const TimeInterval &timeInterval,
-                          size_t maxFileSize = 5 * 1024 * 1024,
-                          std::ios_base::openmode mode = std::ios_base::app | std::ios_base::out,
-                          bool autoFlush = true)
-            : RotatingFileSink(std::move(fileName), maxFileSize, mode, autoFlush)
+    TimedRotatingFileSinkBuilder(std::string fileName,
+                                 const TimeInterval &timeInterval,
+                                 size_t maxFileSize = 5 * 1024 * 1024,
+                                 std::ios_base::openmode mode = std::ios_base::app | std::ios_base::out,
+                                 bool autoFlush = true)
+            : RotatingFileSinkBuilder(std::move(fileName), maxFileSize, mode, autoFlush)
             , _rotationTime(timeInterval) {
 
     }
@@ -260,18 +286,19 @@ using SyslogFacility = sinks::syslog::facility;
 #define SYSLOG_FACILITY_LOCAL7      sinks::syslog::local7
 
 
-class NET4CXX_COMMON_API SyslogSink: public BaseSink {
+class NET4CXX_COMMON_API SyslogSinkBuilder: public SinkBuilder {
 public:
     typedef sinks::syslog_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
 
-    explicit SyslogSink(SyslogFacility facility=SYSLOG_FACILITY_USER)
+    explicit SyslogSinkBuilder(SyslogFacility facility=SYSLOG_FACILITY_USER)
             : _facility(facility) {
 
     }
 
-    explicit SyslogSink(std::string targetAddress, unsigned short targetPort=514,
-                        SyslogFacility facility=SYSLOG_FACILITY_USER)
+    explicit SyslogSinkBuilder(std::string targetAddress,
+                               unsigned short targetPort=514,
+                               SyslogFacility facility=SYSLOG_FACILITY_USER)
             : _targetAddress(std::move(targetAddress))
             , _targetPort(targetPort)
             , _facility(facility) {
@@ -279,7 +306,9 @@ public:
     }
 protected:
     FrontendSinkPtr createSink() const override;
+
     FrontendSinkPtr createAsyncSink() const override;
+
     BackendSinkPtr createBackend() const;
 
     boost::optional<std::string> _targetAddress;
@@ -299,12 +328,13 @@ using RegistrationMode = sinks::event_log::registration_mode;
 #define REGISTRATION_MODE_FORCED    sinks::event_log::forced
 
 
-class NET4CXX_COMMON_API SimpleEventLogSink: public BaseSink {
+class NET4CXX_COMMON_API SimpleEventLogSinkBuilder: public SinkBuilder {
 public:
     typedef sinks::simple_event_log_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
 
-    explicit SimpleEventLogSink(std::string logName="", std::string logSource="",
+    explicit SimpleEventLogSink(std::string logName="",
+                                std::string logSource="",
                                 RegistrationMode registrationMode=REGISTRATION_MODE_ON_DEMAND)
             : _logName(std::move(logName))
             , _logSource(std::move(logSource)
@@ -325,7 +355,9 @@ public:
     }
 protected:
     FrontendSinkPtr createSink() const override;
+
     FrontendSinkPtr createAsyncSink() const override;
+
     BackendSinkPtr createBackend() const;
 
     std::string _logName;
@@ -338,7 +370,7 @@ protected:
 
 #ifndef BOOST_LOG_WITHOUT_DEBUG_OUTPUT
 
-class NET4CXX_COMMON_API DebuggerSink: public BaseSink {
+class NET4CXX_COMMON_API DebuggerSinkBuilder: public SinkBuilder {
 public:
     typedef sinks::debug_output_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
@@ -346,7 +378,9 @@ public:
     DebuggerSink() = default;
 protected:
     FrontendSinkPtr createSink() const override;
+
     FrontendSinkPtr createAsyncSink() const override;
+
     BackendSinkPtr createBackend() const;
 };
 

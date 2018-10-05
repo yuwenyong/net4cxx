@@ -411,10 +411,15 @@ using DeferredPtr = std::shared_ptr<Deferred>;
 
 class DeferredList: public Deferred {
 public:
-    DeferredList(): Deferred(nullptr) {}
+    explicit DeferredList(bool fireOnOneCallback = false, bool fireOnOneErrback = false, bool consumeErrors = false)
+            : Deferred(nullptr)
+            , _fireOnOneCallback(fireOnOneCallback)
+            , _fireOnOneErrback(fireOnOneErrback)
+            , _consumeErrors(consumeErrors) {
 
-    std::shared_ptr<Deferred> wait(std::vector<std::shared_ptr<Deferred>> deferredList, bool fireOnOneCallback=false, 
-                                   bool fireOnOneErrback=false, bool consumeErrors=false);
+    }
+
+    std::shared_ptr<Deferred> wait(std::vector<std::shared_ptr<Deferred>> deferredList);
 
     void cancel() override;
 
@@ -532,6 +537,18 @@ template <typename CallableT, typename... Args>
 DeferredPtr maybeDeferred(CallableT &&callable, Args&&... args) {
     using ResultT = typename std::result_of<CallableT>::type;
     return _maybeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
+}
+
+inline DeferredListPtr makeDeferredList(bool fireOnOneCallback=false, bool fireOnOneErrback=false,
+                                        bool consumeErrors=false) {
+    return std::make_shared<DeferredList>(fireOnOneCallback, fireOnOneErrback, consumeErrors);
+}
+
+inline DeferredListPtr gatherResults(std::vector<std::shared_ptr<Deferred>> deferredList, bool fireOnOneCallback=false,
+                                     bool fireOnOneErrback=false, bool consumeErrors=false) {
+    auto d = makeDeferredList(fireOnOneCallback, fireOnOneErrback, consumeErrors);
+    d->wait(std::move(deferredList));
+    return d;
 }
 
 NS_END

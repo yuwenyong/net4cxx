@@ -29,14 +29,16 @@ void LogUtil::enablePrettyLogging(const OptionParser *options) {
     if (options->has("log_file_prefix")) {
         const auto &logFilePrefix = options->get<std::string>("log_file_prefix");
         size_t fileMaxSize = options->get<size_t>("log_file_max_size");
-        RotatingFileSink sink(logFilePrefix, fileMaxSize);
-        sink.setFilter("", severity);
-        Logging::addSink(sink);
+        RotatingFileSinkBuilder builder(logFilePrefix, fileMaxSize);
+        builder.setFormatter();
+        builder.setFilter(severity);
+        Logging::addSink(builder.build());
     }
     if (options->has("log_to_console") || !options->has("log_file_prefix")) {
-        ConsoleSink sink;
-        sink.setFilter("", severity);
-        Logging::addSink(sink);
+        ConsoleSinkBuilder builder;
+        builder.setFormatter();
+        builder.setFilter(severity);
+        Logging::addSink(builder.build());
     }
 }
 
