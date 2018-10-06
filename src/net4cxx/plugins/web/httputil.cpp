@@ -3,7 +3,7 @@
 //
 
 #include "net4cxx/plugins/web/httputil.h"
-#include "net4cxx/common/global/loggers.h"
+#include "net4cxx/shared/global/loggers.h"
 
 
 NS_BEGIN

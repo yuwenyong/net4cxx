@@ -6,8 +6,8 @@
 #define NET4CXX_CORE_NETWORK_ENDPOINTS_H
 
 #include "net4cxx/common/common.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/shared/global/loggers.h"
 
 
 NS_BEGIN

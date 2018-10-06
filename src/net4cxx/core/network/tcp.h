@@ -8,8 +8,9 @@
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
 #include "net4cxx/common/debugging/watcher.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/shared/global/constants.h"
+#include "net4cxx/shared/global/loggers.h"
 
 NS_BEGIN
 
@@ -127,13 +128,13 @@ public:
     explicit TCPServerConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
 #ifdef NET4CXX_DEBUG
-        NET4CXX_Watcher->inc(NET4CXX_TCPServerConnection_COUNT);
+        NET4CXX_Watcher->inc(WatchKeys::TCPServerConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
     ~TCPServerConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPServerConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::TCPServerConnectionCount);
     }
 #endif
 
@@ -146,13 +147,13 @@ public:
     explicit TCPClientConnection(Reactor *reactor)
             : TCPConnection({}, reactor) {
 #ifdef NET4CXX_DEBUG
-        NET4CXX_Watcher->inc(NET4CXX_TCPClientConnection_COUNT);
+        NET4CXX_Watcher->inc(WatchKeys::TCPClientConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
     ~TCPClientConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPClientConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::TCPClientConnectionCount);
     }
 #endif
 
@@ -177,7 +178,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~TCPListener() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPListener_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::TCPListenerCount);
     }
 #endif
 
@@ -227,7 +228,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~TCPConnector() override {
-        NET4CXX_Watcher->dec(NET4CXX_TCPConnector_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::TCPConnectorCount);
     }
 #endif
 

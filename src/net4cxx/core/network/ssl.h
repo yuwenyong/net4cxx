@@ -9,8 +9,9 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include "net4cxx/common/debugging/watcher.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/shared/global/constants.h"
+#include "net4cxx/shared/global/loggers.h"
 
 
 NS_BEGIN
@@ -170,13 +171,13 @@ public:
     explicit SSLServerConnection(SSLOptionPtr sslOption, Reactor *reactor)
             : SSLConnection({}, std::move(sslOption), reactor) {
 #ifdef NET4CXX_DEBUG
-        NET4CXX_Watcher->inc(NET4CXX_SSLServerConnection_COUNT);
+        NET4CXX_Watcher->inc(WatchKeys::SSLServerConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
     ~SSLServerConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_SSLServerConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::SSLServerConnectionCount);
     }
 #endif
 
@@ -189,13 +190,13 @@ public:
     explicit SSLClientConnection(SSLOptionPtr sslOption, Reactor *reactor)
             : SSLConnection({}, std::move(sslOption), reactor) {
 #ifdef NET4CXX_DEBUG
-        NET4CXX_Watcher->inc(NET4CXX_SSLClientConnection_COUNT);
+        NET4CXX_Watcher->inc(WatchKeys::SSLClientConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
     ~SSLClientConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_SSLClientConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::SSLClientConnectionCount);
     }
 #endif
 
@@ -221,7 +222,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~SSLListener() override {
-        NET4CXX_Watcher->dec(NET4CXX_SSLListener_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::SSLListenerCount);
     }
 #endif
 
@@ -272,7 +273,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~SSLConnector() override {
-        NET4CXX_Watcher->dec(NET4CXX_SSLConnector_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::SSLConnectorCount);
     }
 #endif
 

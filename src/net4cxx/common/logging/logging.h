@@ -18,6 +18,7 @@ NS_BEGIN
 class NET4CXX_COMMON_API Logging {
 public:
     friend class Logger;
+    friend class LoggingHelper;
     typedef logging::settings Settings;
     typedef boost::ptr_map<std::string, Logger> LoggerMap;
 
@@ -334,6 +335,9 @@ public:
     template <typename... Args>
     static void trace(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const char *format, Args&&... args) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->trace(file, line, func, format, std::forward<Args>(args)...);
     }
 
@@ -345,6 +349,9 @@ public:
 
     static void trace(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const Byte *data, size_t length, size_t limit=0) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->trace(file, line, func, data, length, limit);
     }
 
@@ -357,6 +364,9 @@ public:
     template <typename... Args>
     static void debug(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const char *format, Args&&... args) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->debug(file, line, func, format, std::forward<Args>(args)...);
     }
 
@@ -368,6 +378,9 @@ public:
 
     static void debug(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const Byte *data, size_t length, size_t limit=0) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->debug(file, line, func, data, length, limit);
     }
 
@@ -380,6 +393,9 @@ public:
     template <typename... Args>
     static void info(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                      const char *format, Args&&... args) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->info(file, line, func, format, std::forward<Args>(args)...);
     }
 
@@ -391,6 +407,9 @@ public:
 
     static void info(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                      const Byte *data, size_t length, size_t limit=0) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->info(file, line, func, data, length, limit);
     }
 
@@ -403,6 +422,9 @@ public:
     template <typename... Args>
     static void warn(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                      const char *format, Args&&... args) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->warn(file, line, func, format, std::forward<Args>(args)...);
     }
 
@@ -414,6 +436,9 @@ public:
 
     static void warn(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                      const Byte *data, size_t length, size_t limit=0) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->warn(file, line, func, data, length, limit);
     }
 
@@ -426,6 +451,9 @@ public:
     template <typename... Args>
     static void error(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const char *format, Args&&... args) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->error(file, line, func, format, std::forward<Args>(args)...);
     }
 
@@ -437,6 +465,9 @@ public:
 
     static void error(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const Byte *data, size_t length, size_t limit=0) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->error(file, line, func, data, length, limit);
     }
 
@@ -449,6 +480,9 @@ public:
     template <typename... Args>
     static void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const char *format, Args&&... args) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->fatal(file, line, func, format, std::forward<Args>(args)...);
     }
 
@@ -460,6 +494,9 @@ public:
 
     static void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, Logger *logger,
                       const Byte *data, size_t length, size_t limit=0) {
+        if (!Logging::isInitialized()) {
+            Logging::doInit(true);
+        }
         logger->fatal(file, line, func, data, length, limit);
     }
 };

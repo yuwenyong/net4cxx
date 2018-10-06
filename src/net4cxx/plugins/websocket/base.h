@@ -7,11 +7,11 @@
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/debugging/assert.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/common/utilities/errors.h"
 #include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/shared/global/errorinfo.h"
+#include "net4cxx/shared/global/loggers.h"
 
 
 NS_BEGIN

@@ -8,8 +8,9 @@
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
 #include "net4cxx/common/debugging/watcher.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/shared/global/constants.h"
+#include "net4cxx/shared/global/loggers.h"
 
 NS_BEGIN
 
@@ -28,7 +29,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~UDPConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_UDPConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::UDPConnectionCount);
     }
 #endif
 

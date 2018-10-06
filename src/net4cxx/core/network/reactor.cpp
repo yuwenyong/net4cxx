@@ -3,13 +3,13 @@
 //
 
 #include "net4cxx/core/network/reactor.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/utilities/random.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/core/network/unix.h"
 #include "net4cxx/core/network/udp.h"
+#include "net4cxx/shared/global/loggers.h"
 
 
 NS_BEGIN

@@ -18,7 +18,7 @@ UDPConnection::UDPConnection(unsigned short port, const DatagramProtocolPtr &pro
         , _socket(reactor->getIOContext())
         , _listenMultiple(listenMultiple) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::UDPConnectionCount);
 #endif
 }
 
@@ -28,7 +28,7 @@ UDPConnection::UDPConnection(std::string address, unsigned short port, const Dat
         , _socket(reactor->getIOContext())
         , _listenMultiple(listenMultiple) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_UDPConnection_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::UDPConnectionCount);
 #endif
 }
 

@@ -9,9 +9,12 @@
 
 NS_BEGIN
 
+
+std::string CrashReport::_crashReportPath = "./backtrace.dump";
+
 void CrashReport::crashHandler(int signum) {
     ::signal(signum, SIG_DFL);
-    boost::stacktrace::safe_dump_to("./backtrace.dump");
+    boost::stacktrace::safe_dump_to(_crashReportPath.c_str());
     ::raise(SIGABRT);
 }
 
@@ -28,9 +31,9 @@ public:
 };
 
 
-void CrashReport::printCrashInfo() {
-    if (boost::filesystem::exists("./backtrace.dump")) {
-        std::ifstream ifs("./backtrace.dump");
+void CrashReport::outputCrashReport() {
+    if (boost::filesystem::exists(_crashReportPath)) {
+        std::ifstream ifs(_crashReportPath);
         boost::stacktrace::stacktrace st = boost::stacktrace::stacktrace::from_dump(ifs);
         std::cout << "Previous run crashed:\n" << st << std::endl;
         ifs.close();

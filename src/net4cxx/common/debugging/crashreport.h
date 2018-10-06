@@ -13,7 +13,13 @@ class NET4CXX_COMMON_API CrashReport {
 public:
     static void crashHandler(int signum);
 
-    static void printCrashInfo();
+    static void outputCrashReport();
+
+    static void setCrashReportPath(const std::string &crashReportPath) {
+        _crashReportPath = crashReportPath;
+    }
+protected:
+    static std::string _crashReportPath;
 };
 
 NS_END

@@ -10,7 +10,9 @@
 #include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/shared/global/constants.h"
 
 
 NS_BEGIN
@@ -223,10 +225,18 @@ public:
 
     explicit Deferred(CancellerType canceller= nullptr)
             : _canceller(std::move(canceller)) {
-
+#ifdef NET4CXX_DEBUG
+        NET4CXX_Watcher->inc(WatchKeys::DeferredCount);
+#endif
     }
 
+#ifdef NET4CXX_DEBUG
+    virtual ~Deferred() {
+        NET4CXX_Watcher->dec(WatchKeys::DeferredCount);
+    }
+#else
     virtual ~Deferred() = default;
+#endif
 
     bool called() const {
         return _called;

@@ -7,6 +7,25 @@
 
 NS_BEGIN
 
+const char* WatchKeys::TCPServerConnectionCount = "sys.TCPServerConnectionCount";
+const char* WatchKeys::TCPListenerCount = "sys.TCPListenerCount";
+const char* WatchKeys::TCPClientConnectionCount = "sys.TCPClientConnectionCount";
+const char* WatchKeys::TCPConnectorCount = "sys.TCPConnectorCount";
+
+const char* WatchKeys::SSLServerConnectionCount = "sys.SSLServerConnectionCount";
+const char* WatchKeys::SSLListenerCount = "sys.SSLListenerCount";
+const char* WatchKeys::SSLClientConnectionCount = "sys.SSLClientConnectionCount";
+const char* WatchKeys::SSLConnectorCount = "sys.SSLConnectorCount";
+
+const char* WatchKeys::UNIXServerConnectionCount = "sys.UNIXServerConnectionCount";
+const char* WatchKeys::UNIXListenerCount = "sys.UNIXListenerCount";
+const char* WatchKeys::UNIXClientConnectionCount = "sys.UNIXClientConnectionCount";
+const char* WatchKeys::UNIXConnectorCount = "sys.UNIXConnectorCount";
+
+const char* WatchKeys::UDPConnectionCount = "sys.UDPConnectionCount";
+const char* WatchKeys::UNIXDatagramConnectionCount = "sys.UNIXDatagramConnectionCount";
+
+const char* WatchKeys::DeferredCount = "sys.DeferredCount";
 
 const char* WatchKeys::WebSocketServerProtocolCount = "sys.WebSocketServerProtocolCount";
 const char* WatchKeys::WebSocketClientProtocolCount = "sys.WebSocketClientProtocolCount";

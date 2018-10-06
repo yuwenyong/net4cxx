@@ -242,7 +242,7 @@ TCPListener::TCPListener(std::string port, std::shared_ptr<Factory> factory, std
         , _interface(std::move(interface))
         , _acceptor(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_TCPListener_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::TCPListenerCount);
 #endif
     if (_interface.empty()) {
 //        _interface = "::";
@@ -313,7 +313,7 @@ TCPConnector::TCPConnector(std::string host, std::string port, std::shared_ptr<C
         , _bindAddress(std::move(bindAddress))
         , _resolver(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_TCPConnector_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::TCPConnectorCount);
 #endif
 }
 

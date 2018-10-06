@@ -290,7 +290,7 @@ SSLListener::SSLListener(std::string port, std::shared_ptr<Factory> factory, SSL
         , _interface(std::move(interface))
         , _acceptor(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_SSLListener_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::SSLListenerCount);
 #endif
     if (_interface.empty()) {
 //        _interface = "::";
@@ -362,7 +362,7 @@ SSLConnector::SSLConnector(std::string host, std::string port, std::shared_ptr<C
         , _bindAddress(std::move(bindAddress))
         , _resolver(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_SSLConnector_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::SSLConnectorCount);
 #endif
 }
 

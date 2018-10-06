@@ -224,7 +224,7 @@ UNIXListener::UNIXListener(std::string path, std::shared_ptr<Factory> factory, R
         , _factory(std::move(factory))
         , _acceptor(reactor->getIOContext()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_UNIXListener_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::UNIXListenerCount);
 #endif
 }
 
@@ -282,7 +282,7 @@ UNIXConnector::UNIXConnector(std::string path, std::shared_ptr<ClientFactory> fa
         , _factory(std::move(factory))
         , _timeout(timeout) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_UNIXConnector_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::UNIXConnectorCount);
 #endif
 }
 
@@ -393,7 +393,7 @@ UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramP
         : DatagramConnection({std::move(path)}, protocol, maxPacketSize, reactor)
         , _socket(reactor->getIOContext(), SocketType::protocol_type()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_UNIXDatagramConnection_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::UNIXDatagramConnectionCount);
 #endif
 }
 
@@ -402,7 +402,7 @@ UNIXDatagramConnection::UNIXDatagramConnection(std::string path, const DatagramP
         : DatagramConnection({std::move(path)}, protocol, maxPacketSize, {std::move(bindPath)}, reactor)
         , _socket(reactor->getIOContext(), SocketType::protocol_type()) {
 #ifdef NET4CXX_DEBUG
-    NET4CXX_Watcher->inc(NET4CXX_UNIXDatagramConnection_COUNT);
+    NET4CXX_Watcher->inc(WatchKeys::UNIXDatagramConnectionCount);
 #endif
 }
 

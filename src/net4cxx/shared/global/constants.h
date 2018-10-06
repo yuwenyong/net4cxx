@@ -9,9 +9,29 @@
 
 NS_BEGIN
 
-
 class NET4CXX_COMMON_API WatchKeys {
 public:
+    static const char *TCPServerConnectionCount;
+    static const char *TCPListenerCount;
+    static const char *TCPClientConnectionCount;
+    static const char *TCPConnectorCount;
+
+    static const char *SSLServerConnectionCount;
+    static const char *SSLListenerCount;
+    static const char *SSLClientConnectionCount;
+    static const char *SSLConnectorCount;
+
+    static const char *UNIXServerConnectionCount;
+    static const char *UNIXListenerCount;
+    static const char *UNIXClientConnectionCount;
+    static const char *UNIXConnectorCount;
+
+    static const char *UDPConnectionCount;
+    static const char *UNIXDatagramConnectionCount;
+
+    static const char *DeferredCount;
+
+
     static const char *WebSocketServerProtocolCount;
     static const char *WebSocketClientProtocolCount;
 

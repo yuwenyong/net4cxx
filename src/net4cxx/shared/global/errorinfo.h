@@ -2,8 +2,8 @@
 // Created by yuwenyong.vincent on 2018/7/16.
 //
 
-#ifndef NET4CXX_ERRORINFO_H
-#define NET4CXX_ERRORINFO_H
+#ifndef NET4CXX_SHARED_GLOBAL_ERRORINFO_H
+#define NET4CXX_SHARED_GLOBAL_ERRORINFO_H
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/utilities/errors.h"
@@ -19,4 +19,4 @@ typedef boost::error_info<struct errinfo_arg_name_, std::string> errinfo_arg_nam
 
 NS_END
 
-#endif //NET4CXX_ERRORINFO_H
+#endif //NET4CXX_SHARED_GLOBAL_ERRORINFO_H

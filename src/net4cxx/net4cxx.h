@@ -15,8 +15,6 @@
 #include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/debugging/crashreport.h"
 #include "net4cxx/common/debugging/watcher.h"
-#include "net4cxx/common/global/initialize.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/common/httputils/httplib.h"
 #include "net4cxx/common/httputils/urlparse.h"
@@ -42,5 +40,7 @@
 #include "net4cxx/plugins/web/httpclient.h"
 #include "net4cxx/plugins/web/web.h"
 #include "net4cxx/plugins/websocket/websocket.h"
+
+#include "net4cxx/shared/bootstrap/bootstrapper.h"
 
 #endif //NET4CXX_NET4CXX_H

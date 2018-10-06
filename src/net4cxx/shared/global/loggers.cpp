@@ -1,8 +1,8 @@
 //
-// Created by yuwenyong on 17-9-19.
+// Created by yuwenyong.vincent on 2018/10/6.
 //
 
-#include "net4cxx/common/global/loggers.h"
+#include "net4cxx/shared/global/loggers.h"
 
 
 NS_BEGIN
@@ -24,7 +24,6 @@ void LogUtil::enablePrettyLogging(const OptionParser *options) {
     if (logLevel == "none") {
         return;
     }
-    Logging::init();
     Severity severity = Logging::toSeverity(logLevel);
     if (options->has("log_file_prefix")) {
         const auto &logFilePrefix = options->get<std::string>("log_file_prefix");

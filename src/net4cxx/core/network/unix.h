@@ -8,8 +8,9 @@
 #include "net4cxx/common/common.h"
 #include <boost/asio.hpp>
 #include "net4cxx/common/debugging/watcher.h"
-#include "net4cxx/common/global/loggers.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/shared/global/constants.h"
+#include "net4cxx/shared/global/loggers.h"
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 
@@ -125,13 +126,13 @@ public:
     explicit UNIXServerConnection(Reactor *reactor)
             : UNIXConnection({}, reactor) {
 #ifdef NET4CXX_DEBUG
-        NET4CXX_Watcher->inc(NET4CXX_UNIXServerConnection_COUNT);
+        NET4CXX_Watcher->inc(WatchKeys::UNIXServerConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
     ~UNIXServerConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_UNIXServerConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::UNIXServerConnectionCount);
     }
 #endif
 
@@ -144,13 +145,13 @@ public:
     explicit UNIXClientConnection(Reactor *reactor)
             : UNIXConnection({}, reactor) {
 #ifdef NET4CXX_DEBUG
-        NET4CXX_Watcher->inc(NET4CXX_UNIXClientConnection_COUNT);
+        NET4CXX_Watcher->inc(WatchKeys::UNIXClientConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
     ~UNIXClientConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_UNIXClientConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::UNIXClientConnectionCount);
     }
 #endif
 
@@ -172,7 +173,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~UNIXListener() override {
-        NET4CXX_Watcher->dec(NET4CXX_UNIXListener_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::UNIXListenerCount);
     }
 #endif
 
@@ -216,7 +217,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~UNIXConnector() override {
-        NET4CXX_Watcher->dec(NET4CXX_UNIXConnector_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::UNIXConnectorCount);
     }
 #endif
 
@@ -283,7 +284,7 @@ public:
 
 #ifdef NET4CXX_DEBUG
     ~UNIXDatagramConnection() override {
-        NET4CXX_Watcher->dec(NET4CXX_UNIXDatagramConnection_COUNT);
+        NET4CXX_Watcher->dec(WatchKeys::UNIXDatagramConnectionCount);
     }
 #endif
 
