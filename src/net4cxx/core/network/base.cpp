@@ -5,6 +5,7 @@
 #include "net4cxx/core/network/base.h"
 #include <boost/filesystem.hpp>
 #include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -155,6 +156,10 @@ void DatagramConnection::connectionLost() {
     auto protocol = _protocol.lock();
     NET4CXX_ASSERT(protocol);
     protocol->doStop();
+    if (_d) {
+        _d->callback(nullptr);
+        _d.reset();
+    }
 }
 
 NS_END

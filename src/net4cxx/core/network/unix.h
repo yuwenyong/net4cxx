@@ -306,7 +306,9 @@ public:
 
     unsigned short getRemotePort() const override;
 
-    void startListening();
+    void startListening() override;
+
+    DeferredPtr stopListening() override;
 protected:
     void connectToProtocol();
 

@@ -17,16 +17,22 @@ public:
     void datagramReceived(Byte *datagram, size_t length, Address address) override {
         std::string s((char *)datagram, (char *)datagram + length);
         NET4CXX_LOG_INFO(gAppLog, "Datagram received: %s From %s:%u", s.c_str(), address.getAddress().c_str(),
-                     address.getPort());
+                address.getPort());
+    }
+};
+
+
+class UDPClientApp: public AppBootstrapper {
+public:
+    void onRun() override {
+        reactor()->connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
+//        reactor()->connectUNIXDatagram("/data/bar.sock", std::make_shared<MyProtocol>(), 8192, "/data/bar2.sock");
     }
 };
 
 
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-//    reactor.connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
-    reactor.connectUNIXDatagram("/data/foo/bar", std::make_shared<MyProtocol>(), 8192, "/data/foo/bar2");
-    reactor.run();
+    UDPClientApp app;
+    app.run(argc, argv);
     return 0;
 }

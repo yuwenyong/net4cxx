@@ -4,6 +4,7 @@
 
 #include "net4cxx/core/network/udp.h"
 #include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -111,6 +112,14 @@ void UDPConnection::startListening() {
     }
 }
 
+DeferredPtr UDPConnection::stopListening() {
+    if (_connected) {
+        _d = makeDeferred();
+    }
+    loseConnection();
+    return _d;
+}
+
 void UDPConnection::connectToProtocol() {
     auto protocol = _protocol.lock();
     NET4CXX_ASSERT(protocol);
@@ -156,6 +165,7 @@ void UDPConnection::bindSocket() {
         _socket.bind(endpoint);
         NET4CXX_LOG_INFO(gGenLog, "UDPConnection starting on %s: %u", _bindAddress.getAddress().c_str(),
                          _bindAddress.getPort());
+        _connected = true;
     } catch (boost::system::system_error &e) {
         NET4CXX_LOG_ERROR(gGenLog, "Bind error %d: %s", e.code().value(), e.code().message().c_str());
         throw;

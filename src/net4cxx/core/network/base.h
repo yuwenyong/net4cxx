@@ -30,6 +30,8 @@ NET4CXX_DECLARE_EXCEPTION(CancelledError, Exception);
 
 
 class Reactor;
+class Deferred;
+using DeferredPtr = std::shared_ptr<Deferred>;
 class Protocol;
 using ProtocolPtr = std::shared_ptr<Protocol>;
 class SSLOption;
@@ -494,6 +496,10 @@ public:
 
     virtual unsigned short getRemotePort() const = 0;
 
+    virtual void startListening() = 0;
+
+    virtual DeferredPtr stopListening() = 0;
+
     Reactor* reactor() {
         return _reactor;
     }
@@ -510,8 +516,10 @@ protected:
     Reactor *_reactor{nullptr};
     ByteArray _readBuffer;
     bool _reading{false};
+    bool _connected{false};
     Address _bindAddress;
     Address _connectedAddress;
+    DeferredPtr _d;
 };
 
 using DatagramConnectionPtr = std::shared_ptr<DatagramConnection>;
