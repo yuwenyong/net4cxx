@@ -4,6 +4,7 @@
 
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -314,15 +315,40 @@ void SSLListener::startListening() {
     NET4CXX_LOG_INFO(gGenLog, "SSLListener starting on %s", _port.c_str());
     _factory->doStart();
     _connected = true;
+    _disconnected = false;
     doAccept();
 }
 
-void SSLListener::stopListening() {
+DeferredPtr SSLListener::stopListening() {
+    _disconnecting = true;
     if (_connected) {
-        _connected = false;
+        _deferred = makeDeferred();
         _acceptor.close();
+        return _deferred;
+    }
+    return nullptr;
+}
+
+void SSLListener::connectionLost() {
+    NET4CXX_LOG_INFO(gGenLog, "SSLListener closed on %s", _port.c_str());
+    auto d = std::move(_deferred);
+    _disconnected = true;
+    _connected = false;
+    try {
         _factory->doStop();
-        NET4CXX_LOG_INFO(gGenLog, "SSLListener closed on %s", _port.c_str());
+    } catch (...) {
+        _disconnecting = false;
+        if (d) {
+            d->errback();
+        } else {
+            throw;
+        }
+    }
+    if (_disconnecting) {
+        _disconnecting = false;
+        if (d) {
+            d->callback(nullptr);
+        }
     }
 }
 
@@ -338,6 +364,8 @@ void SSLListener::handleAccept(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             NET4CXX_LOG_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
+        } else {
+            connectionLost();
         }
     } else {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};

@@ -82,15 +82,21 @@ public:
     }
 };
 
+
+class TCPClientApp: public AppBootstrapper {
+public:
+    void onRun() {
+//        reactor()->connectTCP("localhost", "28001", std::make_shared<MyFactory>());
+        clientFromString(reactor(), "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
+//        clientFromString(reactor(), "ssl:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
+//        clientFromString(reactor(), "unix:/data/foo/bar")->connect(std::make_shared<MyFactory>());
+//        TCPClientEndpoint endpoint(reactor(), "localhost", "28001");
+//        connectProtocol(endpoint, std::make_shared<MyProtocol>());
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-//    reactor.connectTCP("localhost", "28001", std::make_shared<MyFactory>());
-//    clientFromString(&reactor, "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
-    clientFromString(&reactor, "ssl:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
-//    clientFromString(&reactor, "unix:/data/foo/bar")->connect(std::make_shared<MyFactory>());
-//    TCPClientEndpoint endpoint(&reactor, "localhost", "28001");
-//    connectProtocol(endpoint, std::make_shared<MyProtocol>());
-    reactor.run();
+    TCPClientApp app;
+    app.run(argc, argv);
     return 0;
 }

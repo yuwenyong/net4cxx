@@ -425,13 +425,17 @@ public:
 
     virtual void startListening() = 0;
 
-    virtual void stopListening() = 0;
+    virtual DeferredPtr stopListening() = 0;
 
     Reactor* reactor() {
         return _reactor;
     }
 protected:
     Reactor *_reactor{nullptr};
+    bool _connected{false};
+    bool _disconnected{false};
+    bool _disconnecting{false};
+    DeferredPtr _deferred;
 };
 
 using ListenerPtr = std::shared_ptr<Listener>;
