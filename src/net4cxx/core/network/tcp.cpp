@@ -51,7 +51,9 @@ void TCPConnection::abortConnection() {
 
 void TCPConnection::doClose() {
     if (!_writing && !_reading) {
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }
@@ -63,7 +65,9 @@ void TCPConnection::doClose() {
 
 void TCPConnection::doAbort() {
     if (!_writing && !_reading) {
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }

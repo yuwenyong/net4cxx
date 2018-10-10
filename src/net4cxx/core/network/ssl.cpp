@@ -60,7 +60,9 @@ void SSLConnection::doClose() {
         if (_sslAccepting) {
             _socket.lowest_layer().cancel();
         }
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }
@@ -78,7 +80,9 @@ void SSLConnection::doAbort() {
         if (_sslAccepting) {
             _socket.lowest_layer().cancel();
         }
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }

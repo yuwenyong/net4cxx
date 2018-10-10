@@ -493,7 +493,7 @@ DeferredPtr _executeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Ar
 
 template <typename CallableT, typename... Args>
 DeferredPtr executeDeferred(CallableT &&callable, Args&&... args) {
-    using ResultT = typename std::result_of<CallableT>::type;
+    using ResultT = typename std::result_of<CallableT (Args&& ...)>::type;
     return _executeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
 }
 
@@ -545,7 +545,7 @@ DeferredPtr _maybeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args
 
 template <typename CallableT, typename... Args>
 DeferredPtr maybeDeferred(CallableT &&callable, Args&&... args) {
-    using ResultT = typename std::result_of<CallableT>::type;
+    using ResultT = typename std::result_of<CallableT (Args&& ...)>::type;
     return _maybeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
 }
 

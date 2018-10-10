@@ -18,9 +18,9 @@ class NET4CXX_COMMON_API Factory {
 public:
     virtual ~Factory() = default;
 
-    void doStart();
+    virtual void doStart();
 
-    void doStop();
+    virtual void doStop();
 
     virtual void startFactory();
 

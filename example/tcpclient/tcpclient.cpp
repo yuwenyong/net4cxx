@@ -40,47 +40,47 @@ protected:
 };
 
 
-//class MyFactory: public ClientFactory {
-//public:
-//    std::shared_ptr<Protocol> buildProtocol(const Address &address) override {
-//        return std::make_shared<MyProtocol>();
-//    }
-//
-//    void startedConnecting(ConnectorPtr connector) override {
-//        NET4CXX_INFO(gAppLog, "Start connecting");
-//    }
-//
-//    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
-//        NET4CXX_INFO(gAppLog, "Client connection failed");
-//    }
-//
-//    void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
-//        NET4CXX_INFO(gAppLog, "Client connection lost");
-//    }
-//};
-
-class MyFactory: public ReconnectingClientFactory {
+class MyFactory: public ClientFactory {
 public:
-    ProtocolPtr buildProtocol(const Address &address) override {
-        resetDelay();
+    std::shared_ptr<Protocol> buildProtocol(const Address &address) override {
         return std::make_shared<MyProtocol>();
     }
 
     void startedConnecting(ConnectorPtr connector) override {
         NET4CXX_LOG_INFO(gAppLog, "Start connecting");
-        ReconnectingClientFactory::startedConnecting(std::move(connector));
     }
 
     void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
         NET4CXX_LOG_INFO(gAppLog, "Client connection failed");
-        ReconnectingClientFactory::clientConnectionFailed(std::move(connector), std::move(reason));
     }
 
     void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
         NET4CXX_LOG_INFO(gAppLog, "Client connection lost");
-        ReconnectingClientFactory::clientConnectionLost(std::move(connector), std::move(reason));
     }
 };
+
+//class MyFactory: public ReconnectingClientFactory {
+//public:
+//    ProtocolPtr buildProtocol(const Address &address) override {
+//        resetDelay();
+//        return std::make_shared<MyProtocol>();
+//    }
+//
+//    void startedConnecting(ConnectorPtr connector) override {
+//        NET4CXX_LOG_INFO(gAppLog, "Start connecting");
+//        ReconnectingClientFactory::startedConnecting(std::move(connector));
+//    }
+//
+//    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
+//        NET4CXX_LOG_INFO(gAppLog, "Client connection failed");
+//        ReconnectingClientFactory::clientConnectionFailed(std::move(connector), std::move(reason));
+//    }
+//
+//    void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
+//        NET4CXX_LOG_INFO(gAppLog, "Client connection lost");
+//        ReconnectingClientFactory::clientConnectionLost(std::move(connector), std::move(reason));
+//    }
+//};
 
 
 class TCPClientApp: public AppBootstrapper {
