@@ -87,7 +87,21 @@ class TCPClientApp: public AppBootstrapper {
 public:
     void onRun() {
 //        reactor()->connectTCP("localhost", "28001", std::make_shared<MyFactory>());
-        clientFromString(reactor(), "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
+        clientFromString(reactor(), "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>())
+        ->addCallbacks([](DeferredValue val) {
+            auto proto = val.asValue<ProtocolPtr>();
+            NET4CXX_ASSERT(proto);
+            NET4CXX_LOG_INFO(gAppLog, "Connected");
+            return val;
+        }, [](DeferredValue val) {
+            NET4CXX_LOG_INFO(gAppLog, "Connect failed");
+            try {
+                val.throwError();
+            } catch (std::exception &e) {
+                NET4CXX_LOG_ERROR(gAppLog, "%s", e.what());
+            }
+            return val;
+        });
 //        clientFromString(reactor(), "ssl:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
 //        clientFromString(reactor(), "unix:/data/foo/bar")->connect(std::make_shared<MyFactory>());
 //        TCPClientEndpoint endpoint(reactor(), "localhost", "28001");

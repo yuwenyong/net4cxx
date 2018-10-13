@@ -41,7 +41,15 @@ public:
     void onRun() {
 //        TCPServerEndpoint endpoint(reactor(), "28001");
 //        endpoint.listen(std::make_shared<MyFactory>());
-        serverFromString(reactor(), "tcp:28001")->listen(std::make_shared<MyFactory>());
+        serverFromString(reactor(), "tcp:28001")->listen(std::make_shared<MyFactory>())->addCallback([](DeferredValue val) {
+            auto listener = val.asShared<Listener>();
+            NET4CXX_LOG_ERROR(gAppLog, "Listen started");
+            return val;
+//            return listener->stopListening()->addCallback([](DeferredValue val) {
+//                NET4CXX_LOG_ERROR(gAppLog, "Listen stopped");
+//                return nullptr;
+//            });
+        });
 //        serverFromString(reactor(), "ssl:28001:privateKey=test.key:certKey=test.crt")->listen(std::make_shared<MyFactory>());
 //        serverFromString(reactor(), "unix:/data/foo/bar")->listen(std::make_shared<MyFactory>());
 //        reactor()->resolve("localhost", [](StringVector addresses) {

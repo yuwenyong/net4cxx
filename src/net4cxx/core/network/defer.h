@@ -155,6 +155,32 @@ public:
         }
     }
 
+    template <typename ValueT>
+    std::shared_ptr<const ValueT> asShared() const {
+        if (auto v = boost::get<const tagDeferredValue>(&_value)) {
+            if (auto ptr = boost::any_cast<std::shared_ptr<const ValueT>>(&v->value)) {
+                return *ptr;
+            } else {
+                return nullptr;
+            }
+        } else {
+            return nullptr;
+        }
+    }
+
+    template <typename ValueT>
+    std::shared_ptr<ValueT> asShared() {
+        if (auto v = boost::get<tagDeferredValue>(&_value)) {
+            if (auto ptr = boost::any_cast<std::shared_ptr<ValueT>>(&v->value)) {
+                return *ptr;
+            } else {
+                return nullptr;
+            }
+        } else {
+            return nullptr;
+        }
+    }
+
     std::exception_ptr asError() const {
         if (auto v = boost::get<const tagDeferredError>(&_value)) {
             return v->error;
