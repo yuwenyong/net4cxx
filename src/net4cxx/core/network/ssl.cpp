@@ -425,13 +425,7 @@ void SSLConnector::stopConnecting() {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(UserAbort, ""));
-    if (_connection) {
-        _connection->getSocket().lowest_layer().close();
-        _connection.reset();
-    } else {
-        _resolver.cancel();
-    }
-    _state = kDisconnected;
+    abortConnecting();
 }
 
 void SSLConnector::connectionFailed(std::exception_ptr reason) {
@@ -525,9 +519,10 @@ void SSLConnector::handleConnect(const boost::system::error_code &ec) {
 }
 
 void SSLConnector::handleTimeout() {
+    NET4CXX_ASSERT(_state == kConnecting);
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(TimeoutError, ""));
-    connectionFailed();
+    abortConnecting();
 }
 
 void SSLConnector::makeTransport() {
@@ -537,6 +532,16 @@ void SSLConnector::makeTransport() {
         _connection->getSocket().lowest_layer().open(endpoint.protocol());
         _connection->getSocket().lowest_layer().bind(endpoint);
     }
+}
+
+void SSLConnector::abortConnecting() {
+    if (_connection) {
+        _connection->getSocket().lowest_layer().close();
+        _connection.reset();
+    } else {
+        _resolver.cancel();
+    }
+    _state = kDisconnecting;
 }
 
 NS_END

@@ -376,13 +376,7 @@ void TCPConnector::stopConnecting() {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(UserAbort, ""));
-    if (_connection) {
-        _connection->getSocket().close();
-        _connection.reset();
-    } else {
-        _resolver.cancel();
-    }
-    _state = kDisconnected;
+    abortConnecting();
 }
 
 void TCPConnector::connectionFailed(std::exception_ptr reason) {
@@ -475,7 +469,7 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
 void TCPConnector::handleTimeout() {
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(TimeoutError, ""));
-    connectionFailed();
+    abortConnecting();
 }
 
 void TCPConnector::makeTransport() {
@@ -485,6 +479,16 @@ void TCPConnector::makeTransport() {
         _connection->getSocket().open(endpoint.protocol());
         _connection->getSocket().bind(endpoint);
     }
+}
+
+void TCPConnector::abortConnecting() {
+    if (_connection) {
+        _connection->getSocket().close();
+        _connection.reset();
+    } else {
+        _resolver.cancel();
+    }
+    _state = kDisconnecting;
 }
 
 NS_END

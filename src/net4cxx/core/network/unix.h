@@ -254,10 +254,13 @@ protected:
 
     void makeTransport();
 
+    void abortConnecting();
+
     enum State {
         kDisconnected,
         kConnecting,
         kConnected,
+        kDisconnecting,
     };
 
     std::string _path;

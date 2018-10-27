@@ -65,6 +65,7 @@ void Bootstrapper::run(int argc, const char *const *argv) {
     if (_reactorEnabled) {
         reactor = std::make_unique<Reactor>();
         _reactor = reactor.get();
+        _reactor->makeCurrent();
     }
     onRun();
     if (reactor) {
@@ -88,6 +89,7 @@ void Bootstrapper::run(const char *path) {
     if (_reactorEnabled) {
         reactor = std::make_unique<Reactor>();
         _reactor = reactor.get();
+        _reactor->makeCurrent();
     }
     onRun();
     if (reactor) {
@@ -157,7 +159,6 @@ void BasicBootstrapper::setupCommonWatchObjects() {
     NET4CXX_WATCH_OBJECT(WatchKeys::PeriodicCallbackCount);
 
     NET4CXX_WATCH_OBJECT(WatchKeys::IOStreamCount);
-    NET4CXX_WATCH_OBJECT(WatchKeys::SSLIOStreamCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::HTTPClientCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::HTTPClientConnectionCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::HTTPConnectionCount);

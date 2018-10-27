@@ -78,16 +78,20 @@ public:
     }
 };
 
+class HTTPServerApp: public AppBootstrapper {
+public:
+    void onRun() {
+        auto webApp = makeWebApp<WebApp>({
+                                                 url<Books>(R"(/books/)"),
+                                                 url<Book>(R"(/books/(\d+)/)")
+                                         });
+        reactor()->listenTCP("8080", std::move(webApp));
+    }
+};
+
 
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    reactor.makeCurrent();
-
-    std::make_shared<WebApp>(WebApp::HandlersType{
-       url<Books>(R"(/books/)"),
-       url<Book>(R"(/books/(\d+)/)")
-    })->listen(8080, "localhost");
-    reactor.run();
+    HTTPServerApp app;
+    app.run(argc, argv);
     return 0;
 }

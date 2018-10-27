@@ -4,6 +4,8 @@
 
 #include "net4cxx/plugins/web/httpclient.h"
 #include "net4cxx/common/crypto/base64.h"
+#include "net4cxx/core/network/defer.h"
+#include "net4cxx/core/network/endpoints.h"
 
 
 NS_BEGIN
@@ -33,9 +35,37 @@ std::ostream& operator<<(std::ostream &os, const HTTPResponse &response) {
 }
 
 
-const StringSet HTTPClientConnection::_SUPPORTED_METHODS = {"GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"};
+DeferredPtr HTTPClient::fetch(HTTPRequestPtr request, CallbackType callback) {
+    DeferredPtr result = makeDeferred();
+    if (callback) {
+        result->addBoth([request, callback = std::move(callback)](DeferredValue value) {
+            if (value.isError()) {
+                HTTPResponse response(request, 599, value.asError(), TimestampClock::now() - request->getStartTime());
+                callback(response);
+            } else {
+                callback(*value.asValue<HTTPResponse>());
+            }
+            return value;
+        });
+    }
+    fetchImpl(std::move(request), [result](HTTPResponse response) {
+         if (response.getError()) {
+             result->errback(response.getError());
+         } else {
+             result->callback(std::move(response));
+         }
+    });
+    return result;
+}
 
-void HTTPClientConnection::start() {
+void HTTPClient::fetchImpl(HTTPRequestPtr request, CallbackType &&callback) {
+    auto connection = std::make_shared<HTTPClientConnection>(shared_from_this(), std::move(request),
+                                                             std::move(callback), _maxBufferSize);
+    connection->startProcessing();
+}
+
+
+void HTTPClientConnection::startProcessing() {
     try {
         _parsed = UrlParse::urlSplit(_request->getUrl());
         const std::string &scheme = _parsed.getScheme();
@@ -63,9 +93,25 @@ void HTTPClientConnection::start() {
             host = host.substr(1, host.size() - 2);
         }
         _parsedHostname = host;
-        double timeout = std::min(_request->getConnectTimeout(), _request->getRequestTimeout());
-        if (timeout != 0.0) {
-            _timeout = _reactor->callLater(timeout, [this, self=shared_from_this()]() {
+        const StringMap &hostnameMapping = _client->getHostnameMapping();
+        auto iter = hostnameMapping.find(host);
+        if (iter != hostnameMapping.end()) {
+            host = iter->second;
+        }
+        startConnecting(host, port);
+    } catch (...) {
+        handleException(std::current_exception());
+    }
+}
+
+void HTTPClientConnection::connectionMade() {
+    try {
+        if (!_callback) {
+            return;
+        }
+        double requestTimeout = _request->getRequestTimeout();
+        if (requestTimeout != 0.0) {
+            _timeout = _client->reactor()->callLater(requestTimeout, [this, self=shared_from_this()]() {
                 try {
                     onTimeout();
                 } catch (...) {
@@ -73,51 +119,157 @@ void HTTPClientConnection::start() {
                 }
             });
         }
-        const StringMap &hostnameMapping = _client->getHostnameMapping();
-        auto iter = hostnameMapping.find(host);
-        if (iter != hostnameMapping.end()) {
-            host = iter->second;
+        const std::string &method = _request->getMethod();
+        if (_SUPPORTED_METHODS.find(method) == _SUPPORTED_METHODS.end() && !_request->isAllowNonstandardMethods()) {
+            NET4CXX_THROW_EXCEPTION(KeyError, "unknown method %s", method);
         }
-        _resolver.async_resolve(host, std::to_string(port),
-                                [this, self = shared_from_this()](const boost::system::error_code &ec,
-                                                                  BaseIOStream::ResolverResultsType results) {
-                                    try {
-                                        onResolve(ec, std::move(results));
-                                    } catch (...) {
-                                        handleException(std::current_exception());
-                                    }
-                                });
+        if (!_request->getNetworkInterface().empty()) {
+            NET4CXX_THROW_EXCEPTION(NotImplementedError, "NetworkInterface not supported");
+        }
+        if (!_request->getProxyHost().empty()) {
+            NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyHost not supported");
+        }
+        if (_request->getProxyPort() != 0) {
+            NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyPort not supported");
+        }
+        if (!_request->getProxyUserName().empty()) {
+            NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyUser not supported");
+        }
+        if (!_request->getProxyPassword().empty()) {
+            NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyPassword not supported");
+        }
+        auto &headers = _request->headers();
+        if (!headers.has("Connection")) {
+            headers["Connection"] = "close";
+        }
+        if (!headers.has("Host")) {
+            if (_parsed.getNetloc().find('@') != std::string::npos) {
+                std::string host;
+                std::tie(std::ignore, std::ignore, host) = StrUtil::rpartition(_parsed.getNetloc(), "@");
+                headers["Host"] = host;
+            } else {
+                headers["Host"] = _parsed.getNetloc();
+            }
+        }
+        std::string userName, password;
+        if (_parsed.getUserName()) {
+            userName = *_parsed.getUserName();
+            password = *_parsed.getPassword();
+        } else if (!_request->getAuthUserName().empty()) {
+            userName = _request->getAuthUserName();
+            password = _request->getAuthPassword();
+        }
+        if (!userName.empty()) {
+            const std::string &authMode = _request->getAuthMode();
+            if (!authMode.empty() && authMode != "basic") {
+                NET4CXX_THROW_EXCEPTION(ValueError, "unsupported auth mode %s", authMode);
+            }
+            std::string auth = userName + ":" + password;
+            auth = "Basic " + Base64::b64encode(auth);
+            headers["Authorization"] = auth;
+        }
+        const std::string &userAgent = _request->getUserAgent();
+        if (!userAgent.empty()) {
+            headers["User-Agent"] = userAgent;
+        }
+        const std::string &requestBody = _request->getBody();
+        if (!_request->isAllowNonstandardMethods()) {
+            if (method == "POST" || method == "PATCH" || method == "PUT") {
+                NET4CXX_ASSERT_THROW(!requestBody.empty(), "Body must not be empty for \"%s\" request", method);
+            } else {
+                NET4CXX_ASSERT_THROW(requestBody.empty(), "Body must be empty for \"%s\" request", method);
+            }
+        }
+        if (!requestBody.empty()) {
+            headers["Content-Length"] = std::to_string(requestBody.size());
+        }
+        if (method == "POST" && !headers.has("Content-Type")) {
+            headers["Content-Type"] = "application/x-www-form-urlencoded";
+        }
+        if (_request->isUseGzip()) {
+            headers["Accept-Encoding"] = "gzip";
+        }
+        const std::string &parsedPath = _parsed.getPath();
+        const std::string &parsedQuery = _parsed.getQuery();
+        std::string reqPath = parsedPath.empty() ? "/" : parsedPath;
+        if (!parsedQuery.empty()) {
+            reqPath += '?';
+            reqPath += parsedQuery;
+        }
+        StringVector requestLines;
+        requestLines.emplace_back(StrUtil::format("%s %s HTTP/1.1", method.c_str(), reqPath.c_str()));
+        headers.getAll([&requestLines](const std::string &k, const std::string &v){
+            std::string line = k + ": " + v;
+            if (line.find('\n') != std::string::npos) {
+                NET4CXX_THROW_EXCEPTION(ValueError, "Newline in header: %s", line);
+            }
+            requestLines.emplace_back(std::move(line));
+        });
+        std::string requestStr = boost::join(requestLines, "\r\n");
+        requestStr += "\r\n\r\n";
+        if (!requestBody.empty()) {
+            requestStr += requestBody;
+        }
+        setNoDelay(true);
+        write((const Byte *)requestStr.data(), requestStr.size());
+        _state = READ_HEADER;
+        readUntilRegex("\r?\n\r?\n");
     } catch (...) {
         handleException(std::current_exception());
     }
 }
 
-void HTTPClientConnection::onResolve(const boost::system::error_code &ec, BaseIOStream::ResolverResultsType addresses) {
-    if (ec) {
-        throw boost::system::system_error(ec);
-    }
-    if (!_callback) {
-        return;
-    }
-    _stream = createStream();
-    _stream->setCloseCallback([this, self=shared_from_this()]() {
-        try {
-            onClose();
-        } catch (...) {
-            handleException(std::current_exception());
+void HTTPClientConnection::dataRead(Byte *data, size_t length) {
+    try {
+        switch (_state) {
+            case READ_HEADER: {
+                onHeaders(data, length);
+                break;
+            }
+            case READ_BODY: {
+                onBody(data, length);
+                break;
+            }
+            case READ_CHUNK_LENGTH: {
+                onChunkLength(data, length);
+                break;
+            }
+            case READ_CHUNK_DATA: {
+                onChunkData(data, length);
+                break;
+            }
+            default: {
+                NET4CXX_ASSERT_MSG(false, "Unreachable");
+                break;
+            }
         }
-    });
-    _stream->connect(std::move(addresses), [this, self=shared_from_this()]() {
-        try {
-            onConnect();
-        } catch (...) {
-            handleException(std::current_exception());
-        }
-    });
+    } catch (...) {
+        handleException(std::current_exception());
+    }
 }
 
-std::shared_ptr<BaseIOStream> HTTPClientConnection::createStream() const {
-    BaseIOStream::SocketType socket(_reactor->getIOContext());
+void HTTPClientConnection::connectionClose(std::exception_ptr reason) {
+    try {
+        if (_callback) {
+            std::string message("Connection closed");
+            if (reason) {
+                try {
+                    std::rethrow_exception(reason);
+                } catch (std::exception &e) {
+                    message = e.what();
+                }
+            }
+            NET4CXX_THROW_EXCEPTION(HTTPError, message) << errinfo_http_code(599);
+        }
+    } catch (...) {
+        handleException(std::current_exception());
+    }
+}
+
+const StringSet HTTPClientConnection::_SUPPORTED_METHODS = {"GET", "HEAD", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"};
+
+void HTTPClientConnection::startConnecting(const std::string &host, unsigned short port) {
+    DeferredPtr connectDeferred;
     if (_parsed.getScheme() == "https") {
         SSLClientOptionBuilder builder;
         if (_request->isValidateCert()) {
@@ -139,10 +291,25 @@ std::shared_ptr<BaseIOStream> HTTPClientConnection::createStream() const {
             builder.setCertFile(clientCert);
         }
         auto sslOption = builder.build();
-        return SSLIOStream::create(std::move(socket), std::move(sslOption), _reactor, _maxBufferSize);
+        SSLClientEndpoint endpoint(_client->reactor(), host, std::to_string(port), std::move(sslOption),
+                                   _request->getConnectTimeout());
+        connectDeferred = connectProtocol(endpoint, shared_from_this());
     } else {
-        return IOStream::create(std::move(socket), _reactor, _maxBufferSize);
+        TCPClientEndpoint endpoint(_client->reactor(), host, std::to_string(port),
+                                   _request->getConnectTimeout());
+        connectDeferred = connectProtocol(endpoint, shared_from_this());
     }
+    connectDeferred->addErrback([this, self=shared_from_this()](DeferredValue value) {
+        try {
+            value.throwError();
+        } catch (TimeoutError &error) {
+            onTimeout();
+        }
+        return value;
+    })->addErrback([this, self=shared_from_this()](DeferredValue value) {
+        handleException(value.asError());
+        return value;
+    });
 }
 
 void HTTPClientConnection::onTimeout() {
@@ -159,129 +326,12 @@ void HTTPClientConnection::removeTimeout() {
     }
 }
 
-void HTTPClientConnection::onConnect() {
-    removeTimeout();
-    if (!_callback) {
-        return;
-    }
-    double requestTimeout = _request->getRequestTimeout();
-    if (requestTimeout != 0.0) {
-        _timeout = _reactor->callLater(requestTimeout, [this, self=shared_from_this()]() {
-            try {
-                onTimeout();
-            } catch (...) {
-                handleException(std::current_exception());
-            }
-        });
-    }
-    const std::string &method = _request->getMethod();
-    if (_SUPPORTED_METHODS.find(method) == _SUPPORTED_METHODS.end() && !_request->isAllowNonstandardMethods()) {
-        NET4CXX_THROW_EXCEPTION(KeyError, "unknown method %s", method);
-    }
-    if (!_request->getNetworkInterface().empty()) {
-        NET4CXX_THROW_EXCEPTION(NotImplementedError, "NetworkInterface not supported");
-    }
-    if (!_request->getProxyHost().empty()) {
-        NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyHost not supported");
-    }
-    if (_request->getProxyPort() != 0) {
-        NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyPort not supported");
-    }
-    if (!_request->getProxyUserName().empty()) {
-        NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyUser not supported");
-    }
-    if (!_request->getProxyPassword().empty()) {
-        NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyPassword not supported");
-    }
-    auto &headers = _request->headers();
-    if (!headers.has("Connection")) {
-        headers["Connection"] = "close";
-    }
-    if (!headers.has("Host")) {
-        if (_parsed.getNetloc().find('@') != std::string::npos) {
-            std::string host;
-            std::tie(std::ignore, std::ignore, host) = StrUtil::rpartition(_parsed.getNetloc(), "@");
-            headers["Host"] = host;
-        } else {
-            headers["Host"] = _parsed.getNetloc();
-        }
-    }
-    std::string userName, password;
-    if (_parsed.getUserName()) {
-        userName = *_parsed.getUserName();
-        password = *_parsed.getPassword();
-    } else if (!_request->getAuthUserName().empty()) {
-        userName = _request->getAuthUserName();
-        password = _request->getAuthPassword();
-    }
-    if (!userName.empty()) {
-        const std::string &authMode = _request->getAuthMode();
-        if (!authMode.empty() && authMode != "basic") {
-            NET4CXX_THROW_EXCEPTION(ValueError, "unsupported auth mode %s", authMode);
-        }
-        std::string auth = userName + ":" + password;
-        auth = "Basic " + Base64::b64encode(auth);
-        headers["Authorization"] = auth;
-    }
-    const std::string &userAgent = _request->getUserAgent();
-    if (!userAgent.empty()) {
-        headers["User-Agent"] = userAgent;
-    }
-    const std::string &requestBody = _request->getBody();
-    if (!_request->isAllowNonstandardMethods()) {
-        if (method == "POST" || method == "PATCH" || method == "PUT") {
-            NET4CXX_ASSERT_THROW(!requestBody.empty(), "Body must not be empty for \"%s\" request", method);
-        } else {
-            NET4CXX_ASSERT_THROW(requestBody.empty(), "Body must be empty for \"%s\" request", method);
-        }
-    }
-    if (!requestBody.empty()) {
-        headers["Content-Length"] = std::to_string(requestBody.size());
-    }
-    if (method == "POST" && !headers.has("Content-Type")) {
-        headers["Content-Type"] = "application/x-www-form-urlencoded";
-    }
-    if (_request->isUseGzip()) {
-        headers["Accept-Encoding"] = "gzip";
-    }
-    const std::string &parsedPath = _parsed.getPath();
-    const std::string &parsedQuery = _parsed.getQuery();
-    std::string reqPath = parsedPath.empty() ? "/" : parsedPath;
-    if (!parsedQuery.empty()) {
-        reqPath += '?';
-        reqPath += parsedQuery;
-    }
-    StringVector requestLines;
-    requestLines.emplace_back(StrUtil::format("%s %s HTTP/1.1", method.c_str(), reqPath.c_str()));
-    headers.getAll([&requestLines](const std::string &k, const std::string &v){
-        std::string line = k + ": " + v;
-        if (line.find('\n') != std::string::npos) {
-            NET4CXX_THROW_EXCEPTION(ValueError, "Newline in header: %s", line);
-        }
-        requestLines.emplace_back(std::move(line));
-    });
-    std::string requestStr = boost::join(requestLines, "\r\n");
-    requestStr += "\r\n\r\n";
-    if (!requestBody.empty()) {
-        requestStr += requestBody;
-    }
-    _stream->setNoDelay(true);
-    _stream->write((const Byte *)requestStr.data(), requestStr.size());
-    _stream->readUntilRegex("\r?\n\r?\n", [this, self=shared_from_this()](ByteArray data) {
-        try {
-            onHeaders(std::move(data));
-        } catch (...) {
-            handleException(std::current_exception());
-        }
-    });
-}
-
 void HTTPClientConnection::runCallback(HTTPResponse response) {
     if (_callback) {
         CallbackType callback(std::move(_callback));
         _callback = nullptr;
-        _reactor->addCallback([callback=std::move(callback), response=std::move(response)]() {
-            callback(std::move(response));
+        _client->reactor()->addCallback([callback=std::move(callback), response=std::move(response)]() {
+            callback(response);
         });
     }
 }
@@ -290,46 +340,24 @@ void HTTPClientConnection::handleException(std::exception_ptr error) {
     if (_callback) {
         removeTimeout();
         runCallback(HTTPResponse(_request, 599, error, TimestampClock::now() - _startTime));
-        if (_stream) {
-            _stream->close();
-        }
-    }
-}
-
-void HTTPClientConnection::onClose() {
-    if (_callback) {
-        std::string message("Connection closed");
-        if (_stream->getError()) {
-            try {
-                std::rethrow_exception(_stream->getError());
-            } catch (std::exception &e) {
-                message = e.what();
-            }
-        }
-        NET4CXX_THROW_EXCEPTION(HTTPError, message) << errinfo_http_code(599);
+        loseConnection();
     }
 }
 
 void HTTPClientConnection::handle1xx(int code) {
-    _stream->readUntilRegex("\r?\n\r?\n",[this, self=shared_from_this()](ByteArray data) {
-        try {
-            onHeaders(std::move(data));
-        } catch (...) {
-            handleException(std::current_exception());
-        }
-    });
+    _state = READ_HEADER;
+    readUntilRegex("\r?\n\r?\n");
 }
 
-void HTTPClientConnection::onHeaders(ByteArray data) {
-    const char *content = (const char *)data.data();
-    const char *eol = StrNStr(content, data.size(), "\n");
+void HTTPClientConnection::onHeaders(Byte *data, size_t length) {
+    const char *eol = StrNStr((const char *)data, length, "\n");
     std::string firstLine, _, headerData;
     if (eol) {
-        firstLine.assign(content, eol);
+        firstLine.assign((const char *)data, eol);
         _ = "\n";
-        headerData.assign(eol + 1, content + data.size());
+        headerData.assign(eol + 1, (const char *)data + length);
     } else {
-        firstLine.assign(content, data.size());
+        firstLine.assign((const char *)data, length);
     }
     const boost::regex firstLinePattern("HTTP/1.[01] ([0-9]+) ([^\r]*).*");
     boost::smatch match;
@@ -371,14 +399,14 @@ void HTTPClientConnection::onHeaders(ByteArray data) {
         headerCallback("\r\n");
     }
     if (_request->getMethod() == "HEAD" || _code == 304) {
-        onBody({});
+        onBody(nullptr, 0);
         return;
     }
     if ((100 <= _code && _code < 200) || _code == 204) {
         if (_headers->has("Transfer-Encoding") || (contentLength && *contentLength != 0)) {
             NET4CXX_THROW_EXCEPTION(ValueError, "Response with code %d should not have body", *_code);
         }
-        onBody({});
+        onBody(nullptr, 0);
         return;
     }
     if (_request->isUseGzip() && _headers->get("Content-Encoding") == "gzip") {
@@ -386,33 +414,18 @@ void HTTPClientConnection::onHeaders(ByteArray data) {
     }
     if (_headers->get("Transfer-Encoding") == "chunked") {
         _chunks = ByteArray();
-        _stream->readUntil("\r\n", [this, self=shared_from_this()](ByteArray data) {
-            try {
-                onChunkLength(std::move(data));
-            } catch (...) {
-                handleException(std::current_exception());
-            }
-        });
+        _state = READ_CHUNK_LENGTH;
+        readUntil("\r\n");
     } else if (contentLength) {
-        _stream->readBytes(*contentLength, [this, self=shared_from_this()](ByteArray data) {
-            try {
-                onBody(std::move(data));
-            } catch (...) {
-                handleException(std::current_exception());
-            }
-        });
+        _state = READ_BODY;
+        readBytes(*contentLength);
     } else {
-        _stream->readUntilClose([this, self=shared_from_this()](ByteArray data) {
-            try {
-                onBody(std::move(data));
-            } catch (...) {
-                handleException(std::current_exception());
-            }
-        });
+        _state = READ_BODY;
+        readUntilClose();
     }
 }
 
-void HTTPClientConnection::onBody(ByteArray data) {
+void HTTPClientConnection::onBody(Byte *data, size_t length) {
     if (!_timeout.cancelled()) {
         _timeout.cancel();
         _timeout.reset();
@@ -451,21 +464,26 @@ void HTTPClientConnection::onBody(ByteArray data) {
         onEndRequest();
         return;
     }
-    if (_decompressor) {
-        data = _decompressor->decompress(data);
-        auto tail = _decompressor->flush();
-        if (!tail.empty()) {
-            data.insert(data.end(), tail.begin(), tail.end());
+    ByteArray dat;
+    if (length) {
+        if (_decompressor) {
+            dat = _decompressor->decompress(data, length);
+            auto tail = _decompressor->flush();
+            if (!tail.empty()) {
+                dat.insert(dat.end(), tail.begin(), tail.end());
+            }
+        } else {
+            dat.assign(data, data + length);
         }
     }
     std::string buffer;
     auto &streamingCallback = _request->getStreamingCallback();
     if (streamingCallback) {
         if (!_chunks) {
-            streamingCallback(std::move(data));
+            streamingCallback(std::move(dat));
         }
     } else {
-        buffer.assign((const char*)data.data(), data.size());
+        buffer.assign((const char*)dat.data(), dat.size());
     }
     HTTPResponse response(originalRequest, _code.get(), _reason, *_headers, std::move(buffer), _request->getUrl(),
                           TimestampClock::now() - _startTime);
@@ -473,11 +491,11 @@ void HTTPClientConnection::onBody(ByteArray data) {
     onEndRequest();
 }
 
-void HTTPClientConnection::onChunkLength(ByteArray data) {
-    std::string content((const char *)data.data(), data.size());
+void HTTPClientConnection::onChunkLength(Byte *data, size_t length) {
+    std::string content((const char *)data, length);
     boost::trim(content);
-    size_t length = std::stoul(content, nullptr, 16);
-    if (length == 0) {
+    size_t len = std::stoul(content, nullptr, 16);
+    if (len == 0) {
         if (_decompressor) {
             auto tail = _decompressor->flush();
             if (!tail.empty()) {
@@ -490,22 +508,16 @@ void HTTPClientConnection::onChunkLength(ByteArray data) {
             }
             _decompressor.reset();
         }
-        onBody(std::move(_chunks.get()));
+        onBody(_chunks->data(), _chunks->size());
     } else {
-        _stream->readBytes(length + 2, [this, self=shared_from_this()](ByteArray data) {
-            try {
-                onChunkData(std::move(data));
-            } catch (...) {
-                handleException(std::current_exception());
-            }
-        });
+        _state = READ_CHUNK_DATA;
+        readBytes(len + 2);
     }
 }
 
-void HTTPClientConnection::onChunkData(ByteArray data) {
-    NET4CXX_ASSERT_THROW(strncmp((const char *)data.data() + data.size() - 2, "\r\n", 2) == 0, "");
-    data.erase(std::prev(data.end(), 2), data.end());
-    ByteArray chunk(std::move(data));
+void HTTPClientConnection::onChunkData(Byte *data, size_t length) {
+    NET4CXX_ASSERT_THROW(strncmp((const char *)data + length - 2, "\r\n", 2) == 0, "");
+    ByteArray chunk(data, data + length - 2);
     if (_decompressor) {
         chunk = _decompressor->decompress(chunk);
     }
@@ -515,13 +527,8 @@ void HTTPClientConnection::onChunkData(ByteArray data) {
     } else {
         _chunks->insert(_chunks->end(), chunk.begin(), chunk.end());
     }
-    _stream->readUntil("\r\n", [this, self=shared_from_this()](ByteArray data) {
-        try {
-            onChunkLength(std::move(data));
-        } catch (...) {
-            handleException(std::current_exception());
-        }
-    });
+    _state = READ_CHUNK_LENGTH;
+    readUntil("\r\n");
 }
 
 NS_END

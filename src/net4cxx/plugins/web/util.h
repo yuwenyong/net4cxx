@@ -1,9 +1,9 @@
 //
-// Created by yuwenyong.vincent on 2018/7/14.
+// Created by yuwenyong.vincent on 2018/10/14.
 //
 
-#ifndef NET4CXX_CORE_STREAMS_UTIL_H
-#define NET4CXX_CORE_STREAMS_UTIL_H
+#ifndef NET4CXX_PLUGINS_WEB_UTIL_H
+#define NET4CXX_PLUGINS_WEB_UTIL_H
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/debugging/watcher.h"
@@ -21,9 +21,9 @@ public:
     template <typename CallbackT>
     PeriodicCallback(CallbackT &&callback, double callbackTime, Reactor *reactor= nullptr)
             : PeriodicCallback(
-                    std::forward<CallbackT>(callback),
-                    std::chrono::milliseconds(int64_t(callbackTime * 1000)),
-                    reactor) {
+            std::forward<CallbackT>(callback),
+            std::chrono::milliseconds(int64_t(callbackTime * 1000)),
+            reactor) {
 
     }
 
@@ -80,4 +80,4 @@ using PeriodicCallbackPtr = std::shared_ptr<PeriodicCallback>;
 
 NS_END
 
-#endif //NET4CXX_CORE_STREAMS_UTIL_H
+#endif //NET4CXX_PLUGINS_WEB_UTIL_H

@@ -6,6 +6,7 @@
 #define NET4CXX_COMMON_SERIALIZATION_ARCHIVE_H
 
 #include "net4cxx/common/common.h"
+#include <boost/optional.hpp>
 #include "net4cxx/common/utilities/errors.h"
 
 NS_BEGIN
@@ -288,6 +289,17 @@ public:
     };
 
     template <typename ValueT>
+    Archive& operator<<(boost::optional<ValueT> &value) {
+        if (value) {
+            append<uint8>(0x01);
+            *this << *value;
+        } else {
+            append<uint8>(0x00);
+        }
+        return *this;
+    }
+
+    template <typename ValueT>
     Archive& operator<<(ValueT &value) {
         ArchiveModeGuard<Archive> guard(this, ArchiveMode::Write);
         value.serialize(*this);
@@ -432,6 +444,19 @@ public:
         readMapping(value);
         return *this;
     };
+
+    template <typename ValueT>
+    Archive& operator>>(boost::optional<ValueT> &value) {
+        auto hasValue = read<uint8_t>();
+        if (hasValue == 0) {
+            value = boost::none;
+        } else {
+            ValueT val;
+            *this >> val;
+            value = std::move(val);
+        }
+        return *this;
+    }
 
     template <typename ValueT>
     Archive& operator>>(ValueT &value) {

@@ -394,6 +394,18 @@ public:
 
     virtual unsigned short getRemotePort() const = 0;
 
+    bool closed() const {
+        return _disconnecting || _disconnected || !_connected;
+    }
+
+    bool connected() const {
+        return _connected;
+    }
+
+    bool disconnected() const {
+        return _disconnected;
+    }
+
     Reactor* reactor() {
         return _reactor;
     }

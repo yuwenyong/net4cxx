@@ -26,10 +26,6 @@ public:
 
     }
 
-    ~WrappingProtocol() override {
-
-    }
-
     void connectionMade() override;
 
     void dataReceived(Byte *data, size_t length) override;

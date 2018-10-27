@@ -166,30 +166,30 @@ void RequestHandler::redirect(const std::string &url, bool permanent, boost::opt
     finish();
 }
 
-void RequestHandler::flush(bool includeFooters, FlushCallbackType callback) {
+void RequestHandler::flush(bool includeFooters) {
     ByteArray chunk = std::move(_writeBuffer);
     std::string headers;
     if (!_headersWritten) {
         _headersWritten = true;
-        for (auto &transfrom: _transforms) {
-            transfrom->transformFirstChunk(_statusCode, _headers, chunk, includeFooters);
+        for (auto &transform: _transforms) {
+            transform->transformFirstChunk(_statusCode, _headers, chunk, includeFooters);
         }
         headers = generateHeaders();
     } else {
-        for (auto &transfrom: _transforms) {
-            transfrom->transformChunk(chunk, includeFooters);
+        for (auto &transform: _transforms) {
+            transform->transformChunk(chunk, includeFooters);
         }
     }
     if (_request->getMethod() == "HEAD") {
         if (!headers.empty()) {
-            _request->write(headers, std::move(callback));
+            _request->write(headers);
         }
         return;
     }
     if (!chunk.empty()) {
         headers.append((const char *)chunk.data(), chunk.size());
     }
-    _request->write(headers, std::move(callback));
+    _request->write(headers);
 }
 
 void RequestHandler::sendError(int statusCode, std::exception_ptr error) {
@@ -502,7 +502,7 @@ const StringSet GZipContentEncoding::CONTENT_TYPES = {
 
 constexpr int GZipContentEncoding::MIN_LENGTH;
 
-GZipContentEncoding::GZipContentEncoding(HTTPServerRequestPtr request) {
+GZipContentEncoding::GZipContentEncoding(const std::shared_ptr<HTTPServerRequest> &request) {
     if (request->supportsHTTP11()) {
         auto headers = request->getHTTPHeaders();
         std::string acceptEncoding = headers->get("Accept-Encoding");
@@ -555,7 +555,6 @@ void GZipContentEncoding::transformChunk(ByteArray &chunk, bool finishing) {
 }
 
 
-
 void ChunkedTransferEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk,
                                                   bool finishing) {
     if (_chunking && statusCode != 304) {
@@ -601,6 +600,10 @@ WebApp::WebApp(HandlersType handlers, std::string defaultHost, TransformsType tr
     }
 }
 
+ProtocolPtr WebApp::buildProtocol(const Address &address) {
+    return std::make_shared<HTTPConnection>();
+}
+
 void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     if (!boost::ends_with(hostPattern, "$")) {
         hostPattern.push_back('$');
@@ -622,13 +625,12 @@ void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     }
 }
 
-
-void WebApp::operator()(HTTPServerRequestPtr request) {
+void WebApp::operator()(std::shared_ptr<HTTPServerRequest> request) {
     RequestHandler::TransformsType transforms;
     for (auto &transform: _transforms) {
         transforms.emplace_back(transform->create(request));
     }
-    RequestHandlerPtr handler;
+    std::shared_ptr<RequestHandler> handler;
     StringVector args;
     auto handlers = getHostHandlers(request);
     if (handlers.empty()) {
@@ -675,7 +677,7 @@ void WebApp::operator()(HTTPServerRequestPtr request) {
     handler->execute(std::move(transforms), std::move(args));
 }
 
-void WebApp::logRequest(RequestHandlerConstPtr handler) const {
+void WebApp::logRequest(std::shared_ptr<const RequestHandler> handler) const {
     auto iter = _settings.find("logFunction");
     if (iter != _settings.end()) {
         const auto &logFunction = boost::any_cast<const LogFunctionType&>(iter->second);
@@ -695,7 +697,7 @@ void WebApp::logRequest(RequestHandlerConstPtr handler) const {
     }
 }
 
-std::vector<UrlSpecPtr> WebApp::getHostHandlers(HTTPServerRequestConstPtr request) {
+std::vector<UrlSpecPtr> WebApp::getHostHandlers(std::shared_ptr<const HTTPServerRequest> request) {
     std::string host = request->getHost();
     boost::to_lower(host);
     auto pos = host.find(':');

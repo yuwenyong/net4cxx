@@ -8,167 +8,72 @@
 #include "net4cxx/common/common.h"
 #include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/common/httputils/urlparse.h"
-#include "net4cxx/core/streams/tcpserver.h"
+#include "net4cxx/core/protocols/iostream.h"
 #include "net4cxx/plugins/web/httputil.h"
 
 
 NS_BEGIN
 
 
-class HTTPServerRequest;
-
-using HTTPServerRequestPtr = std::shared_ptr<HTTPServerRequest>;
-using HTTPServerRequestConstPtr = std::shared_ptr<const HTTPServerRequest>;
-
-
-class NET4CXX_COMMON_API HTTPServer: public TCPServer {
-public:
-    typedef std::function<void(HTTPServerRequestPtr)> RequestCallbackType;
-
-    HTTPServer(const HTTPServer &) = delete;
-
-    HTTPServer &operator=(const HTTPServer &) = delete;
-
-    explicit HTTPServer(RequestCallbackType requestCallback,
-               bool noKeepAlive = false,
-               Reactor *reactor = nullptr,
-               bool xheaders = false,
-               std::string protocol = "",
-               SSLOptionPtr sslOption = nullptr,
-               size_t maxBufferSize=0);
-
-    void handleStream(BaseIOStreamPtr stream, std::string address) override;
-protected:
-    RequestCallbackType _requestCallback;
-    bool _noKeepAlive;
-    bool _xheaders;
-    std::string _protocol;
-};
-
-
 NET4CXX_DECLARE_EXCEPTION(BadRequestException, Exception);
 
 
-class NET4CXX_COMMON_API HTTPConnection: public std::enable_shared_from_this<HTTPConnection> {
+class HTTPServerRequest;
+
+
+class NET4CXX_COMMON_API HTTPConnection: public IOStream {
 public:
-    typedef HTTPServer::RequestCallbackType RequestCallbackType;
-    typedef std::function<void ()> WriteCallbackType;
-    typedef BaseIOStream::CloseCallbackType CloseCallbackType;
-    typedef std::function<void (ByteArray)> HeaderCallbackType;
+    typedef std::function<void ()> CloseCallbackType;
 
-    class CloseCallbackWrapper {
-    public:
-        explicit CloseCallbackWrapper(std::shared_ptr<HTTPConnection> connection)
-                : _connection(std::move(connection))
-                , _needClear(true) {
-
-        }
-
-        CloseCallbackWrapper(CloseCallbackWrapper &&rhs) noexcept
-                : _connection(std::move(rhs._connection))
-                , _needClear(rhs._needClear) {
-            rhs._needClear = false;
-        }
-
-        CloseCallbackWrapper& operator=(CloseCallbackWrapper &&rhs) noexcept {
-            _connection = std::move(rhs._connection);
-            _needClear = rhs._needClear;
-            rhs._needClear = false;
-            return *this;
-        }
-
-        ~CloseCallbackWrapper() {
-            if (_needClear) {
-                _connection->_closeCallback = nullptr;
-            }
-        }
-
-        void operator()() {
-            _needClear = false;
-            _connection->onConnectionClose();
-        }
-    protected:
-        std::shared_ptr<HTTPConnection> _connection;
-        bool _needClear;
+    enum State {
+        INITIAL,
+        READ_HEADER,
+        READ_BODY,
+        PROCESS_REQUEST,
     };
 
-    class WriteCallbackWrapper {
-    public:
-        explicit WriteCallbackWrapper(std::shared_ptr<HTTPConnection> connection)
-                : _connection(std::move(connection))
-                , _needClear(true) {
-
-        }
-
-        WriteCallbackWrapper(WriteCallbackWrapper &&rhs) noexcept
-                : _connection(std::move(rhs._connection))
-                , _needClear(rhs._needClear) {
-            rhs._needClear = false;
-        }
-
-        WriteCallbackWrapper& operator=(WriteCallbackWrapper &&rhs) noexcept {
-            _connection = std::move(rhs._connection);
-            _needClear = rhs._needClear;
-            rhs._needClear = false;
-            return *this;
-        }
-
-        ~WriteCallbackWrapper() {
-            if (_needClear) {
-                _connection->_writeCallback = nullptr;
-            }
-        }
-
-        void operator()() {
-            _needClear = false;
-            _connection->onWriteComplete();
-        }
-    protected:
-        std::shared_ptr<HTTPConnection> _connection;
-        bool _needClear;
-    };
-
-    HTTPConnection(const HTTPConnection &) = delete;
-
-    HTTPConnection &operator=(const HTTPConnection &) = delete;
-
-    HTTPConnection(BaseIOStreamPtr stream,
-                   std::string address,
-                   const RequestCallbackType &requestCallback,
-                   bool noKeepAlive = false,
-                   bool xheaders = false,
-                   std::string protocol="")
-            : _stream(std::move(stream))
-            , _address(std::move(address))
-            , _requestCallback(requestCallback)
-            , _noKeepAlive(noKeepAlive)
-            , _xheaders(xheaders)
-            , _protocol(protocol) {
+    explicit HTTPConnection(size_t maxBufferSize=0): IOStream(maxBufferSize) {
 #ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(WatchKeys::HTTPConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
-    ~HTTPConnection() {
+    ~HTTPConnection() override {
         NET4CXX_Watcher->dec(WatchKeys::HTTPConnectionCount);
     }
 #endif
+
+    void connectionMade() override;
+
+    void dataRead(Byte *data, size_t length) override;
+
+    void connectionClose(std::exception_ptr reason) override;
+
+    void writeChunk(const Byte *chunk, size_t length);
+
+    void writeChunk(const ByteArray &chunk) {
+        writeChunk(chunk.data(), chunk.size());
+    }
+
+    void writeChunk(const char *chunk) {
+        writeChunk((const Byte *)chunk, strlen(chunk));
+    }
+
+    void writeChunk(const std::string &chunk) {
+        writeChunk((const Byte *)chunk.c_str(), chunk.size());
+    }
+
+    void finish();
 
     void setCloseCallback(CloseCallbackType callback) {
         _closeCallback = std::move(callback);
     }
 
     void close() {
-        _stream->close();
+        loseConnection();
         clearRequestState();
     }
-
-    void start();
-
-    void write(const Byte *chunk, size_t length, WriteCallbackType callback= nullptr);
-
-    void finish();
 
     bool getNoKeepAlive() const {
         return _noKeepAlive;
@@ -178,64 +83,52 @@ public:
         return _xheaders;
     }
 
-    BaseIOStreamPtr getStream() const {
-        return _stream;
-    }
-
-    HTTPServerRequestPtr getRequest() const {
+    std::shared_ptr<const HTTPServerRequest> getRequest() const {
         return _request;
     }
 
-    template <typename ...Args>
-    static std::shared_ptr<HTTPConnection> create(Args&& ...args) {
-        return std::make_shared<HTTPConnection>(std::forward<Args>(args)...);
+    std::shared_ptr<HTTPServerRequest> getRequest() {
+        return _request;
     }
 protected:
     void clearRequestState() {
         _request.reset();
         _requestFinished = false;
-        _writeCallback = nullptr;
         _closeCallback = nullptr;
     }
 
-    void onConnectionClose();
+    void onHeaders(Byte *data, size_t length);
+
+    void onRequestBody(Byte *data, size_t length);
+
+    void onProcessRequest();
 
     void onWriteComplete();
 
     void finishRequest();
 
-    void onHeaders(ByteArray data);
-
-    void onRequestBody(ByteArray data);
-
-    BaseIOStreamPtr _stream;
+    State _state{INITIAL};
     std::string _address;
-    const RequestCallbackType &_requestCallback;
-    bool _noKeepAlive;
-    bool _xheaders;
+    bool _noKeepAlive{false};
+    bool _xheaders{false};
     std::string _protocol;
     std::shared_ptr<HTTPServerRequest> _request;
-    std::weak_ptr<HTTPServerRequest> _requestObserver;
     bool _requestFinished{false};
-    WriteCallbackType _writeCallback;
-    CloseCallbackType _closeCallback;
-//    HeaderCallbackType _headerCallback;
+    CloseCallbackType _closeCallback{nullptr};
 };
-
 
 using HTTPConnectionPtr = std::shared_ptr<HTTPConnection>;
 
 
 class NET4CXX_COMMON_API HTTPServerRequest {
 public:
-    typedef HTTPConnection::WriteCallbackType WriteCallbackType;
     typedef boost::optional<SimpleCookie> CookiesType;
 
     HTTPServerRequest(const HTTPServerRequest &) = delete;
 
     HTTPServerRequest &operator=(const HTTPServerRequest &) = delete;
 
-    HTTPServerRequest(HTTPConnectionPtr connection,
+    HTTPServerRequest(std::shared_ptr<HTTPConnection> connection,
                       std::string method,
                       std::string uri,
                       std::string version = "HTTP/1.0",
@@ -258,18 +151,18 @@ public:
 
     const SimpleCookie& cookies() const;
 
-    void write(const Byte *chunk, size_t length, WriteCallbackType callback= nullptr);
+    void write(const Byte *chunk, size_t length);
 
-    void write(const ByteArray &chunk, WriteCallbackType callback= nullptr) {
-        write(chunk.data(), chunk.size(), std::move(callback));
+    void write(const ByteArray &chunk) {
+        write(chunk.data(), chunk.size());
     }
 
-    void write(const char *chunk, WriteCallbackType callback= nullptr) {
-        write((const Byte *)chunk, strlen(chunk), std::move(callback));
+    void write(const char *chunk) {
+        write((const Byte *)chunk, strlen(chunk));
     }
 
-    void write(const std::string &chunk, WriteCallbackType callback= nullptr) {
-        write((const Byte *)chunk.data(), chunk.length(), std::move(callback));
+    void write(const std::string &chunk) {
+        write((const Byte *)chunk.data(), chunk.length());
     }
 
     void finish();
@@ -320,12 +213,12 @@ public:
         return _files;
     }
 
-    HTTPConnectionPtr getConnection() {
-        return _connection;
+    std::shared_ptr<const HTTPConnection> getConnection() const {
+        return _connection.lock();
     }
 
-    void setConnection(HTTPConnectionPtr connection) {
-        _connection = std::move(connection);
+    std::shared_ptr<HTTPConnection> getConnection() {
+        return _connection.lock();
     }
 
     const std::string& getPath() const {
@@ -392,7 +285,7 @@ protected:
     std::string _protocol;
     std::string _host;
     HTTPFileListMap _files;
-    HTTPConnectionPtr _connection;
+    std::weak_ptr<HTTPConnection> _connection;
     Timestamp _startTime;
     Timestamp _finishTime;
     std::string _path;
@@ -402,6 +295,8 @@ protected:
     QueryArgListMap _bodyArguments;
     mutable CookiesType _cookies;
 };
+
+using HTTPServerRequestPtr = std::shared_ptr<HTTPServerRequest>;
 
 NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &os, const HTTPServerRequest &request);
 

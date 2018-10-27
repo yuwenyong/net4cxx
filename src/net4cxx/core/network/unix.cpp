@@ -341,10 +341,7 @@ void UNIXConnector::stopConnecting() {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(UserAbort, ""));
-    NET4CXX_ASSERT(_connection);
-    _connection->getSocket().close();
-    _connection.reset();
-    _state = kDisconnected;
+    abortConnecting();
 }
 
 void UNIXConnector::connectionFailed(std::exception_ptr reason) {
@@ -412,11 +409,18 @@ void UNIXConnector::handleConnect(const boost::system::error_code &ec) {
 void UNIXConnector::handleTimeout() {
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(TimeoutError, ""));
-    connectionFailed();
+    abortConnecting();
 }
 
 void UNIXConnector::makeTransport() {
     _connection = std::make_shared<UNIXClientConnection>(_reactor);
+}
+
+void UNIXConnector::abortConnecting() {
+    NET4CXX_ASSERT(_connection);
+    _connection->getSocket().close();
+    _connection.reset();
+    _state = kDisconnecting;
 }
 
 

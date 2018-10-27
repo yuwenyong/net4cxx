@@ -193,6 +193,21 @@ public:
         return _transport->getRemotePort();
     }
 
+    bool closed() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->closed();
+    }
+
+    bool connected() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->connected();
+    }
+
+    bool disconnected() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->disconnected();
+    }
+
     void setFactory(const std::shared_ptr<Factory> &factory) {
         _factory = factory;
     }
