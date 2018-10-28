@@ -5,25 +5,95 @@
 #include "net4cxx/core/network/endpoints.h"
 #include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/strutil.h"
-#include "net4cxx/core/network/protocol.h"
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/reactor.h"
 
 
 NS_BEGIN
 
-ListenerPtr TCPServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return _reactor->listenTCP(_port, std::move(protocolFactory), _interface);
+
+void WrappingProtocol::connectionMade() {
+    _wrappedProtocol->setFactory(getFactory<WrappingFactory>()->getWrappedFactory());
+    _wrappedProtocol->makeConnection(_transport);
+    auto connectedDeferred = std::move(_connectedDeferred);
+    connectedDeferred->callback(_wrappedProtocol);
+}
+
+void WrappingProtocol::dataReceived(Byte *data, size_t length) {
+    _wrappedProtocol->dataReceived(data, length);
+}
+
+void WrappingProtocol::connectionLost(std::exception_ptr reason) {
+    _wrappedProtocol->connectionLost(reason);
 }
 
 
-ListenerPtr SSLServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return _reactor->listenSSL(_port, std::move(protocolFactory), _sslOption, _interface);
+WrappingFactory::WrappingFactory(std::shared_ptr<ClientFactory> wrappedFactory)
+        : _wrappedFactory(std::move(wrappedFactory))
+        , _onConnection(makeDeferred()) {
+
+}
+
+void WrappingFactory::doStart() {
+    _wrappedFactory->doStart();
+}
+
+void WrappingFactory::doStop() {
+    _wrappedFactory->doStop();
+}
+
+ProtocolPtr WrappingFactory::buildProtocol(const Address &address) {
+    auto onConnection = std::move(_onConnection);
+    try {
+        auto proto = _wrappedFactory->buildProtocol(address);
+        if (!proto) {
+            NET4CXX_THROW_EXCEPTION(NoProtocol, "");
+        }
+        return std::make_shared<WrappingProtocol>(onConnection, std::move(proto));
+    } catch (...) {
+        onConnection->errback();
+    }
+    return nullptr;
+}
+
+void WrappingFactory::startedConnecting(ConnectorPtr connector) {
+    std::weak_ptr<Connector> c(connector);
+    NET4CXX_ASSERT(_onConnection);
+    _onConnection->setCanceller([c](DeferredPtr deferred) {
+        if (auto connector = c.lock()) {
+            deferred->errback(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectingCancelledError, "")));
+            connector->stopConnecting();
+        }
+    });
+}
+
+void WrappingFactory::clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) {
+    auto onConnection = std::move(_onConnection);
+    if (onConnection && !onConnection->called()) {
+        onConnection->errback(reason);
+    }
+}
+
+
+DeferredPtr TCPServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
+    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
+        return _reactor->listenTCP(_port, std::move(protocolFactory), _interface);
+    }, std::move(protocolFactory));
+}
+
+
+DeferredPtr SSLServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
+    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
+        return _reactor->listenSSL(_port, std::move(protocolFactory), _sslOption, _interface);
+    }, std::move(protocolFactory));
 }
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 
-ListenerPtr UNIXServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return _reactor->listenUNIX(_path, std::move(protocolFactory));
+DeferredPtr UNIXServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
+    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
+        return _reactor->listenUNIX(_path, std::move(protocolFactory));
+    }, std::move(protocolFactory));
 }
 
 #endif
@@ -137,19 +207,40 @@ ServerEndpointPtr serverFromString(Reactor *reactor, const std::string &descript
 }
 
 
-ConnectorPtr TCPClientEndpoint::connect(std::shared_ptr<ClientFactory> protocolFactory) const {
-    return _reactor->connectTCP(_host, _port, std::move(protocolFactory), _timeout, _bindAddress);
+DeferredPtr TCPClientEndpoint::connect(std::shared_ptr<ClientFactory> protocolFactory) const {
+    try {
+        auto wf = std::make_shared<WrappingFactory>(std::move(protocolFactory));
+        auto onConnection = wf->getOnConnection();
+        _reactor->connectTCP(_host, _port, std::move(wf), _timeout, _bindAddress);
+        return onConnection;
+    } catch (...) {
+        return failDeferred();
+    }
 }
 
 
-ConnectorPtr SSLClientEndpoint::connect(std::shared_ptr<ClientFactory> protocolFactory) const {
-    return _reactor->connectSSL(_host, _port, std::move(protocolFactory), _sslOption, _timeout, _bindAddress);
+DeferredPtr SSLClientEndpoint::connect(std::shared_ptr<ClientFactory> protocolFactory) const {
+    try {
+        auto wf = std::make_shared<WrappingFactory>(std::move(protocolFactory));
+        auto onConnection = wf->getOnConnection();
+        _reactor->connectSSL(_host, _port, std::move(wf), _sslOption, _timeout, _bindAddress);
+        return onConnection;
+    } catch (...) {
+        return failDeferred();
+    }
 }
 
 #ifdef BOOST_ASIO_HAS_LOCAL_SOCKETS
 
-ConnectorPtr UNIXClientEndpoint::connect(std::shared_ptr<ClientFactory> protocolFactory) const {
-    return _reactor->connectUNIX(_path, std::move(protocolFactory), _timeout);
+DeferredPtr UNIXClientEndpoint::connect(std::shared_ptr<ClientFactory> protocolFactory) const {
+    try {
+        auto wf = std::make_shared<WrappingFactory>(std::move(protocolFactory));
+        auto onConnection = wf->getOnConnection();
+        _reactor->connectUNIX(_path, std::move(wf), _timeout);
+        return onConnection;
+    } catch (...) {
+        return failDeferred();
+    }
 }
 
 #endif
@@ -277,7 +368,7 @@ ClientEndpointPtr clientFromString(Reactor *reactor, const std::string &descript
 }
 
 
-ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol) {
+DeferredPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol) {
     return endpoint.connect(std::make_unique<OneShotFactory>(std::move(protocol)));
 }
 

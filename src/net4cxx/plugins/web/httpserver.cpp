@@ -3,80 +3,138 @@
 //
 
 #include "net4cxx/plugins/web/httpserver.h"
+#include "net4cxx/core/network/ssl.h"
+#include "net4cxx/plugins/web/web.h"
 
 
 NS_BEGIN
 
-HTTPServer::HTTPServer(RequestCallbackType requestCallback,
-                       bool noKeepAlive,
-                       Reactor *reactor,
-                       bool xheaders,
-                       std::string protocol,
-                       SSLOptionPtr sslOption,
-                       size_t maxBufferSize)
-        : TCPServer(reactor, std::move(sslOption), maxBufferSize)
-        , _requestCallback(std::move(requestCallback))
-        , _noKeepAlive(noKeepAlive)
-        , _xheaders(xheaders)
-        , _protocol(std::move(protocol)) {
 
+void HTTPConnection::connectionMade() {
+    _address = getRemoteAddress();
+    auto webApp = getFactory<WebApp>();
+    if (!webApp->getProtocol().empty()) {
+        _protocol = webApp->getProtocol();
+    } else if (std::dynamic_pointer_cast<SSLConnection>(_transport)) {
+        _protocol = "https";
+    } else {
+        _protocol = "http";
+    }
+
+    _noKeepAlive = webApp->getNoKeepAlive();
+    _xheaders = webApp->getXHeaders();
+
+    _state = READ_HEADER;
+    readUntil("\r\n\r\n");
 }
 
-void HTTPServer::handleStream(BaseIOStreamPtr stream, std::string address) {
-    auto connection = HTTPConnection::create(std::move(stream), std::move(address), _requestCallback, _noKeepAlive,
-                                             _xheaders, _protocol);
-    connection->start();
-}
-
-
-void HTTPConnection::start() {
-    auto wrapper = std::make_shared<CloseCallbackWrapper>(shared_from_this());
-    _stream->setCloseCallback(std::bind(&CloseCallbackWrapper::operator(), std::move(wrapper)));
-
-    _stream->readUntil("\r\n\r\n", [this, self=shared_from_this()](ByteArray data) {
-        onHeaders(std::move(data));
-    });
-}
-
-void HTTPConnection::write(const Byte *chunk, size_t length, WriteCallbackType callback) {
-    NET4CXX_ASSERT_MSG(!_requestObserver.expired(), "Request closed");
-    if (!_stream->closed()) {
-        _writeCallback = std::move(callback);
-        if (_writeCallback) {
-            auto wrapper = std::make_shared<WriteCallbackWrapper>(shared_from_this());
-            _stream->write(chunk, length, std::bind(&WriteCallbackWrapper::operator(), std::move(wrapper)));
-        } else {
-            _stream->write(chunk, length, std::bind(&HTTPConnection::onWriteComplete, shared_from_this()));
-        }
+void HTTPConnection::dataRead(Byte *data, size_t length) {
+    if (_state == READ_HEADER) {
+        onHeaders(data, length);
+    } else if (_state == READ_BODY) {
+        onRequestBody(data, length);
+    } else {
+        NET4CXX_ASSERT_MSG(false, "Unreachable");
     }
 }
 
-void HTTPConnection::finish() {
-    NET4CXX_ASSERT_MSG(!_requestObserver.expired(), "Request closed");
-    _request = _requestObserver.lock();
-    _requestFinished = true;
-    _stream->setNoDelay(true);
-    if (!_stream->writing()) {
-        finishRequest();
-    }
-}
-
-void HTTPConnection::onConnectionClose() {
+void HTTPConnection::connectionClose(std::exception_ptr reason) {
     if (_closeCallback) {
-        CloseCallbackType callback(std::move(_closeCallback));
+        CloseCallbackType callback = std::move(_closeCallback);
         _closeCallback = nullptr;
         callback();
     }
     clearRequestState();
 }
 
-void HTTPConnection::onWriteComplete() {
-    if (_writeCallback) {
-        WriteCallbackType callback(std::move(_writeCallback));
-        _writeCallback = nullptr;
-        callback();
+void HTTPConnection::writeChunk(const Byte *chunk, size_t length) {
+    NET4CXX_ASSERT_MSG(_request, "Request closed");
+    if (!closed()) {
+        _transport->write(chunk, length);
+        onWriteComplete();
     }
-    if (_requestFinished && !_stream->writing()) {
+}
+
+void HTTPConnection::finish() {
+    NET4CXX_ASSERT_MSG(_request, "Request closed");
+    _requestFinished = true;
+    setNoDelay(true);
+    finishRequest();
+}
+
+void HTTPConnection::onHeaders(Byte *data, size_t length) {
+    try {
+        const char *eol = StrNStr((char *) data, length, "\r\n");
+        std::string startLine, rest;
+        if (eol) {
+            startLine.assign((const char *) data, eol);
+            rest.assign(eol, (const char *) data + length);
+        } else {
+            startLine.assign((char *) data, length);
+        }
+        StringVector requestLineComponents = StrUtil::split(startLine);
+        if (requestLineComponents.size() != 3) {
+            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP request line");
+        }
+        std::string method = std::move(requestLineComponents[0]);
+        std::string uri = std::move(requestLineComponents[1]);
+        std::string version = std::move(requestLineComponents[2]);
+        if (!boost::starts_with(version, "HTTP/")) {
+            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP version in HTTP Request-Line");
+        }
+        std::unique_ptr<HTTPHeaders> headers;
+        try {
+            headers = HTTPHeaders::parse(rest);
+        } catch (Exception &e) {
+            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP headers");
+        }
+        _request = HTTPServerRequest::create(getSelf<HTTPConnection>(), std::move(method), std::move(uri),
+                                             std::move(version), std::move(headers), std::string(), _address,
+                                             _protocol);
+        auto requestHeaders = _request->getHTTPHeaders();
+        std::string contentLengthValue = requestHeaders->get("Content-Length");
+        if (!contentLengthValue.empty()) {
+            auto contentLength = (size_t) std::stoi(contentLengthValue);
+            if (contentLength > _maxBufferSize) {
+                NET4CXX_THROW_EXCEPTION(BadRequestException, "Content-Length too long");
+            }
+            if (requestHeaders->get("Expect") == "100-continue") {
+                const char *continueLine = "HTTP/1.1 100 (Continue)\r\n\r\n";
+                write(continueLine);
+            }
+            _state = READ_BODY;
+            readBytes(contentLength);
+            return;
+        }
+        onProcessRequest();
+    } catch (BadRequestException &e) {
+        NET4CXX_LOG_INFO(gGenLog, "Malformed HTTP request from %s: %s", _address.c_str(), e.what());
+        close();
+    }
+}
+
+void HTTPConnection::onRequestBody(Byte *data, size_t length) {
+    _request->setBody(std::string((const char *) data, length));
+    auto headers = _request->getHTTPHeaders();
+    const std::string &method = _request->getMethod();
+    if (method == "POST" || method == "PATCH" || method == "PUT") {
+        HTTPUtil::parseBodyArguments(headers->get("Content-Type", ""), _request->getBody(), _request->bodyArguments(),
+                                     _request->files());
+        for (const auto &kv: _request->getBodyArguments()) {
+            _request->addArguments(kv.first, kv.second);
+        }
+    }
+    onProcessRequest();
+}
+
+void HTTPConnection::onProcessRequest() {
+    auto webApp = getFactory<WebApp>();
+    _state = PROCESS_REQUEST;
+    (*webApp)(_request);
+}
+
+void HTTPConnection::onWriteComplete() {
+    if (_requestFinished) {
         finishRequest();
     }
 }
@@ -106,86 +164,13 @@ void HTTPConnection::finishRequest() {
         close();
         return;
     }
-    try {
-        _stream->readUntil("\r\n\r\n", [this, self=shared_from_this()](ByteArray data) {
-            onHeaders(std::move(data));
-        });
-        _stream->setNoDelay(false);
-    } catch (StreamClosedError &e) {
-        close();
-    }
-}
-
-void HTTPConnection::onHeaders(ByteArray data) {
-    try {
-        const char *eol = StrNStr((char *)data.data(), data.size(), "\r\n");
-        std::string startLine, rest;
-        if (eol) {
-            startLine.assign((const char *)data.data(), eol);
-            rest.assign(eol, (const char *)data.data() + data.size());
-        } else {
-            startLine.assign((char *)data.data(), data.size());
-        }
-        StringVector requestLineComponents = StrUtil::split(startLine);
-        if (requestLineComponents.size() != 3) {
-            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP request line");
-        }
-        std::string method = std::move(requestLineComponents[0]);
-        std::string uri = std::move(requestLineComponents[1]);
-        std::string version = std::move(requestLineComponents[2]);
-        if (!boost::starts_with(version, "HTTP/")) {
-            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP version in HTTP Request-Line");
-        }
-        std::unique_ptr<HTTPHeaders> headers;
-        try {
-            headers = HTTPHeaders::parse(rest);
-        } catch (Exception &e) {
-            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP headers");
-        }
-        _request = HTTPServerRequest::create(shared_from_this(), std::move(method), std::move(uri), std::move(version),
-                                             std::move(headers), std::string(), _address, _protocol);
-        _requestObserver = _request;
-        auto requestHeaders = _request->getHTTPHeaders();
-        std::string contentLengthValue = requestHeaders->get("Content-Length");
-        if (!contentLengthValue.empty()) {
-            auto contentLength = (size_t)std::stoi(contentLengthValue);
-            if (contentLength > _stream->getMaxBufferSize()) {
-                NET4CXX_THROW_EXCEPTION(BadRequestException, "Content-Length too long");
-            }
-            if (requestHeaders->get("Expect") == "100-continue") {
-                const char *continueLine = "HTTP/1.1 100 (Continue)\r\n\r\n";
-                _stream->write((const Byte *)continueLine, strlen(continueLine));
-            }
-            _stream->readBytes(contentLength, [this, self=shared_from_this()](ByteArray data) {
-                onRequestBody(std::move(data));
-            });
-            return;
-        }
-        _request->setConnection(shared_from_this());
-        _requestCallback(std::move(_request));
-    } catch (BadRequestException &e) {
-        NET4CXX_LOG_INFO(gGenLog, "Malformed HTTP request from %s: %s", _address.c_str(), e.what());
-        close();
-    }
-}
-
-void HTTPConnection::onRequestBody(ByteArray data) {
-    _request->setBody(std::string((const char *)data.data(), data.size()));
-    auto headers = _request->getHTTPHeaders();
-    const std::string &method = _request->getMethod();
-    if (method == "POST" || method == "PATCH" || method == "PUT") {
-        HTTPUtil::parseBodyArguments(headers->get("Content-Type", ""), _request->getBody(), _request->bodyArguments(),
-                                     _request->files());
-        for (const auto &kv: _request->getBodyArguments()) {
-            _request->addArguments(kv.first, kv.second);
-        }
-    }
-    _request->setConnection(shared_from_this());
-    _requestCallback(std::move(_request));
+    _state = READ_HEADER;
+    readUntil("\r\n");
+    setNoDelay(false);
 }
 
 
-HTTPServerRequest::HTTPServerRequest(HTTPConnectionPtr connection,
+HTTPServerRequest::HTTPServerRequest(std::shared_ptr<HTTPConnection> connection,
                                      std::string method,
                                      std::string uri,
                                      std::string version,
@@ -195,23 +180,11 @@ HTTPServerRequest::HTTPServerRequest(HTTPConnectionPtr connection,
                                      std::string protocol,
                                      std::string host,
                                      HTTPFileListMap files)
-        : _method(std::move(method))
-        , _uri(std::move(uri))
-        , _version(std::move(version))
-        , _headers(std::move(headers))
-        , _body(std::move(body))
-        , _files(std::move(files))
-//        , _connection(std::move(connection))
-        , _startTime(TimestampClock::now())
-        , _finishTime(Timestamp::min()) {
-    _remoteIp = std::move(remoteIp);
-    if (!protocol.empty()) {
-        _protocol = std::move(protocol);
-    } else if (connection && std::dynamic_pointer_cast<SSLIOStream>(connection->getStream())) {
-        _protocol = "https";
-    } else {
-        _protocol = "http";
-    }
+        : _method(std::move(method)), _uri(std::move(uri)), _version(std::move(version)), _headers(std::move(headers)),
+          _body(std::move(body)), _remoteIp(std::move(remoteIp)), _protocol(std::move(protocol)),
+          _files(std::move(files)), _connection(connection), _startTime(TimestampClock::now()),
+          _finishTime(Timestamp::min()) {
+
     if (connection && connection->getXHeaders()) {
         std::string ip = _headers->get("X-Forwarded-For", _remoteIp);
         ip = boost::trim_copy(StrUtil::split(ip, ',').back());
@@ -238,7 +211,7 @@ HTTPServerRequest::HTTPServerRequest(HTTPConnectionPtr connection,
 #endif
 }
 
-const SimpleCookie& HTTPServerRequest::cookies() const {
+const SimpleCookie &HTTPServerRequest::cookies() const {
     if (!_cookies) {
         _cookies.emplace();
         if (_headers->has("Cookie")) {
@@ -252,14 +225,19 @@ const SimpleCookie& HTTPServerRequest::cookies() const {
     return _cookies.get();
 }
 
-void HTTPServerRequest::write(const Byte *chunk, size_t length, WriteCallbackType callback) {
-    NET4CXX_ASSERT(_connection);
-    _connection->write(chunk, length, std::move(callback));
+void HTTPServerRequest::write(const Byte *chunk, size_t length) {
+    auto connection = getConnection();
+    if (!connection || connection->closed()) {
+        NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
+    }
+    connection->writeChunk(chunk, length);
 }
 
 void HTTPServerRequest::finish() {
-    NET4CXX_ASSERT(_connection);
-    auto connection = std::move(_connection);
+    auto connection = getConnection();
+    if (!connection || connection->closed()) {
+        NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
+    }
     connection->finish();
     _finishTime = TimestampClock::now();
 }
@@ -275,7 +253,7 @@ double HTTPServerRequest::requestTime() const {
 }
 
 
-std::ostream& operator<<(std::ostream &os, const HTTPServerRequest &request) {
+std::ostream &operator<<(std::ostream &os, const HTTPServerRequest &request) {
     StringVector argsList;
     argsList.emplace_back("protocol=" + request.getProtocol());
     argsList.emplace_back("host=" + request.getHost());
@@ -286,7 +264,7 @@ std::ostream& operator<<(std::ostream &os, const HTTPServerRequest &request) {
 //    argsList.emplace_back("body=" + request.getBody());
     std::string args = boost::join(argsList, ",");
     StringVector headersList;
-    request.getHTTPHeaders()->getAll([&headersList](const std::string &name, const std::string &value){
+    request.getHTTPHeaders()->getAll([&headersList](const std::string &name, const std::string &value) {
         headersList.emplace_back("\"" + name + "\": \"" + value + "\"");
     });
     std::string headers = boost::join(headersList, ", ");

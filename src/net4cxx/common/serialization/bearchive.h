@@ -259,6 +259,17 @@ public:
     };
 
     template <typename ValueT>
+    BEArchive& operator<<(boost::optional<ValueT> &value) {
+        if (value) {
+            append<uint8>(0x01);
+            *this << *value;
+        } else {
+            append<uint8>(0x00);
+        }
+        return *this;
+    }
+
+    template <typename ValueT>
     BEArchive& operator<<(ValueT &value) {
         ArchiveModeGuard<BEArchive> guard(this, ArchiveMode::Write);
         value.serialize(*this);
@@ -403,6 +414,19 @@ public:
         readMapping(value);
         return *this;
     };
+
+    template <typename ValueT>
+    BEArchive& operator>>(boost::optional<ValueT> &value) {
+        auto hasValue = read<uint8_t>();
+        if (hasValue == 0) {
+            value = boost::none;
+        } else {
+            ValueT val;
+            *this >> val;
+            value = std::move(val);
+        }
+        return *this;
+    }
 
     template <typename ValueT>
     BEArchive& operator>>(ValueT &value) {

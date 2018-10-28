@@ -50,7 +50,8 @@ void ClientFactory::clientConnectionLost(ConnectorPtr connector, std::exception_
 
 
 ProtocolPtr OneShotFactory::buildProtocol(const Address &address) {
-    return _protocol;
+    auto protocol = std::move(_protocol);
+    return protocol;
 }
 
 

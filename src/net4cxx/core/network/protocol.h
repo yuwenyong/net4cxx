@@ -18,9 +18,9 @@ class NET4CXX_COMMON_API Factory {
 public:
     virtual ~Factory() = default;
 
-    void doStart();
+    virtual void doStart();
 
-    void doStop();
+    virtual void doStop();
 
     virtual void startFactory();
 
@@ -191,6 +191,21 @@ public:
     unsigned short getRemotePort() const {
         NET4CXX_ASSERT(_transport);
         return _transport->getRemotePort();
+    }
+
+    bool closed() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->closed();
+    }
+
+    bool connected() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->connected();
+    }
+
+    bool disconnected() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->disconnected();
     }
 
     void setFactory(const std::shared_ptr<Factory> &factory) {

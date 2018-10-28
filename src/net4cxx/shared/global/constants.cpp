@@ -32,7 +32,6 @@ const char* WatchKeys::WebSocketClientProtocolCount = "sys.WebSocketClientProtoc
 
 const char* WatchKeys::PeriodicCallbackCount = "sys.PeriodicCallbackCount";
 const char* WatchKeys::IOStreamCount = "sys.IOStreamCount";
-const char* WatchKeys::SSLIOStreamCount = "sys.SSLIOStreamCount";
 const char* WatchKeys::HTTPClientCount = "sys.HTTPClientCount";
 const char* WatchKeys::HTTPClientConnectionCount = "sys.HTTPClientConnectionCount";
 const char* WatchKeys::HTTPConnectionCount = "sys.HTTPConnectionCount";

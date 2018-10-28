@@ -37,7 +37,6 @@ public:
 
     static const char *PeriodicCallbackCount;
     static const char *IOStreamCount;
-    static const char *SSLIOStreamCount;
     static const char *HTTPClientCount;
     static const char *HTTPClientConnectionCount;
     static const char *HTTPConnectionCount;

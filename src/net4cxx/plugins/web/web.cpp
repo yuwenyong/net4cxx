@@ -4,6 +4,7 @@
 
 #include "net4cxx/plugins/web/web.h"
 #include "net4cxx/common/crypto/hashlib.h"
+#include "net4cxx/core/network/defer.h"
 
 
 NS_BEGIN
@@ -40,36 +41,43 @@ const RequestHandler::SettingsType& RequestHandler::getSettings() const {
     return _application->getSettings();
 }
 
-void RequestHandler::onHead(const StringVector &args) {
+DeferredPtr RequestHandler::onHead(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onGet(const StringVector &args) {
+DeferredPtr RequestHandler::onGet(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onPost(const StringVector &args) {
+DeferredPtr RequestHandler::onPost(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onDelete(const StringVector &args) {
+DeferredPtr RequestHandler::onDelete(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onPatch(const StringVector &args) {
+DeferredPtr RequestHandler::onPatch(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onPut(const StringVector &args) {
+DeferredPtr RequestHandler::onPut(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onOptions(const StringVector &args) {
+DeferredPtr RequestHandler::onOptions(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::prepare() {
-
+DeferredPtr RequestHandler::prepare() {
+    return nullptr;
 }
 
 void RequestHandler::onFinish() {
@@ -166,30 +174,30 @@ void RequestHandler::redirect(const std::string &url, bool permanent, boost::opt
     finish();
 }
 
-void RequestHandler::flush(bool includeFooters, FlushCallbackType callback) {
+void RequestHandler::flush(bool includeFooters) {
     ByteArray chunk = std::move(_writeBuffer);
     std::string headers;
     if (!_headersWritten) {
         _headersWritten = true;
-        for (auto &transfrom: _transforms) {
-            transfrom->transformFirstChunk(_statusCode, _headers, chunk, includeFooters);
+        for (auto &transform: _transforms) {
+            transform->transformFirstChunk(_statusCode, _headers, chunk, includeFooters);
         }
         headers = generateHeaders();
     } else {
-        for (auto &transfrom: _transforms) {
-            transfrom->transformChunk(chunk, includeFooters);
+        for (auto &transform: _transforms) {
+            transform->transformChunk(chunk, includeFooters);
         }
     }
     if (_request->getMethod() == "HEAD") {
         if (!headers.empty()) {
-            _request->write(headers, std::move(callback));
+            _request->write(headers);
         }
         return;
     }
     if (!chunk.empty()) {
         headers.append((const char *)chunk.data(), chunk.size());
     }
-    _request->write(headers, std::move(callback));
+    _request->write(headers);
 }
 
 void RequestHandler::sendError(int statusCode, std::exception_ptr error) {
@@ -305,9 +313,17 @@ void RequestHandler::execute(TransformsType transforms, StringVector args) {
             NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
         }
         _pathArgs = std::move(args);
-        prepare();
-        if (_autoFinish) {
-            executeMethod();
+        auto result = prepare();
+        if (result) {
+            result->addCallbacks([this, self=shared_from_this()](DeferredValue value) {
+                whenComplete();
+                return value;
+            }, [this, self=shared_from_this()](DeferredValue value) {
+                handleRequestException(value.asError());
+                return value;
+            });
+        } else {
+            whenComplete();
         }
     } catch (...) {
         error = std::current_exception();
@@ -317,38 +333,49 @@ void RequestHandler::execute(TransformsType transforms, StringVector args) {
     }
 }
 
-//void RequestHandler::whenComplete() {
-//    std::exception_ptr error;
-//    try {
-//        executeMethod();
-//    } catch (...) {
-//        error = std::current_exception();
-//    }
-//    if (error) {
-//        handleRequestException(error);
-//    }
-//}
+void RequestHandler::whenComplete() {
+    std::exception_ptr error;
+    try {
+        executeMethod();
+    } catch (...) {
+        error = std::current_exception();
+    }
+    if (error) {
+        handleRequestException(error);
+    }
+}
 
 void RequestHandler::executeMethod() {
     if (!_finished) {
+        DeferredPtr result;
         const std::string &method = _request->getMethod();
         if (method == "HEAD") {
-            onHead(_pathArgs);
+            result = onHead(_pathArgs);
         } else if (method == "GET") {
-            onGet(_pathArgs);
+            result = onGet(_pathArgs);
         } else if (method == "POST") {
-            onPost(_pathArgs);
+            result = onPost(_pathArgs);
         } else if (method == "DELETE") {
-            onDelete(_pathArgs);
+            result = onDelete(_pathArgs);
         } else if (method == "PATCH") {
-            onPatch(_pathArgs);
+            result = onPatch(_pathArgs);
         } else if (method == "PUT") {
-            onPut(_pathArgs);
+            result = onPut(_pathArgs);
         } else {
             assert(method == "OPTIONS");
-            onOptions(_pathArgs);
+            result = onOptions(_pathArgs);
         }
-        executeFinish();
+        if (result) {
+            result->addCallback([this, self=shared_from_this()](DeferredValue value) {
+                executeFinish();
+                return value;
+            })->addErrback([this, self=shared_from_this()](DeferredValue value) {
+                handleRequestException(value.asError());
+                return value;
+            });
+        } else {
+            executeFinish();
+        }
     }
 }
 
@@ -413,8 +440,9 @@ void ErrorHandler::initialize(ArgsType &args) {
     setStatus(boost::any_cast<int>(args.at("statusCode")));
 }
 
-void ErrorHandler::prepare() {
+DeferredPtr ErrorHandler::prepare() {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(_statusCode);
+    return nullptr;
 }
 
 
@@ -426,8 +454,9 @@ void RedirectHandler::initialize(ArgsType &args) {
     }
 }
 
-void RedirectHandler::onGet(const StringVector &args) {
+DeferredPtr RedirectHandler::onGet(const StringVector &args) {
     redirect(_url, _permanent);
+    return nullptr;
 }
 
 
@@ -435,9 +464,10 @@ void FallbackHandler::initialize(ArgsType &args) {
     _fallback = boost::any_cast<FallbackType>(args.at("fallback"));
 }
 
-void FallbackHandler::prepare() {
+DeferredPtr FallbackHandler::prepare() {
     _fallback(_request);
     _finished = true;
+    return nullptr;
 }
 
 
@@ -502,7 +532,7 @@ const StringSet GZipContentEncoding::CONTENT_TYPES = {
 
 constexpr int GZipContentEncoding::MIN_LENGTH;
 
-GZipContentEncoding::GZipContentEncoding(HTTPServerRequestPtr request) {
+GZipContentEncoding::GZipContentEncoding(const std::shared_ptr<HTTPServerRequest> &request) {
     if (request->supportsHTTP11()) {
         auto headers = request->getHTTPHeaders();
         std::string acceptEncoding = headers->get("Accept-Encoding");
@@ -555,7 +585,6 @@ void GZipContentEncoding::transformChunk(ByteArray &chunk, bool finishing) {
 }
 
 
-
 void ChunkedTransferEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk,
                                                   bool finishing) {
     if (_chunking && statusCode != 304) {
@@ -601,6 +630,10 @@ WebApp::WebApp(HandlersType handlers, std::string defaultHost, TransformsType tr
     }
 }
 
+ProtocolPtr WebApp::buildProtocol(const Address &address) {
+    return std::make_shared<HTTPConnection>();
+}
+
 void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     if (!boost::ends_with(hostPattern, "$")) {
         hostPattern.push_back('$');
@@ -622,13 +655,12 @@ void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     }
 }
 
-
-void WebApp::operator()(HTTPServerRequestPtr request) {
+void WebApp::operator()(std::shared_ptr<HTTPServerRequest> request) {
     RequestHandler::TransformsType transforms;
     for (auto &transform: _transforms) {
         transforms.emplace_back(transform->create(request));
     }
-    RequestHandlerPtr handler;
+    std::shared_ptr<RequestHandler> handler;
     StringVector args;
     auto handlers = getHostHandlers(request);
     if (handlers.empty()) {
@@ -675,7 +707,7 @@ void WebApp::operator()(HTTPServerRequestPtr request) {
     handler->execute(std::move(transforms), std::move(args));
 }
 
-void WebApp::logRequest(RequestHandlerConstPtr handler) const {
+void WebApp::logRequest(std::shared_ptr<const RequestHandler> handler) const {
     auto iter = _settings.find("logFunction");
     if (iter != _settings.end()) {
         const auto &logFunction = boost::any_cast<const LogFunctionType&>(iter->second);
@@ -695,7 +727,7 @@ void WebApp::logRequest(RequestHandlerConstPtr handler) const {
     }
 }
 
-std::vector<UrlSpecPtr> WebApp::getHostHandlers(HTTPServerRequestConstPtr request) {
+std::vector<UrlSpecPtr> WebApp::getHostHandlers(std::shared_ptr<const HTTPServerRequest> request) {
     std::string host = request->getHost();
     boost::to_lower(host);
     auto pos = host.find(':');

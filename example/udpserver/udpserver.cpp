@@ -19,11 +19,21 @@ public:
 };
 
 
+class UDPServerApp: public AppBootstrapper {
+public:
+    void onRun() override {
+        auto conn = reactor()->listenUDP(28002, std::make_shared<MyProtocol>());
+        conn->stopListening()->addCallback([](DeferredValue val) {
+            NET4CXX_LOG_INFO(gAppLog, "Stop listening");
+            return val;
+        });
+//        reactor()->listenUNIXDatagram("/data/bar.sock", std::make_shared<MyProtocol>());
+    }
+};
+
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    reactor.listenUDP(28002, std::make_shared<MyProtocol>());
-    reactor.listenUNIXDatagram("/data/foo/bar", std::make_shared<MyProtocol>());
-    reactor.run();
+    UDPServerApp app;
+    app.run(argc, argv);
     return 0;
 }

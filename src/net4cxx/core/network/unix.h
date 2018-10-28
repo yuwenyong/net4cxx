@@ -179,7 +179,7 @@ public:
 
     void startListening() override;
 
-    void stopListening() override;
+    DeferredPtr stopListening() override;
 
     std::string getLocalAddress() const {
         auto endpoint = _acceptor.local_endpoint();
@@ -190,6 +190,8 @@ public:
         return 0;
     }
 protected:
+    void connectionLost();
+
     void cbAccept(const boost::system::error_code &ec);
 
     void handleAccept(const boost::system::error_code &ec);
@@ -203,7 +205,6 @@ protected:
     std::string _path;
     std::shared_ptr<Factory> _factory;
     AcceptorType _acceptor;
-    bool _connected{false};
     std::shared_ptr<UNIXServerConnection> _connection;
 };
 
@@ -253,10 +254,13 @@ protected:
 
     void makeTransport();
 
+    void abortConnecting();
+
     enum State {
         kDisconnected,
         kConnecting,
         kConnected,
+        kDisconnecting,
     };
 
     std::string _path;
@@ -306,7 +310,9 @@ public:
 
     unsigned short getRemotePort() const override;
 
-    void startListening();
+    void startListening() override;
+
+    DeferredPtr stopListening() override;
 protected:
     void connectToProtocol();
 

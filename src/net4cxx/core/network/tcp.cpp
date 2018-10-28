@@ -4,6 +4,7 @@
 
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -50,7 +51,9 @@ void TCPConnection::abortConnection() {
 
 void TCPConnection::doClose() {
     if (!_writing && !_reading) {
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }
@@ -62,7 +65,9 @@ void TCPConnection::doClose() {
 
 void TCPConnection::doAbort() {
     if (!_writing && !_reading) {
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }
@@ -266,16 +271,18 @@ void TCPListener::startListening() {
     NET4CXX_LOG_INFO(gGenLog, "TCPListener starting on %s", _port.c_str());
     _factory->doStart();
     _connected = true;
+    _disconnected = false;
     doAccept();
 }
 
-void TCPListener::stopListening() {
+DeferredPtr TCPListener::stopListening() {
+    _disconnecting = true;
     if (_connected) {
-        _connected = false;
+        _deferred = makeDeferred();
         _acceptor.close();
-        _factory->doStop();
-        NET4CXX_LOG_INFO(gGenLog, "TCPListener closed on %s", _port.c_str());
+        return _deferred;
     }
+    return nullptr;
 }
 
 void TCPListener::cbAccept(const boost::system::error_code &ec) {
@@ -286,10 +293,35 @@ void TCPListener::cbAccept(const boost::system::error_code &ec) {
     doAccept();
 }
 
+void TCPListener::connectionLost() {
+    NET4CXX_LOG_INFO(gGenLog, "TCPListener closed on %s", _port.c_str());
+    auto d = std::move(_deferred);
+    _disconnected = true;
+    _connected = false;
+    try {
+        _factory->doStop();
+    } catch (...) {
+        _disconnecting = false;
+        if (d) {
+            d->errback();
+        } else {
+            throw;
+        }
+    }
+    if (_disconnecting) {
+        _disconnecting = false;
+        if (d) {
+            d->callback(nullptr);
+        }
+    }
+}
+
 void TCPListener::handleAccept(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             NET4CXX_LOG_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
+        } else {
+            connectionLost();
         }
     } else {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
@@ -344,13 +376,7 @@ void TCPConnector::stopConnecting() {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(UserAbort, ""));
-    if (_connection) {
-        _connection->getSocket().close();
-        _connection.reset();
-    } else {
-        _resolver.cancel();
-    }
-    _state = kDisconnected;
+    abortConnecting();
 }
 
 void TCPConnector::connectionFailed(std::exception_ptr reason) {
@@ -443,7 +469,7 @@ void TCPConnector::handleConnect(const boost::system::error_code &ec) {
 void TCPConnector::handleTimeout() {
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(TimeoutError, ""));
-    connectionFailed();
+    abortConnecting();
 }
 
 void TCPConnector::makeTransport() {
@@ -453,6 +479,16 @@ void TCPConnector::makeTransport() {
         _connection->getSocket().open(endpoint.protocol());
         _connection->getSocket().bind(endpoint);
     }
+}
+
+void TCPConnector::abortConnecting() {
+    if (_connection) {
+        _connection->getSocket().close();
+        _connection.reset();
+    } else {
+        _resolver.cancel();
+    }
+    _state = kDisconnecting;
 }
 
 NS_END

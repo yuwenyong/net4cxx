@@ -155,6 +155,32 @@ public:
         }
     }
 
+    template <typename ValueT>
+    std::shared_ptr<const ValueT> asShared() const {
+        if (auto v = boost::get<const tagDeferredValue>(&_value)) {
+            if (auto ptr = boost::any_cast<std::shared_ptr<const ValueT>>(&v->value)) {
+                return *ptr;
+            } else {
+                return nullptr;
+            }
+        } else {
+            return nullptr;
+        }
+    }
+
+    template <typename ValueT>
+    std::shared_ptr<ValueT> asShared() {
+        if (auto v = boost::get<tagDeferredValue>(&_value)) {
+            if (auto ptr = boost::any_cast<std::shared_ptr<ValueT>>(&v->value)) {
+                return *ptr;
+            } else {
+                return nullptr;
+            }
+        } else {
+            return nullptr;
+        }
+    }
+
     std::exception_ptr asError() const {
         if (auto v = boost::get<const tagDeferredError>(&_value)) {
             return v->error;
@@ -493,7 +519,7 @@ DeferredPtr _executeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Ar
 
 template <typename CallableT, typename... Args>
 DeferredPtr executeDeferred(CallableT &&callable, Args&&... args) {
-    using ResultT = typename std::result_of<CallableT>::type;
+    using ResultT = typename std::result_of<CallableT (Args&& ...)>::type;
     return _executeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
 }
 
@@ -545,7 +571,7 @@ DeferredPtr _maybeDeferred(Type2Type<ResultT> ignore, CallableT &&callable, Args
 
 template <typename CallableT, typename... Args>
 DeferredPtr maybeDeferred(CallableT &&callable, Args&&... args) {
-    using ResultT = typename std::result_of<CallableT>::type;
+    using ResultT = typename std::result_of<CallableT (Args&& ...)>::type;
     return _maybeDeferred(Type2Type<ResultT>(), std::forward<CallableT>(callable), std::forward<Args>(args)...);
 }
 

@@ -34,10 +34,10 @@
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/core/network/udp.h"
-#include "net4cxx/core/streams/tcpserver.h"
-#include "net4cxx/core/streams/util.h"
+#include "net4cxx/core/protocols/iostream.h"
 
 #include "net4cxx/plugins/web/httpclient.h"
+#include "net4cxx/plugins/web/util.h"
 #include "net4cxx/plugins/web/web.h"
 #include "net4cxx/plugins/websocket/websocket.h"
 

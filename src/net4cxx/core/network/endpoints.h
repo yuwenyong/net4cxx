@@ -7,6 +7,7 @@
 
 #include "net4cxx/common/common.h"
 #include "net4cxx/core/network/base.h"
+#include "net4cxx/core/network/protocol.h"
 #include "net4cxx/shared/global/loggers.h"
 
 
@@ -15,6 +16,52 @@ NS_BEGIN
 
 class Factory;
 class ClientFactory;
+
+
+class NET4CXX_COMMON_API WrappingProtocol: public Protocol {
+public:
+    WrappingProtocol(DeferredPtr connectedDeferred, ProtocolPtr wrappedProtocol)
+            : _connectedDeferred(std::move(connectedDeferred))
+            , _wrappedProtocol(std::move(wrappedProtocol))  {
+
+    }
+
+    void connectionMade() override;
+
+    void dataReceived(Byte *data, size_t length) override;
+
+    void connectionLost(std::exception_ptr reason) override;
+protected:
+    DeferredPtr _connectedDeferred;
+    ProtocolPtr _wrappedProtocol;
+};
+
+
+class NET4CXX_COMMON_API WrappingFactory: public ClientFactory {
+public:
+    explicit WrappingFactory(std::shared_ptr<ClientFactory> wrappedFactory);
+
+    void doStart() override;
+
+    void doStop() override;
+
+    ProtocolPtr buildProtocol(const Address &address) override;
+
+    void startedConnecting(ConnectorPtr connector) override;
+
+    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override;
+
+    std::shared_ptr<ClientFactory> getWrappedFactory() const {
+        return _wrappedFactory;
+    }
+
+    DeferredPtr getOnConnection() const {
+        return _onConnection;
+    }
+protected:
+    std::shared_ptr<ClientFactory> _wrappedFactory;
+    DeferredPtr _onConnection;
+};
 
 
 class NET4CXX_COMMON_API Endpoint {
@@ -38,7 +85,7 @@ class NET4CXX_COMMON_API ServerEndpoint: public Endpoint {
 public:
     using Endpoint::Endpoint;
 
-    virtual ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const = 0;
+    virtual DeferredPtr listen(std::shared_ptr<Factory> protocolFactory) const = 0;
 };
 
 using ServerEndpointPtr = std::shared_ptr<ServerEndpoint>;
@@ -52,7 +99,7 @@ public:
 
     }
 
-    ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
+    DeferredPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
 protected:
     std::string _port;
     std::string _interface;
@@ -69,7 +116,7 @@ public:
 
     }
 
-    ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
+    DeferredPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
 protected:
     std::string _port;
     std::string _interface;
@@ -87,7 +134,7 @@ public:
 
     }
 
-    ListenerPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
+    DeferredPtr listen(std::shared_ptr<Factory> protocolFactory) const override;
 protected:
     std::string _path;
 };
@@ -110,7 +157,7 @@ class NET4CXX_COMMON_API ClientEndpoint: public Endpoint {
 public:
     using Endpoint::Endpoint;
 
-    virtual ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const = 0;
+    virtual DeferredPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const = 0;
 };
 
 using ClientEndpointPtr = std::shared_ptr<ClientEndpoint>;
@@ -126,7 +173,7 @@ public:
 
     }
 
-    ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
+    DeferredPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
 protected:
     std::string _host;
     std::string _port;
@@ -148,7 +195,7 @@ public:
 
     }
 
-    ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
+    DeferredPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
 protected:
     std::string _host;
     std::string _port;
@@ -168,7 +215,7 @@ public:
 
     }
 
-    ConnectorPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
+    DeferredPtr connect(std::shared_ptr<ClientFactory> protocolFactory) const override;
 protected:
     std::string _path;
     double _timeout;
@@ -193,7 +240,7 @@ protected:
 NET4CXX_COMMON_API ClientEndpointPtr clientFromString(Reactor *reactor, const std::string &description);
 
 
-NET4CXX_COMMON_API ConnectorPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);
+NET4CXX_COMMON_API DeferredPtr connectProtocol(const ClientEndpoint &endpoint, ProtocolPtr protocol);
 
 NS_END
 

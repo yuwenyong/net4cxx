@@ -228,7 +228,7 @@ public:
 
     void startListening() override;
 
-    void stopListening() override;
+    DeferredPtr stopListening() override;
 
     std::string getLocalAddress() const {
         auto endpoint = _acceptor.local_endpoint();
@@ -240,6 +240,8 @@ public:
         return endpoint.port();
     }
 protected:
+    void connectionLost();
+
     void cbAccept(const boost::system::error_code &ec);
 
     void handleAccept(const boost::system::error_code &ec);
@@ -255,7 +257,6 @@ protected:
     SSLOptionPtr _sslOption;
     std::string _interface;
     AcceptorType _acceptor;
-    bool _connected{false};
     std::shared_ptr<SSLServerConnection> _connection;
 };
 
@@ -322,10 +323,13 @@ protected:
 
     void makeTransport();
 
+    void abortConnecting();
+
     enum State {
         kDisconnected,
         kConnecting,
         kConnected,
+        kDisconnecting,
     };
 
     std::string _host;

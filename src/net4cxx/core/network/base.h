@@ -27,9 +27,13 @@ NET4CXX_DECLARE_EXCEPTION(ConnectionAbort, IOError);
 NET4CXX_DECLARE_EXCEPTION(UserAbort, Exception);
 NET4CXX_DECLARE_EXCEPTION(AlreadyCalledError, Exception);
 NET4CXX_DECLARE_EXCEPTION(CancelledError, Exception);
+NET4CXX_DECLARE_EXCEPTION(NoProtocol, Exception);
+NET4CXX_DECLARE_EXCEPTION(ConnectingCancelledError, Exception);
 
 
 class Reactor;
+class Deferred;
+using DeferredPtr = std::shared_ptr<Deferred>;
 class Protocol;
 using ProtocolPtr = std::shared_ptr<Protocol>;
 class SSLOption;
@@ -390,6 +394,18 @@ public:
 
     virtual unsigned short getRemotePort() const = 0;
 
+    bool closed() const {
+        return _disconnecting || _disconnected || !_connected;
+    }
+
+    bool connected() const {
+        return _connected;
+    }
+
+    bool disconnected() const {
+        return _disconnected;
+    }
+
     Reactor* reactor() {
         return _reactor;
     }
@@ -423,13 +439,17 @@ public:
 
     virtual void startListening() = 0;
 
-    virtual void stopListening() = 0;
+    virtual DeferredPtr stopListening() = 0;
 
     Reactor* reactor() {
         return _reactor;
     }
 protected:
     Reactor *_reactor{nullptr};
+    bool _connected{false};
+    bool _disconnected{false};
+    bool _disconnecting{false};
+    DeferredPtr _deferred;
 };
 
 using ListenerPtr = std::shared_ptr<Listener>;
@@ -494,6 +514,10 @@ public:
 
     virtual unsigned short getRemotePort() const = 0;
 
+    virtual void startListening() = 0;
+
+    virtual DeferredPtr stopListening() = 0;
+
     Reactor* reactor() {
         return _reactor;
     }
@@ -510,8 +534,10 @@ protected:
     Reactor *_reactor{nullptr};
     ByteArray _readBuffer;
     bool _reading{false};
+    bool _connected{false};
     Address _bindAddress;
     Address _connectedAddress;
+    DeferredPtr _d;
 };
 
 using DatagramConnectionPtr = std::shared_ptr<DatagramConnection>;

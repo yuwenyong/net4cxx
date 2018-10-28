@@ -40,57 +40,77 @@ protected:
 };
 
 
-//class MyFactory: public ClientFactory {
-//public:
-//    std::shared_ptr<Protocol> buildProtocol(const Address &address) override {
-//        return std::make_shared<MyProtocol>();
-//    }
-//
-//    void startedConnecting(ConnectorPtr connector) override {
-//        NET4CXX_INFO(gAppLog, "Start connecting");
-//    }
-//
-//    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
-//        NET4CXX_INFO(gAppLog, "Client connection failed");
-//    }
-//
-//    void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
-//        NET4CXX_INFO(gAppLog, "Client connection lost");
-//    }
-//};
-
-class MyFactory: public ReconnectingClientFactory {
+class MyFactory: public ClientFactory {
 public:
-    ProtocolPtr buildProtocol(const Address &address) override {
-        resetDelay();
+    std::shared_ptr<Protocol> buildProtocol(const Address &address) override {
         return std::make_shared<MyProtocol>();
     }
 
     void startedConnecting(ConnectorPtr connector) override {
         NET4CXX_LOG_INFO(gAppLog, "Start connecting");
-        ReconnectingClientFactory::startedConnecting(std::move(connector));
     }
 
     void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
         NET4CXX_LOG_INFO(gAppLog, "Client connection failed");
-        ReconnectingClientFactory::clientConnectionFailed(std::move(connector), std::move(reason));
     }
 
     void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
         NET4CXX_LOG_INFO(gAppLog, "Client connection lost");
-        ReconnectingClientFactory::clientConnectionLost(std::move(connector), std::move(reason));
+    }
+};
+
+//class MyFactory: public ReconnectingClientFactory {
+//public:
+//    ProtocolPtr buildProtocol(const Address &address) override {
+//        resetDelay();
+//        return std::make_shared<MyProtocol>();
+//    }
+//
+//    void startedConnecting(ConnectorPtr connector) override {
+//        NET4CXX_LOG_INFO(gAppLog, "Start connecting");
+//        ReconnectingClientFactory::startedConnecting(std::move(connector));
+//    }
+//
+//    void clientConnectionFailed(ConnectorPtr connector, std::exception_ptr reason) override {
+//        NET4CXX_LOG_INFO(gAppLog, "Client connection failed");
+//        ReconnectingClientFactory::clientConnectionFailed(std::move(connector), std::move(reason));
+//    }
+//
+//    void clientConnectionLost(ConnectorPtr connector, std::exception_ptr reason) override {
+//        NET4CXX_LOG_INFO(gAppLog, "Client connection lost");
+//        ReconnectingClientFactory::clientConnectionLost(std::move(connector), std::move(reason));
+//    }
+//};
+
+
+class TCPClientApp: public AppBootstrapper {
+public:
+    void onRun() {
+//        reactor()->connectTCP("localhost", "28001", std::make_shared<MyFactory>());
+        clientFromString(reactor(), "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>())
+        ->addCallbacks([](DeferredValue val) {
+            auto proto = val.asValue<ProtocolPtr>();
+            NET4CXX_ASSERT(proto);
+            NET4CXX_LOG_INFO(gAppLog, "Connected");
+            return val;
+        }, [](DeferredValue val) {
+            NET4CXX_LOG_INFO(gAppLog, "Connect failed");
+            try {
+                val.throwError();
+            } catch (std::exception &e) {
+                NET4CXX_LOG_ERROR(gAppLog, "%s", e.what());
+            }
+            return val;
+        });
+//        clientFromString(reactor(), "ssl:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
+//        clientFromString(reactor(), "unix:/data/foo/bar")->connect(std::make_shared<MyFactory>());
+//        TCPClientEndpoint endpoint(reactor(), "localhost", "28001");
+//        connectProtocol(endpoint, std::make_shared<MyProtocol>());
     }
 };
 
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-//    reactor.connectTCP("localhost", "28001", std::make_shared<MyFactory>());
-//    clientFromString(&reactor, "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
-    clientFromString(&reactor, "ssl:host=localhost:port=28001")->connect(std::make_shared<MyFactory>());
-//    clientFromString(&reactor, "unix:/data/foo/bar")->connect(std::make_shared<MyFactory>());
-//    TCPClientEndpoint endpoint(&reactor, "localhost", "28001");
-//    connectProtocol(endpoint, std::make_shared<MyProtocol>());
-    reactor.run();
+    TCPClientApp app;
+    app.run(argc, argv);
     return 0;
 }

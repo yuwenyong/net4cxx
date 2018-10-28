@@ -4,6 +4,7 @@
 
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/common/debugging/assert.h"
+#include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"
 
@@ -59,7 +60,9 @@ void SSLConnection::doClose() {
         if (_sslAccepting) {
             _socket.lowest_layer().cancel();
         }
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }
@@ -77,7 +80,9 @@ void SSLConnection::doAbort() {
         if (_sslAccepting) {
             _socket.lowest_layer().cancel();
         }
-        _reactor->addCallback([this, self=shared_from_this()]() {
+        auto protocol = _protocol.lock();
+        NET4CXX_ASSERT(protocol);
+        _reactor->addCallback([this, protocol, self=shared_from_this()]() {
             if (!_disconnected) {
                 closeSocket();
             }
@@ -314,15 +319,40 @@ void SSLListener::startListening() {
     NET4CXX_LOG_INFO(gGenLog, "SSLListener starting on %s", _port.c_str());
     _factory->doStart();
     _connected = true;
+    _disconnected = false;
     doAccept();
 }
 
-void SSLListener::stopListening() {
+DeferredPtr SSLListener::stopListening() {
+    _disconnecting = true;
     if (_connected) {
-        _connected = false;
+        _deferred = makeDeferred();
         _acceptor.close();
+        return _deferred;
+    }
+    return nullptr;
+}
+
+void SSLListener::connectionLost() {
+    NET4CXX_LOG_INFO(gGenLog, "SSLListener closed on %s", _port.c_str());
+    auto d = std::move(_deferred);
+    _disconnected = true;
+    _connected = false;
+    try {
         _factory->doStop();
-        NET4CXX_LOG_INFO(gGenLog, "SSLListener closed on %s", _port.c_str());
+    } catch (...) {
+        _disconnecting = false;
+        if (d) {
+            d->errback();
+        } else {
+            throw;
+        }
+    }
+    if (_disconnecting) {
+        _disconnecting = false;
+        if (d) {
+            d->callback(nullptr);
+        }
     }
 }
 
@@ -338,6 +368,8 @@ void SSLListener::handleAccept(const boost::system::error_code &ec) {
     if (ec) {
         if (ec != boost::asio::error::operation_aborted) {
             NET4CXX_LOG_ERROR(gGenLog, "Accept error %d: %s", ec.value(), ec.message().c_str());
+        } else {
+            connectionLost();
         }
     } else {
         Address address{_connection->getRemoteAddress(), _connection->getRemotePort()};
@@ -393,13 +425,7 @@ void SSLConnector::stopConnecting() {
         NET4CXX_THROW_EXCEPTION(NotConnectingError, "We're not trying to connect");
     }
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(UserAbort, ""));
-    if (_connection) {
-        _connection->getSocket().lowest_layer().close();
-        _connection.reset();
-    } else {
-        _resolver.cancel();
-    }
-    _state = kDisconnected;
+    abortConnecting();
 }
 
 void SSLConnector::connectionFailed(std::exception_ptr reason) {
@@ -493,9 +519,10 @@ void SSLConnector::handleConnect(const boost::system::error_code &ec) {
 }
 
 void SSLConnector::handleTimeout() {
+    NET4CXX_ASSERT(_state == kConnecting);
     NET4CXX_LOG_ERROR(gGenLog, "Connect error : Timeout");
     _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(TimeoutError, ""));
-    connectionFailed();
+    abortConnecting();
 }
 
 void SSLConnector::makeTransport() {
@@ -505,6 +532,16 @@ void SSLConnector::makeTransport() {
         _connection->getSocket().lowest_layer().open(endpoint.protocol());
         _connection->getSocket().lowest_layer().bind(endpoint);
     }
+}
+
+void SSLConnector::abortConnecting() {
+    if (_connection) {
+        _connection->getSocket().lowest_layer().close();
+        _connection.reset();
+    } else {
+        _resolver.cancel();
+    }
+    _state = kDisconnecting;
 }
 
 NS_END
