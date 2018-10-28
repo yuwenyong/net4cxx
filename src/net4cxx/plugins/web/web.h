@@ -69,21 +69,21 @@ public:
 
     const SettingsType& getSettings() const;
 
-    virtual void onHead(const StringVector &args);
+    virtual DeferredPtr onHead(const StringVector &args);
 
-    virtual void onGet(const StringVector &args);
+    virtual DeferredPtr onGet(const StringVector &args);
 
-    virtual void onPost(const StringVector &args);
+    virtual DeferredPtr onPost(const StringVector &args);
 
-    virtual void onDelete(const StringVector &args);
+    virtual DeferredPtr onDelete(const StringVector &args);
 
-    virtual void onPatch(const StringVector &args);
+    virtual DeferredPtr onPatch(const StringVector &args);
 
-    virtual void onPut(const StringVector &args);
+    virtual DeferredPtr onPut(const StringVector &args);
 
-    virtual void onOptions(const StringVector &args);
+    virtual DeferredPtr onOptions(const StringVector &args);
 
-    virtual void prepare();
+    virtual DeferredPtr prepare();
 
     virtual void onFinish();
 
@@ -333,7 +333,7 @@ protected:
 
     virtual void execute(TransformsType transforms, StringVector args);
 
-//    void whenComplete();
+    void whenComplete();
 
     void executeMethod();
 
@@ -391,7 +391,7 @@ public:
 
     void initialize(ArgsType &args) override;
 
-    void prepare() override;
+    DeferredPtr prepare() override;
 };
 
 
@@ -401,7 +401,7 @@ public:
 
     void initialize(ArgsType &args) override;
 
-    void onGet(const StringVector &args) override;
+    DeferredPtr onGet(const StringVector &args) override;
 protected:
     std::string _url;
     bool _permanent{true};
@@ -416,7 +416,7 @@ public:
 
     void initialize(ArgsType &args) override;
 
-    void prepare() override;
+    DeferredPtr prepare() override;
 protected:
     FallbackType _fallback;
 };

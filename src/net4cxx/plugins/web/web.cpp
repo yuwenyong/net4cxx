@@ -4,6 +4,7 @@
 
 #include "net4cxx/plugins/web/web.h"
 #include "net4cxx/common/crypto/hashlib.h"
+#include "net4cxx/core/network/defer.h"
 
 
 NS_BEGIN
@@ -40,36 +41,43 @@ const RequestHandler::SettingsType& RequestHandler::getSettings() const {
     return _application->getSettings();
 }
 
-void RequestHandler::onHead(const StringVector &args) {
+DeferredPtr RequestHandler::onHead(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onGet(const StringVector &args) {
+DeferredPtr RequestHandler::onGet(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onPost(const StringVector &args) {
+DeferredPtr RequestHandler::onPost(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onDelete(const StringVector &args) {
+DeferredPtr RequestHandler::onDelete(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onPatch(const StringVector &args) {
+DeferredPtr RequestHandler::onPatch(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onPut(const StringVector &args) {
+DeferredPtr RequestHandler::onPut(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::onOptions(const StringVector &args) {
+DeferredPtr RequestHandler::onOptions(const StringVector &args) {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
+    return nullptr;
 }
 
-void RequestHandler::prepare() {
-
+DeferredPtr RequestHandler::prepare() {
+    return nullptr;
 }
 
 void RequestHandler::onFinish() {
@@ -305,9 +313,17 @@ void RequestHandler::execute(TransformsType transforms, StringVector args) {
             NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
         }
         _pathArgs = std::move(args);
-        prepare();
-        if (_autoFinish) {
-            executeMethod();
+        auto result = prepare();
+        if (result) {
+            result->addCallbacks([this, self=shared_from_this()](DeferredValue value) {
+                whenComplete();
+                return value;
+            }, [this, self=shared_from_this()](DeferredValue value) {
+                handleRequestException(value.asError());
+                return value;
+            });
+        } else {
+            whenComplete();
         }
     } catch (...) {
         error = std::current_exception();
@@ -317,38 +333,49 @@ void RequestHandler::execute(TransformsType transforms, StringVector args) {
     }
 }
 
-//void RequestHandler::whenComplete() {
-//    std::exception_ptr error;
-//    try {
-//        executeMethod();
-//    } catch (...) {
-//        error = std::current_exception();
-//    }
-//    if (error) {
-//        handleRequestException(error);
-//    }
-//}
+void RequestHandler::whenComplete() {
+    std::exception_ptr error;
+    try {
+        executeMethod();
+    } catch (...) {
+        error = std::current_exception();
+    }
+    if (error) {
+        handleRequestException(error);
+    }
+}
 
 void RequestHandler::executeMethod() {
     if (!_finished) {
+        DeferredPtr result;
         const std::string &method = _request->getMethod();
         if (method == "HEAD") {
-            onHead(_pathArgs);
+            result = onHead(_pathArgs);
         } else if (method == "GET") {
-            onGet(_pathArgs);
+            result = onGet(_pathArgs);
         } else if (method == "POST") {
-            onPost(_pathArgs);
+            result = onPost(_pathArgs);
         } else if (method == "DELETE") {
-            onDelete(_pathArgs);
+            result = onDelete(_pathArgs);
         } else if (method == "PATCH") {
-            onPatch(_pathArgs);
+            result = onPatch(_pathArgs);
         } else if (method == "PUT") {
-            onPut(_pathArgs);
+            result = onPut(_pathArgs);
         } else {
             assert(method == "OPTIONS");
-            onOptions(_pathArgs);
+            result = onOptions(_pathArgs);
         }
-        executeFinish();
+        if (result) {
+            result->addCallback([this, self=shared_from_this()](DeferredValue value) {
+                executeFinish();
+                return value;
+            })->addErrback([this, self=shared_from_this()](DeferredValue value) {
+                handleRequestException(value.asError());
+                return value;
+            });
+        } else {
+            executeFinish();
+        }
     }
 }
 
@@ -413,8 +440,9 @@ void ErrorHandler::initialize(ArgsType &args) {
     setStatus(boost::any_cast<int>(args.at("statusCode")));
 }
 
-void ErrorHandler::prepare() {
+DeferredPtr ErrorHandler::prepare() {
     NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(_statusCode);
+    return nullptr;
 }
 
 
@@ -426,8 +454,9 @@ void RedirectHandler::initialize(ArgsType &args) {
     }
 }
 
-void RedirectHandler::onGet(const StringVector &args) {
+DeferredPtr RedirectHandler::onGet(const StringVector &args) {
     redirect(_url, _permanent);
+    return nullptr;
 }
 
 
@@ -435,9 +464,10 @@ void FallbackHandler::initialize(ArgsType &args) {
     _fallback = boost::any_cast<FallbackType>(args.at("fallback"));
 }
 
-void FallbackHandler::prepare() {
+DeferredPtr FallbackHandler::prepare() {
     _fallback(_request);
     _finished = true;
+    return nullptr;
 }
 
 

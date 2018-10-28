@@ -12,22 +12,60 @@ class Books: public RequestHandler {
 public:
     using RequestHandler::RequestHandler;
 
-    void onGet(const StringVector &args) override {
-        JsonValue response;
-        response["books"] = JsonType::arrayValue;
-        for (auto book: gBookNames) {
-            JsonValue b;
-            b["id"] = book.first;
-            b["name"] = book.second;
-            response["books"].append(b);
-        }
-        write(response);
+    DeferredPtr prepare() override {
+        return testAsyncFunc();
     }
 
-    void onPost(const StringVector &args) override {
+    DeferredPtr onGet(const StringVector &args) override {
+        return testAsyncFunc2();
+    }
+
+    DeferredPtr onPost(const StringVector &args) override {
         auto body = boost::lexical_cast<JsonValue>(getRequest()->getBody());
         gBookNames[body["id"].asInt()] = body["name"].asString();
         write(body);
+        return nullptr;
+    }
+
+    DeferredPtr testAsyncFunc() {
+        auto request = HTTPRequest::create("https://www.baidu.com/")
+                ->setValidateCert(false)
+                ->setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) Gecko/20100101 Firefox/61.0");
+        return HTTPClient::create()->fetch(request, [this, self=shared_from_this()](const HTTPResponse &response){
+            std::cout << response.getCode() << std::endl;
+//            getArgument("name");
+        })->addCallbacks([](DeferredValue value) {
+            std::cout << "Success" << std::endl;
+            return value;
+        }, [](DeferredValue value) {
+            std::cout << "Fail" << std::endl;
+            return value;
+        });
+    }
+
+    DeferredPtr testAsyncFunc2() {
+        auto request = HTTPRequest::create("https://www.baidu.com/")
+                ->setValidateCert(false)
+                ->setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) Gecko/20100101 Firefox/61.0");
+        return HTTPClient::create()->fetch(request, [this, self=shared_from_this()](const HTTPResponse &resp){
+            std::cout << resp.getCode() << std::endl;
+//            getArgument("name");
+            JsonValue response;
+            response["books"] = JsonType::arrayValue;
+            for (auto book: gBookNames) {
+                JsonValue b;
+                b["id"] = book.first;
+                b["name"] = book.second;
+                response["books"].append(b);
+            }
+            write(response);
+        })->addCallbacks([](DeferredValue value) {
+            std::cout << "Success" << std::endl;
+            return value;
+        }, [](DeferredValue value) {
+            std::cout << "Fail" << std::endl;
+            return value;
+        });
     }
 };
 
@@ -36,7 +74,8 @@ class Book: public RequestHandler {
 public:
     using RequestHandler::RequestHandler;
 
-    void onGet(const StringVector &args) override {
+
+    DeferredPtr onGet(const StringVector &args) override {
         auto bookId = std::stoi(args[0]);
         auto iter = gBookNames.find(bookId);
         if (iter != gBookNames.end()) {
@@ -47,9 +86,10 @@ public:
         } else {
             sendError(404);
         }
+        return nullptr;
     }
 
-    void onDelete(const StringVector &args) override {
+    DeferredPtr onDelete(const StringVector &args) override {
         auto bookId = std::stoi(args[0]);
         auto iter = gBookNames.find(bookId);
         if (iter != gBookNames.end()) {
@@ -61,9 +101,10 @@ public:
         } else {
             sendError(404);
         }
+        return nullptr;
     }
 
-    void onPut(const StringVector &args) override {
+    DeferredPtr onPut(const StringVector &args) override {
         auto bookId = std::stoi(args[0]);
         auto iter = gBookNames.find(bookId);
         if (iter != gBookNames.end()) {
@@ -75,6 +116,7 @@ public:
         } else {
             sendError(404);
         }
+        return nullptr;
     }
 };
 
