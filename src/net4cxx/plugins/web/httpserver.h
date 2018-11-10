@@ -71,7 +71,7 @@ public:
     }
 
     void close() {
-        loseConnection();
+        closeStream();
         clearRequestState();
     }
 

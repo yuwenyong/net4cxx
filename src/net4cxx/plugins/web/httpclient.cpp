@@ -340,7 +340,7 @@ void HTTPClientConnection::handleException(std::exception_ptr error) {
     if (_callback) {
         removeTimeout();
         runCallback(HTTPResponse(_request, 599, error, TimestampClock::now() - _startTime));
-        loseConnection();
+        closeStream();
     }
 }
 

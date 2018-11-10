@@ -37,7 +37,6 @@
 #include "net4cxx/core/protocols/iostream.h"
 
 #include "net4cxx/plugins/web/httpclient.h"
-#include "net4cxx/plugins/web/util.h"
 #include "net4cxx/plugins/web/web.h"
 #include "net4cxx/plugins/websocket/websocket.h"
 

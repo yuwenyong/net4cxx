@@ -6,7 +6,6 @@
 #define NET4CXX_CORE_PROTOCOLS_IOSTREAM_H
 
 #include "net4cxx/common/common.h"
-#include <boost/optional.hpp>
 #include <boost/regex.hpp>
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/protocol.h"
@@ -18,6 +17,8 @@ NS_BEGIN
 
 
 NET4CXX_DECLARE_EXCEPTION(StreamClosedError, IOError);
+NET4CXX_DECLARE_EXCEPTION(UnsatisfiableReadError, Exception);
+NET4CXX_DECLARE_EXCEPTION(StreamBufferFullError, Exception);
 
 
 class NET4CXX_COMMON_API IOStream: public Protocol, public std::enable_shared_from_this<IOStream> {
@@ -43,16 +44,23 @@ public:
 
     virtual void connectionClose(std::exception_ptr reason);
 
-    void readUntilRegex(const std::string &regex);
+    void readUntilRegex(const std::string &regex, size_t maxBytes=0);
 
-    void readUntil(std::string delimiter);
+    void readUntil(std::string delimiter, size_t maxBytes=0);
 
     void readBytes(size_t numBytes);
 
     void readUntilClose();
 
     bool reading() const {
-        return _readBytes || _readDelimiter || _readRegex || _readUntilClose;
+        return _readBytes || !_readDelimiter.empty() || !_readRegex.empty() || _readUntilClose;
+    }
+
+    void closeStream(std::exception_ptr error=nullptr) {
+        if (!closed()) {
+            _error = error;
+            loseConnection();
+        }
     }
 
     template <typename SelfT>
@@ -69,17 +77,25 @@ public:
 protected:
     void tryInlineRead() {
         reactor()->addCallback([this, self=shared_from_this()]() {
-            readFromBuffer();
+            try {
+                readFromBuffer();
+            } catch (...) {
+                closeStream(std::current_exception());
+            }
         });
     }
 
     void readFromBuffer();
 
+    void checkMaxBytes(const std::string &delimiter, size_t size);
+
     size_t _maxBufferSize;
+    std::exception_ptr _error;
     MessageBuffer _readBuffer;
-    boost::optional<std::string> _readDelimiter;
-    boost::optional<boost::regex> _readRegex;
-    boost::optional<size_t> _readBytes;
+    std::string _readDelimiter;
+    boost::regex _readRegex;
+    size_t _readMaxBytes{0};
+    size_t _readBytes{0};
     bool _readUntilClose{false};
 };
 

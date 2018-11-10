@@ -16,9 +16,14 @@ void IOStream::dataReceived(Byte *data, size_t length) {
     _readBuffer.write(data, length);
     if (_readBuffer.getBufferSize() > _maxBufferSize) {
         NET4CXX_LOG_ERROR(gGenLog, "Reached maximum read buffer size");
-        loseConnection();
+        closeStream(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(StreamBufferFullError,
+                                                                   "Reached maximum read buffer size")));
     } else {
-        readFromBuffer();
+        try {
+            readFromBuffer();
+        } catch (...) {
+            closeStream(std::current_exception());
+        }
     }
 }
 
@@ -29,22 +34,26 @@ void IOStream::connectionLost(std::exception_ptr reason) {
         dataRead(_readBuffer.getReadPointer(), numBytes);
         _readBuffer.readCompleted(numBytes);
     }
-    connectionClose(reason);
+    auto error = _error ? _error : reason;
+    _error = nullptr;
+    connectionClose(error);
 }
 
 void IOStream::connectionClose(std::exception_ptr reason) {
 
 }
 
-void IOStream::readUntilRegex(const std::string &regex) {
+void IOStream::readUntilRegex(const std::string &regex, size_t maxBytes) {
     NET4CXX_ASSERT_MSG(!reading(), "Already reading");
     _readRegex = boost::regex(regex);
+    _readMaxBytes = maxBytes;
     tryInlineRead();
 }
 
-void IOStream::readUntil(std::string delimiter) {
+void IOStream::readUntil(std::string delimiter, size_t maxBytes) {
     NET4CXX_ASSERT_MSG(!reading(), "Already reading");
     _readDelimiter = std::move(delimiter);
+    _readMaxBytes = maxBytes;
     tryInlineRead();
 }
 
@@ -66,32 +75,45 @@ void IOStream::readFromBuffer() {
         size_t numBytes = _readBuffer.getActiveSize();
         dataRead(_readBuffer.getReadPointer(), numBytes);
         _readBuffer.readCompleted(numBytes);
-    } else if (_readBytes) {
-        if (_readBuffer.getActiveSize() >= _readBytes.get()) {
-            size_t numBytes = _readBytes.get();
-            _readBytes = boost::none;
+    } else if (_readBytes != 0) {
+        if (_readBuffer.getActiveSize() >= _readBytes) {
+            size_t numBytes = _readBytes;
+            _readBytes = 0;
             dataRead(_readBuffer.getReadPointer(), numBytes);
             _readBuffer.readCompleted(numBytes);
         }
-    } else if (_readDelimiter) {
+    } else if (!_readDelimiter.empty()) {
         const char *loc = StrNStr((const char *)_readBuffer.getReadPointer(), _readBuffer.getActiveSize(),
-                                  _readDelimiter->c_str());
+                                  _readDelimiter.c_str());
         if (loc) {
-            size_t readBytes = loc - (const char *)_readBuffer.getReadPointer() + _readDelimiter->size();
-            _readDelimiter = boost::none;
+            size_t readBytes = loc - (const char *)_readBuffer.getReadPointer() + _readDelimiter.size();
+            checkMaxBytes(_readDelimiter, readBytes);
+            _readDelimiter.clear();
             dataRead(_readBuffer.getReadPointer(), readBytes);
             _readBuffer.readCompleted(readBytes);
+        } else {
+            checkMaxBytes(_readDelimiter, _readBuffer.getActiveSize());
         }
-    } else if (_readRegex) {
+    } else if (!_readRegex.empty()) {
         boost::cmatch m;
         if (boost::regex_search((const char *) _readBuffer.getReadPointer(),
                                 (const char *) _readBuffer.getReadPointer() + _readBuffer.getActiveSize(), m,
-                                _readRegex.get())) {
+                                _readRegex)) {
             auto readBytes = m.position((size_t) 0) + m.length();
-            _readRegex = boost::none;
+            checkMaxBytes(_readRegex.str(), (size_t)readBytes);
+            _readRegex = {};
             dataRead(_readBuffer.getReadPointer(), (size_t)readBytes);
             _readBuffer.readCompleted((size_t)readBytes);
+        } else {
+            checkMaxBytes(_readRegex.str(), _readBuffer.getActiveSize());
         }
+    }
+}
+
+void IOStream::checkMaxBytes(const std::string &delimiter, size_t size) {
+    if (_readMaxBytes != 0 && size > _readMaxBytes) {
+        NET4CXX_THROW_EXCEPTION(UnsatisfiableReadError, "delimiter %s not found within %lu bytes", delimiter,
+                                _readMaxBytes);
     }
 }
 

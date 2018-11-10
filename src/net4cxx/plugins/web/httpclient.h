@@ -9,6 +9,7 @@
 #include <boost/optional.hpp>
 #include "net4cxx/core/protocols/iostream.h"
 #include "net4cxx/plugins/web/httputil.h"
+#include "net4cxx/plugins/web/util.h"
 
 
 NS_BEGIN
@@ -627,7 +628,7 @@ protected:
     void onBody(Byte *data, size_t length);
 
     void onEndRequest() {
-        loseConnection();
+        closeStream();
     }
 
     void onChunkLength(Byte *data, size_t length);
