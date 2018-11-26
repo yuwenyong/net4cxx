@@ -136,11 +136,22 @@ protected:
         _writing = false;
         handleWrite(ec, transferredBytes);
         if (!_aborting && !_disconnected && !_writeQueue.empty()) {
-            doWrite();
+            if (!_writeQueue.empty()) {
+                doWrite();
+            } else {
+                writeDone();
+            }
         }
     }
 
     void handleWrite(const boost::system::error_code &ec, size_t transferredBytes);
+
+    void writeDone() {
+        if (_producer && (!_streamingProducer || _producerPaused)) {
+            _producerPaused = true;
+            _producer->resumeProducing();
+        }
+    }
 
     void startShutdown() {
         if (!_sslShutting) {

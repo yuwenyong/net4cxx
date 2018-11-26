@@ -6,6 +6,7 @@
 #define NET4CXX_CORE_PROTOCOLS_IOSTREAM_H
 
 #include "net4cxx/common/common.h"
+#include <boost/optional.hpp>
 #include <boost/regex.hpp>
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/protocol.h"
@@ -36,13 +37,19 @@ public:
     }
 #endif
 
-    void dataReceived(Byte *data, size_t length) override;
+    void connectionMade() final;
 
-    void connectionLost(std::exception_ptr reason) override;
+    void dataReceived(Byte *data, size_t length) final;
 
-    virtual void dataRead(Byte *data, size_t length) = 0;
+    void connectionLost(std::exception_ptr reason) final;
 
-    virtual void connectionClose(std::exception_ptr reason);
+    virtual void onConnected();
+
+    virtual void onDataRead(Byte *data, size_t length) = 0;
+
+    virtual void onWriteComplete();
+
+    virtual void onDisconnected(std::exception_ptr reason);
 
     void readUntilRegex(const std::string &regex, size_t maxBytes=0);
 
@@ -52,16 +59,25 @@ public:
 
     void readUntilClose();
 
-    bool reading() const {
-        return _readBytes || !_readDelimiter.empty() || !_readRegex.empty() || _readUntilClose;
+    void write(const Byte *data, size_t length, bool writeCallback=false);
+
+    void write(const ByteArray &data, bool writeCallback=false) {
+        write(data.data(), data.size(), writeCallback);
     }
 
-    void closeStream(std::exception_ptr error=nullptr) {
-        if (!closed()) {
-            _error = error;
-            loseConnection();
-        }
+    void write(const char *data, bool writeCallback=false) {
+        write((const Byte *)data, strlen(data), writeCallback);
     }
+
+    void write(const std::string &data, bool writeCallback=false) {
+        write((const Byte *)data.c_str(), data.size(), writeCallback);
+    }
+
+    bool reading() const {
+        return _readBytes || _readDelimiter || _readRegex || _readUntilClose;
+    }
+
+    virtual void close(std::exception_ptr error);
 
     template <typename SelfT>
     std::shared_ptr<const SelfT> getSelf() const {
@@ -75,28 +91,45 @@ public:
 
     static constexpr size_t DEFAULT_MAX_BUFFER_SIZE = 104857600;
 protected:
-    void tryInlineRead() {
-        reactor()->addCallback([this, self=shared_from_this()]() {
-            try {
-                readFromBuffer();
-            } catch (...) {
-                closeStream(std::current_exception());
+    class WriteDoneTrigger: public Producer {
+    public:
+        explicit WriteDoneTrigger(const std::shared_ptr<IOStream> &stream): _stream(stream) {}
+
+        void resumeProducing() override {
+            auto stream = _stream.lock();
+            if (stream) {
+                stream->writeDone();
             }
-        });
+        }
+    protected:
+        std::weak_ptr<IOStream> _stream;
+    };
+
+    void writeDone() {
+        if (_writeCallback) {
+            _writeCallback = false;
+            onWriteComplete();
+        }
     }
+
+    void tryInlineRead();
 
     void readFromBuffer();
 
-    void checkMaxBytes(const std::string &delimiter, size_t size);
+    bool findReadPos() const;
+
+    void checkMaxBytes(const std::string &delimiter, size_t size) const;
+
 
     size_t _maxBufferSize;
     std::exception_ptr _error;
     MessageBuffer _readBuffer;
-    std::string _readDelimiter;
-    boost::regex _readRegex;
-    size_t _readMaxBytes{0};
-    size_t _readBytes{0};
+    boost::optional<std::string> _readDelimiter;
+    boost::optional<boost::regex> _readRegex;
+    boost::optional<size_t> _readMaxBytes;
+    boost::optional<size_t> _readBytes;
     bool _readUntilClose{false};
+    bool _writeCallback{false};
 };
 
 

@@ -121,6 +121,19 @@ void DelayedCall::cancel() {
 }
 
 
+void Producer::stopProducing() {
+
+}
+
+void Producer::pauseProducing() {
+
+}
+
+void Producer::resumeProducing() {
+
+}
+
+
 void Connection::dataReceived(Byte *data, size_t length) {
     auto protocol = _protocol.lock();
     NET4CXX_ASSERT(protocol);
@@ -128,9 +141,30 @@ void Connection::dataReceived(Byte *data, size_t length) {
 }
 
 void Connection::connectionLost(std::exception_ptr reason) {
+    if (_producer) {
+        _producer->stopProducing();
+        _producer.reset();
+    }
     auto protocol = _protocol.lock();
     NET4CXX_ASSERT(protocol);
     protocol->connectionLost(reason);
+}
+
+void Connection::registerProducer(const ProducerPtr &producer, bool streaming) {
+    NET4CXX_ASSERT_MSG(!_producer, "Cannot register producer");
+    if (_disconnected) {
+        producer->stopProducing();
+    } else {
+        _producer = producer;
+        _streamingProducer = streaming;
+        if (!streaming) {
+            producer->resumeProducing();
+        }
+    }
+}
+
+void Connection::unregisterProducer() {
+    _producer.reset();
 }
 
 

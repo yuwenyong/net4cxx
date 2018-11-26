@@ -38,11 +38,23 @@ public:
         return _storage.data();
     }
 
+    const Byte* getBasePointer() const {
+        return _storage.data();
+    }
+
     Byte* getReadPointer() {
         return getBasePointer() + _rpos;
     }
 
+    const Byte* getReadPointer() const {
+        return getBasePointer() + _rpos;
+    }
+
     Byte* getWritePointer() {
+        return getBasePointer() + _wpos;
+    }
+
+    const Byte* getWritePointer() const {
         return getBasePointer() + _wpos;
     }
 

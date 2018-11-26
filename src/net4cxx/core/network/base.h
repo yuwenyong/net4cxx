@@ -362,6 +362,20 @@ protected:
 };
 
 
+class NET4CXX_COMMON_API Producer {
+public:
+    virtual ~Producer() = default;
+
+    virtual void stopProducing();
+
+    virtual void pauseProducing();
+
+    virtual void resumeProducing();
+};
+
+using ProducerPtr = std::shared_ptr<Producer>;
+
+
 class NET4CXX_COMMON_API Connection {
 public:
     Connection(const ProtocolPtr &protocol, Reactor *reactor)
@@ -394,6 +408,10 @@ public:
 
     virtual unsigned short getRemotePort() const = 0;
 
+    void registerProducer(const ProducerPtr &producer, bool streaming);
+
+    void unregisterProducer();
+
     bool closed() const {
         return _disconnecting || _disconnected || !_connected;
     }
@@ -404,6 +422,14 @@ public:
 
     bool disconnected() const {
         return _disconnected;
+    }
+
+    void setWriteBufferSize(size_t writeBufferSize) {
+        _writeBufferSize = writeBufferSize;
+    }
+
+    size_t getWriteBufferSize() const {
+        return _writeBufferSize;
     }
 
     Reactor* reactor() {
@@ -418,12 +444,16 @@ protected:
     Reactor *_reactor{nullptr};
     MessageBuffer _readBuffer;
     std::deque<MessageBuffer> _writeQueue;
+    size_t _writeBufferSize{65536};
     bool _reading{false};
     bool _writing{false};
     bool _connected{false};
     bool _disconnected{false};
     bool _disconnecting{false};
     bool _aborting{false};
+    bool _producerPaused{false};
+    bool _streamingProducer{false};
+    ProducerPtr _producer;
 };
 
 using ConnectionPtr = std::shared_ptr<Connection>;

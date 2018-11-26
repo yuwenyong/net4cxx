@@ -193,6 +193,16 @@ public:
         return _transport->getRemotePort();
     }
 
+    void registerProducer(const ProducerPtr &producer, bool streaming) {
+        NET4CXX_ASSERT(_transport);
+        _transport->registerProducer(producer, streaming);
+    }
+
+    void unregisterProducer() {
+        NET4CXX_ASSERT(_transport);
+        _transport->unregisterProducer();
+    }
+
     bool closed() const {
         NET4CXX_ASSERT(_transport);
         return _transport->closed();
@@ -206,6 +216,16 @@ public:
     bool disconnected() const {
         NET4CXX_ASSERT(_transport);
         return _transport->disconnected();
+    }
+
+    void setWriteBufferSize(size_t writeBufferSize) {
+        NET4CXX_ASSERT(_transport);
+        _transport->setWriteBufferSize(writeBufferSize);
+    }
+
+    size_t getWriteBufferSize() const {
+        NET4CXX_ASSERT(_transport);
+        return _transport->getWriteBufferSize();
     }
 
     void setFactory(const std::shared_ptr<Factory> &factory) {

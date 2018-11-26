@@ -113,7 +113,11 @@ std::ostream& operator<<(std::ostream &os, const HTTPHeaders &headers) {
 
 
 void HTTPUtil::parseBodyArguments(const std::string &contentType, const std::string &body, QueryArgListMap &arguments,
-                                  HTTPFileListMap &files) {
+                                  HTTPFileListMap &files, const HTTPHeaders *headers) {
+    if (headers && headers->has("Content-Encoding")) {
+        NET4CXX_LOG_WARN(gGenLog, "Unsupported Content-Encoding: %s", headers->at("Content-Encoding"));
+        return;
+    }
     if (boost::starts_with(contentType, "application/x-www-form-urlencoded")) {
         QueryArgListMap uriArguments;
         try {
@@ -203,6 +207,47 @@ void HTTPUtil::parseMultipartFormData(std::string boundary, const std::string &d
             arguments[name].emplace_back(std::move(value));
         }
     }
+}
+
+RequestStartLine HTTPUtil::parseRequestStartLine(const std::string &line) {
+    StringVector requestLineComponents = StrUtil::split(line);
+    if (requestLineComponents.size() != 3) {
+        NET4CXX_THROW_EXCEPTION(HTTPInputError, "Malformed HTTP request line");
+    }
+    std::string method = std::move(requestLineComponents[0]);
+    std::string path = std::move(requestLineComponents[1]);
+    std::string version = std::move(requestLineComponents[2]);
+    if (!boost::starts_with(version, "HTTP/")) {
+        NET4CXX_THROW_EXCEPTION(HTTPInputError, "Malformed HTTP version in HTTP Request-Line: %s", version);
+    }
+    return RequestStartLine(std::move(method), std::move(path), std::move(version));
+}
+
+ResponseStartLine HTTPUtil::parseResponseStartLine(const std::string &line) {
+    const boost::regex firstLinePattern("(HTTP/1.[01]) ([0-9]+) ([^\r]*).*");
+    boost::smatch match;
+    if (!boost::regex_match(line, match, firstLinePattern)) {
+        NET4CXX_THROW_EXCEPTION(HTTPInputError, "Error parsing response start line");
+    }
+    return ResponseStartLine(match[1], std::stoi(match[2]), match[3]);
+}
+
+std::tuple<std::string, std::shared_ptr<HTTPHeaders>> HTTPUtil::parseHeaders(const char *data, size_t length) {
+    const char *eol = StrNStr(data, length, "\r\n");
+    std::string startLine, rest;
+    if (eol) {
+        startLine.assign(data, eol);
+        rest.assign(eol, data + length);
+    } else {
+        startLine.assign(data, length);
+    }
+    std::shared_ptr<HTTPHeaders> headers;
+    try {
+        headers = HTTPHeaders::parse(rest);
+    } catch (Exception &e) {
+        NET4CXX_THROW_EXCEPTION(HTTPInputError, "Malformed HTTP headers: %s", rest);
+    }
+    return std::make_tuple(std::move(startLine), std::move(headers));
 }
 
 StringVector HTTPUtil::parseParam(std::string s) {

@@ -16,6 +16,11 @@
 
 NS_BEGIN
 
+
+NET4CXX_DECLARE_EXCEPTION(HTTPInputError, Exception);
+NET4CXX_DECLARE_EXCEPTION(HTTPOutputError, Exception);
+
+
 class NET4CXX_COMMON_API HTTPHeaders {
 public:
     typedef std::pair<std::string, std::string> NameValueType;
@@ -104,15 +109,10 @@ public:
 
     void parseLines(const std::string &headers);
 
-    static std::unique_ptr<HTTPHeaders> parse(const std::string &headers) {
-        auto h = HTTPHeaders::create();
+    static std::shared_ptr<HTTPHeaders> parse(const std::string &headers) {
+        auto h = std::make_shared<HTTPHeaders>();
         h->parseLines(headers);
         return h;
-    }
-
-    template <typename ...Args>
-    static std::unique_ptr<HTTPHeaders> create(Args&& ...args) {
-        return std::make_unique<HTTPHeaders>(std::forward<Args>(args)...);
     }
 
     const StringMap& items() const {
@@ -162,6 +162,66 @@ protected:
 
 using HTTPFileListMap = std::map<std::string, std::vector<HTTPFile>>;
 
+using RequestStartLineBase = std::tuple<std::string, std::string, std::string>;
+
+class NET4CXX_COMMON_API RequestStartLine: public RequestStartLineBase {
+public:
+    RequestStartLine()
+            : RequestStartLineBase() {
+
+    }
+
+    RequestStartLine(std::string method,
+                     std::string path,
+                     std::string version)
+            : RequestStartLineBase(std::move(method), std::move(path), std::move(version)) {
+
+    }
+
+    const std::string& getMethod() const {
+        return std::get<0>(*this);
+    }
+
+    const std::string& getPath() const {
+        return std::get<1>(*this);
+    }
+
+    const std::string& getVersion() const {
+        return std::get<2>(*this);
+    }
+};
+
+
+using ResponseStartLineBase = std::tuple<std::string, int, std::string>;
+
+
+class NET4CXX_COMMON_API ResponseStartLine: public ResponseStartLineBase {
+public:
+    ResponseStartLine()
+            : ResponseStartLineBase() {
+
+    }
+
+    ResponseStartLine(std::string version,
+                      int code,
+                      std::string reason)
+            : ResponseStartLineBase(std::move(version), code, std::move(reason)) {
+
+    }
+
+    const std::string& getVersion() const {
+        return std::get<0>(*this);
+    }
+
+    int getCode() const {
+        return std::get<1>(*this);
+    }
+
+    const std::string& getReason() const {
+        return std::get<2>(*this);
+    }
+};
+
 
 class NET4CXX_COMMON_API HTTPUtil {
 public:
@@ -182,7 +242,7 @@ public:
     }
 
     static void parseBodyArguments(const std::string &contentType, const std::string &body, QueryArgListMap &arguments,
-                                   HTTPFileListMap &files);
+                                   HTTPFileListMap &files, const HTTPHeaders *headers=nullptr);
 
     static void parseMultipartFormData(std::string boundary, const std::string &data, QueryArgListMap &arguments,
                                        HTTPFileListMap &files);
@@ -203,6 +263,12 @@ public:
         auto iter = HTTP_STATUS_CODES.find(statusCode);
         return iter != HTTP_STATUS_CODES.end() ? iter->second : "Unknown";
     }
+
+    static RequestStartLine parseRequestStartLine(const std::string &line);
+
+    static ResponseStartLine parseResponseStartLine(const std::string &line);
+
+    static std::tuple<std::string, std::shared_ptr<HTTPHeaders>> parseHeaders(const char *data, size_t length);
 protected:
     static StringVector parseParam(std::string s);
 

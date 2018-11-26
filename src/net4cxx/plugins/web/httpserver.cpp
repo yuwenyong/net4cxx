@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/plugins/web/httpserver.h"
+#include <boost/utility/string_view.hpp>
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/plugins/web/web.h"
 
@@ -10,8 +11,13 @@
 NS_BEGIN
 
 
-void HTTPConnection::connectionMade() {
-    _address = getRemoteAddress();
+void HTTPConnection::onConnected() {
+    auto address = getRemoteAddress();
+    if (NetUtil::isValidIP(address)) {
+        _remoteIp = address;
+    } else {
+        _remoteIp = "0.0.0.0";
+    }
     auto webApp = getFactory<WebApp>();
     if (!webApp->getProtocol().empty()) {
         _protocol = webApp->getProtocol();
@@ -20,184 +26,446 @@ void HTTPConnection::connectionMade() {
     } else {
         _protocol = "http";
     }
+    _origRemoteIp = _remoteIp;
+    _origProtocol = _protocol;
 
     _noKeepAlive = webApp->getNoKeepAlive();
     _xheaders = webApp->getXHeaders();
+    _decompress = webApp->getDecompressRequest();
+    _chunkSize = webApp->getChunkSize() != 0 ? webApp->getChunkSize() : 65535;
+    _maxHeaderSize = webApp->getMaxHeaderSize() != 0 ? webApp->getMaxHeaderSize() : 65536;
+    _maxBodySize = webApp->getMaxBodySize() != 0 ? webApp->getMaxBodySize() : _maxBufferSize;
+    _headerTimeout = webApp->getIdleConnectionTimeout();
+    _bodyTimeout = webApp->getBodyTimeout();
 
-    _state = READ_HEADER;
-    readUntil("\r\n\r\n");
+    startRequest();
 }
 
-void HTTPConnection::dataRead(Byte *data, size_t length) {
-    if (_state == READ_HEADER) {
-        onHeaders(data, length);
-    } else if (_state == READ_BODY) {
-        onRequestBody(data, length);
-    } else {
-        NET4CXX_ASSERT_MSG(false, "Unreachable");
+void HTTPConnection::onDataRead(Byte *data, size_t length) {
+    try {
+        try {
+            if (_state == READ_HEADER) {
+                onHeaders((char *)data, length);
+            } else if (_state == READ_FIXED_BODY) {
+                onRequestBody((char *)data, length);
+            } else if (_state == READ_CHUNK_LENGTH) {
+                onChunkLength((char *)data, length);
+            } else if (_state == READ_CHUNK_DATA) {
+                onChunkData((char *)data, length);
+            } else if (_state == READ_CHUNK_ENDS) {
+                onChunkEnds((char *)data, length);
+            } else {
+                NET4CXX_ASSERT_MSG(false, "Unreachable");
+            }
+        } catch (HTTPInputError &e) {
+            NET4CXX_LOG_INFO(gGenLog, "Malformed HTTP request from %s: %s", _remoteIp, e.what());
+            throw;
+        } catch (std::exception &e) {
+            NET4CXX_LOG_INFO(gGenLog, "Uncaught exception from %s: %s", _remoteIp, e.what());
+            throw;
+        } catch (...) {
+            NET4CXX_LOG_INFO(gGenLog, "Unknown exception from %s", _remoteIp);
+            throw;
+        }
+    } catch (...) {
+        close(std::current_exception());
     }
 }
 
-void HTTPConnection::connectionClose(std::exception_ptr reason) {
+void HTTPConnection::onWriteComplete() {
+    _pendingWrite = false;
+    if (_writeCallback) {
+        WriteCallbackType callback = std::move(_writeCallback);
+        _writeCallback = nullptr;
+        callback();
+    }
+    if (_writeFinished) {
+        finishRequest();
+    }
+}
+
+void HTTPConnection::onDisconnected(std::exception_ptr reason) {
     if (_closeCallback) {
         CloseCallbackType callback = std::move(_closeCallback);
         _closeCallback = nullptr;
         callback();
     }
-    clearRequestState();
+    if (_dispatcher) {
+        _dispatcher->onConnectionClose();
+    }
+    clearCallbacks();
 }
 
-void HTTPConnection::writeChunk(const Byte *chunk, size_t length) {
-    NET4CXX_ASSERT_MSG(_request, "Request closed");
-    if (!closed()) {
-        _transport->write(chunk, length);
-        onWriteComplete();
+void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &headers, const Byte *chunk, size_t length,
+                                  WriteCallbackType callback) {
+    _responseStartLine = std::move(startLine);
+    _chunkingOutput = _requestStartLine.getVersion() == "HTTP/1.1" &&
+                      _responseStartLine.getCode() != 304 &&
+                      !headers.has("Content-Length") &&
+                      !headers.has("Transfer-Encoding");
+    if (_requestStartLine.getVersion() == "HTTP/1.0" &&
+        boost::to_lower_copy(_requestHeaders->get("Connection")) == "keep-alive") {
+        headers["Connection"] = "Keep-Alive";
     }
+    if (_chunkingOutput) {
+        headers["Transfer-Encoding"] = "chunked";
+    }
+    if (_requestStartLine.getMethod() == "HEAD" || _responseStartLine.getCode() == 304) {
+        _expectedContentRemaining = 0;
+    } else if (headers.has("Content-Length")) {
+        _expectedContentRemaining = std::stoi(headers.at("Content-Length"));
+    } else {
+        _expectedContentRemaining = boost::none;
+    }
+    StringVector lines;
+    lines.emplace_back(StrUtil::format("%s %d %s", _responseStartLine.getVersion(), _responseStartLine.getCode(),
+                                       _responseStartLine.getReason()));
+    headers.getAll([&lines](const std::string &name, const std::string &value) {
+        lines.emplace_back(name + ": " + value);
+    });
+    for (auto &line: lines) {
+        if (line.find('\n') != std::string::npos) {
+            NET4CXX_THROW_EXCEPTION(ValueError, "Newline in header: %s", line);
+        }
+    }
+    auto data = boost::join(lines, "\r\n") + "\r\n\r\n";
+    if (length != 0) {
+        data.append(formatChunk(chunk, length));
+    }
+    if (callback) {
+        _writeCallback = std::move(callback);
+    }
+    write(data, true);
+    _pendingWrite = true;
+}
+
+void HTTPConnection::writeChunk(const Byte *chunk, size_t length, WriteCallbackType callback) {
+    if (callback) {
+        _writeCallback = std::move(callback);
+    }
+    write(formatChunk(chunk, length), true);
 }
 
 void HTTPConnection::finish() {
-    NET4CXX_ASSERT_MSG(_request, "Request closed");
-    _requestFinished = true;
-    setNoDelay(true);
-    finishRequest();
-}
-
-void HTTPConnection::onHeaders(Byte *data, size_t length) {
-    try {
-        const char *eol = StrNStr((char *) data, length, "\r\n");
-        std::string startLine, rest;
-        if (eol) {
-            startLine.assign((const char *) data, eol);
-            rest.assign(eol, (const char *) data + length);
-        } else {
-            startLine.assign((char *) data, length);
-        }
-        StringVector requestLineComponents = StrUtil::split(startLine);
-        if (requestLineComponents.size() != 3) {
-            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP request line");
-        }
-        std::string method = std::move(requestLineComponents[0]);
-        std::string uri = std::move(requestLineComponents[1]);
-        std::string version = std::move(requestLineComponents[2]);
-        if (!boost::starts_with(version, "HTTP/")) {
-            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP version in HTTP Request-Line");
-        }
-        std::unique_ptr<HTTPHeaders> headers;
+    if (_expectedContentRemaining && *_expectedContentRemaining != 0) {
         try {
-            headers = HTTPHeaders::parse(rest);
-        } catch (Exception &e) {
-            NET4CXX_THROW_EXCEPTION(BadRequestException, "Malformed HTTP headers");
-        }
-        _request = HTTPServerRequest::create(getSelf<HTTPConnection>(), std::move(method), std::move(uri),
-                                             std::move(version), std::move(headers), std::string(), _address,
-                                             _protocol);
-        auto requestHeaders = _request->getHTTPHeaders();
-        std::string contentLengthValue = requestHeaders->get("Content-Length");
-        if (!contentLengthValue.empty()) {
-            auto contentLength = (size_t) std::stoi(contentLengthValue);
-            if (contentLength > _maxBufferSize) {
-                NET4CXX_THROW_EXCEPTION(BadRequestException, "Content-Length too long");
-            }
-            if (requestHeaders->get("Expect") == "100-continue") {
-                const char *continueLine = "HTTP/1.1 100 (Continue)\r\n\r\n";
-                write(continueLine);
-            }
-            _state = READ_BODY;
-            readBytes(contentLength);
-            return;
-        }
-        onProcessRequest();
-    } catch (BadRequestException &e) {
-        NET4CXX_LOG_INFO(gGenLog, "Malformed HTTP request from %s: %s", _address.c_str(), e.what());
-        close();
-    }
-}
-
-void HTTPConnection::onRequestBody(Byte *data, size_t length) {
-    _request->setBody(std::string((const char *) data, length));
-    auto headers = _request->getHTTPHeaders();
-    const std::string &method = _request->getMethod();
-    if (method == "POST" || method == "PATCH" || method == "PUT") {
-        HTTPUtil::parseBodyArguments(headers->get("Content-Type", ""), _request->getBody(), _request->bodyArguments(),
-                                     _request->files());
-        for (const auto &kv: _request->getBodyArguments()) {
-            _request->addArguments(kv.first, kv.second);
+            NET4CXX_THROW_EXCEPTION(HTTPOutputError, "Tried to write %d bytes less than Content-Length",
+                                    *_expectedContentRemaining);
+        } catch (...) {
+            close(std::current_exception());
+            throw;
         }
     }
-    onProcessRequest();
-}
-
-void HTTPConnection::onProcessRequest() {
-    auto webApp = getFactory<WebApp>();
-    _state = PROCESS_REQUEST;
-    (*webApp)(_request);
-}
-
-void HTTPConnection::onWriteComplete() {
-    if (_requestFinished) {
+    if (_chunkingOutput) {
+        write("0\r\n\r\n", true);
+        _pendingWrite = true;
+    }
+    _writeFinished = true;
+    if (!_readFinished) {
+        _disconnectOnFinish = true;
+    }
+    setNoDelay(true);
+    if (!_pendingWrite) {
         finishRequest();
     }
 }
 
-void HTTPConnection::finishRequest() {
-    bool disconnect;
-    if (_noKeepAlive || !_request) {
-        disconnect = true;
-    } else {
-        auto headers = _request->getHTTPHeaders();
-        std::string connectionHeader = headers->get("Connection");
-        if (!connectionHeader.empty()) {
-            boost::to_lower(connectionHeader);
-        }
-        if (_request->supportsHTTP11()) {
-            disconnect = connectionHeader == "close";
-        } else if (headers->has("Content-Length")
-                   || _request->getMethod() == "HEAD"
-                   || _request->getMethod() == "GET") {
-            disconnect = connectionHeader != "keep-alive";
-        } else {
-            disconnect = true;
+void HTTPConnection::close(std::exception_ptr reason) {
+    IOStream::close(reason);
+    clearCallbacks();
+    if (_headerTimeoutCall.active()) {
+        _headerTimeoutCall.cancel();
+    }
+    if (_bodyTimeoutCall.active()) {
+        _bodyTimeoutCall.cancel();
+    }
+}
+
+void HTTPConnection::startRequest() {
+    _totalSize = 0;
+    _disconnectOnFinish = false;
+    clearCallbacks();
+    _chunkingOutput = false;
+    _pendingWrite = false;
+    _readFinished =false;
+    _writeFinished = false;
+    _expectedContentRemaining = boost::none;
+    _decompressor.reset();
+    _dispatcher = getFactory<WebApp>()->startRequest(getSelf<HTTPConnection>());
+    readHeaders();
+}
+
+std::string HTTPConnection::formatChunk(const Byte *data, size_t length) {
+    if (_expectedContentRemaining) {
+        _expectedContentRemaining = *_expectedContentRemaining - length;
+        if (*_expectedContentRemaining < 0) {
+            try {
+                NET4CXX_THROW_EXCEPTION(HTTPOutputError, "Tried to write more data than Content-Length");
+            } catch (...) {
+                close(std::current_exception());
+                throw;
+            }
         }
     }
-    clearRequestState();
-    if (disconnect) {
-        close();
+    if (_chunkingOutput && length != 0) {
+        std::string chunk;
+        chunk = StrUtil::format("%x\r\n", length);
+        chunk.append((const char *)data, length);
+        chunk.append("\r\n");
+        return chunk;
+    } else {
+        return std::string{(const char *)data, length};
+    }
+}
+
+void HTTPConnection::readHeaders() {
+    _state = READ_HEADER;
+    readUntil("\r?\n\r?\n", _maxHeaderSize);
+    if (_headerTimeout != 0.0) {
+        _headerTimeoutCall = reactor()->callLater(_headerTimeout, [this, self=shared_from_this()]() {
+            try {
+                NET4CXX_THROW_EXCEPTION(TimeoutError, "Read header timeout");
+            } catch (...) {
+                close(std::current_exception());
+            }
+        });
+    }
+}
+
+void HTTPConnection::readBody() {
+    std::string contentLengthValue = _requestHeaders->get("Content-Length");
+    if (!contentLengthValue.empty()) {
+        auto contentLength = (size_t)std::stoi(contentLengthValue);
+        if (contentLength > _maxBodySize) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Content-Length too long");
+        }
+        readFixedBody(contentLength);
+        if (_bodyTimeout != 0.0) {
+            _bodyTimeoutCall = reactor()->callLater(_bodyTimeout, [this, self=shared_from_this()]() {
+                try {
+                    NET4CXX_THROW_EXCEPTION(TimeoutError, "Read body timeout");
+                } catch (...) {
+                    close(std::current_exception());
+                }
+            });
+        }
         return;
     }
-    _state = READ_HEADER;
-    readUntil("\r\n");
+    if (_requestHeaders->get("Transfer-Encoding") == "chunked") {
+        readChunkLength();
+        if (_bodyTimeout != 0.0) {
+            _bodyTimeoutCall = reactor()->callLater(_bodyTimeout, [this, self=shared_from_this()]() {
+                try {
+                    NET4CXX_THROW_EXCEPTION(TimeoutError, "Read body timeout");
+                } catch (...) {
+                    close(std::current_exception());
+                }
+            });
+        }
+        return;
+    }
+    processRequest();
+}
+
+void HTTPConnection::readFixedBody(size_t contentLength) {
+    _state = READ_FIXED_BODY;
+    if (contentLength != 0) {
+        readBytes(contentLength);
+    } else {
+        onRequestBody(nullptr, 0);
+    }
+}
+
+void HTTPConnection::readChunkLength() {
+    _state = READ_CHUNK_LENGTH;
+    readUntil("\r\n", 64);
+}
+
+void HTTPConnection::readChunkData(size_t chunkLen) {
+    _state = READ_CHUNK_DATA;
+    readBytes(chunkLen);
+}
+
+void HTTPConnection::readChunkEnds() {
+    _state = READ_CHUNK_ENDS;
+    readBytes(2);
+}
+
+void HTTPConnection::onHeaders(char *data, size_t length) {
+    if (_headerTimeoutCall.active()) {
+        _headerTimeoutCall.cancel();
+    }
+    std::string startLine;
+    std::tie(startLine, _requestHeaders) = HTTPUtil::parseHeaders(data, length);
+    _requestStartLine = HTTPUtil::parseRequestStartLine(startLine);
+    _disconnectOnFinish = !canKeepAlive(_requestStartLine, *_requestHeaders);
+    if (_decompress) {
+        if (_requestHeaders->get("Content-Encoding") == "gzip") {
+            _decompressor = std::make_unique<GzipDecompressor>();
+            _requestHeaders->add("X-Consumed-Content-Encoding", _requestHeaders->at("Content-Encoding"));
+            _requestHeaders->erase("Content-Encoding");
+        }
+    }
+    if (_xheaders) {
+        applyXheaders(*_requestHeaders);
+    }
+    _dispatcher->headersReceived(_requestStartLine, _requestHeaders);
+    if (_requestHeaders->get("Expect") == "100-continue" && !_writeFinished) {
+        write("HTTP/1.1 100 (Continue)\r\n\r\n");
+    }
+    readBody();
+}
+
+void HTTPConnection::onRequestBody(char *data, size_t length) {
+    if (_bodyTimeoutCall.active()) {
+        _bodyTimeoutCall.cancel();
+    }
+    if (length != 0) {
+        if (_decompressor) {
+            std::string compressed;
+            compressed = _decompressor->decompressToString((const Byte *)data, length, _chunkSize);
+            while (!_decompressor->getUnconsumedTail().empty()) {
+                compressed.append(_decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize));
+            }
+            if (!_writeFinished) {
+                _dispatcher->dataReceived(std::move(compressed));
+            }
+        } else {
+            if (!_writeFinished) {
+                _dispatcher->dataReceived(std::string{data, data + length});
+            }
+        }
+    }
+    processRequest();
+}
+
+void HTTPConnection::onChunkLength(char *data, size_t length) {
+    std::string content(data, length);
+    boost::trim(content);
+    size_t chunkLen = std::stoul(content, nullptr, 16);
+    if (chunkLen == 0) {
+        if (_bodyTimeoutCall.active()) {
+            _bodyTimeoutCall.cancel();
+        }
+        processRequest();
+    } else {
+        if (chunkLen + _totalSize > _maxBodySize) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "chunked body too large");
+        }
+        _totalSize += chunkLen;
+        readChunkData(chunkLen);
+    }
+}
+
+void HTTPConnection::onChunkData(char *data, size_t length) {
+    if (_decompressor) {
+        std::string compressed;
+        compressed = _decompressor->decompressToString((const Byte *)data, length, _chunkSize);
+        while (!_decompressor->getUnconsumedTail().empty()) {
+            compressed.append(_decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize));
+        }
+        if (!_writeFinished) {
+            _dispatcher->dataReceived(std::move(compressed));
+        }
+    } else {
+        if (!_writeFinished) {
+            _dispatcher->dataReceived(std::string{data, data + length});
+        }
+    }
+    readChunkEnds();
+}
+
+void HTTPConnection::onChunkEnds(char *data, size_t length) {
+    NET4CXX_ASSERT_THROW(boost::string_view(data, length) == "\r\n", "");
+    readChunkLength();
+}
+
+void HTTPConnection::processRequest() {
+    _readFinished = true;
+    if (_decompressor) {
+        auto tail = _decompressor->flushToString();
+        if (!tail.empty()) {
+            if (!_writeFinished) {
+                _dispatcher->dataReceived(std::move(tail));
+            }
+        }
+    }
+    _state = READ_NONE;
+    if (!_writeFinished) {
+        _dispatcher->finish();
+    }
+}
+
+bool HTTPConnection::canKeepAlive(const RequestStartLine &startLine, const HTTPHeaders &headers) {
+    if (_noKeepAlive) {
+        return false;
+    }
+    std::string connectionHeader = headers.get("Connection");
+    if (!connectionHeader.empty()) {
+        boost::to_lower(connectionHeader);
+    }
+    if (startLine.getVersion() == "HTTP/1.1") {
+        return connectionHeader != "close";
+    } else if (headers.has("Content-Length") || startLine.getMethod() == "HEAD" || startLine.getMethod() == "GET") {
+        return connectionHeader == "keep-alive";
+    }
+    return false;
+}
+
+void HTTPConnection::finishRequest() {
+    if (_xheaders) {
+        unapplyXheaders();
+    }
+    clearCallbacks();
+    if (_disconnectOnFinish) {
+        close(nullptr);
+        return;
+    }
     setNoDelay(false);
+    startRequest();
+}
+
+void HTTPConnection::applyXheaders(const HTTPHeaders &headers) {
+    auto ip = headers.get("X-Forwarded-For", _remoteIp);
+    ip = boost::trim_copy(StrUtil::split(ip, ',').back());
+    ip = headers.get("X-Real-Ip", ip);
+    if (NetUtil::isValidIP(ip)) {
+        _remoteIp = std::move(ip);
+    }
+    std::string proto = headers.get("X-Forwarded-Proto", _protocol);
+    proto = headers.get("X-Scheme", proto);
+    if (proto == "http" || proto == "https") {
+        _protocol = std::move(proto);
+    }
+}
+
+void HTTPConnection::unapplyXheaders() {
+    _remoteIp = _origRemoteIp;
+    _protocol = _origProtocol;
 }
 
 
-HTTPServerRequest::HTTPServerRequest(std::shared_ptr<HTTPConnection> connection,
-                                     std::string method,
-                                     std::string uri,
-                                     std::string version,
-                                     std::unique_ptr<HTTPHeaders> &&headers,
+HTTPServerRequest::HTTPServerRequest(const std::shared_ptr<HTTPConnection> &connection,
+                                     const RequestStartLine *startLine,
+                                     const std::shared_ptr<HTTPHeaders> &headers,
+                                     const std::string &method,
+                                     const std::string &uri,
+                                     const std::string &version,
                                      std::string body,
-                                     std::string remoteIp,
-                                     std::string protocol,
                                      std::string host,
                                      HTTPFileListMap files)
-        : _method(std::move(method)), _uri(std::move(uri)), _version(std::move(version)), _headers(std::move(headers)),
-          _body(std::move(body)), _remoteIp(std::move(remoteIp)), _protocol(std::move(protocol)),
-          _files(std::move(files)), _connection(connection), _startTime(TimestampClock::now()),
-          _finishTime(Timestamp::min()) {
+        : _method(startLine ? startLine->getMethod() : method)
+        , _uri(startLine ? startLine->getPath() : uri)
+        , _version(startLine ? startLine->getVersion() : version)
+        , _headers(headers ? headers : std::make_shared<HTTPHeaders>())
+        , _body(std::move(body))
+        , _remoteIp(connection->getRemoteIp())
+        , _protocol(connection->getProtocol())
+        , _files(std::move(files))
+        , _connection(connection)
+        , _startTime(TimestampClock::now())
+        , _finishTime(Timestamp::min()) {
 
-    if (connection && connection->getXHeaders()) {
-        std::string ip = _headers->get("X-Forwarded-For", _remoteIp);
-        ip = boost::trim_copy(StrUtil::split(ip, ',').back());
-        ip = _headers->get("X-Real-Ip", ip);
-        if (NetUtil::isValidIP(ip)) {
-            _remoteIp = std::move(ip);
-        }
-        std::string proto = _headers->get("X-Forwarded-Proto", _protocol);
-        proto = _headers->get("X-Scheme", proto);
-        if (proto == "http" || proto == "https") {
-            _protocol = std::move(proto);
-        }
-    }
     if (!host.empty()) {
         _host = std::move(host);
     } else {
@@ -225,17 +493,17 @@ const SimpleCookie &HTTPServerRequest::cookies() const {
     return _cookies.get();
 }
 
-void HTTPServerRequest::write(const Byte *chunk, size_t length) {
+void HTTPServerRequest::write(const Byte *chunk, size_t length, WriteCallbackType callback) {
     auto connection = getConnection();
-    if (!connection || connection->closed()) {
+    if (!connection) {
         NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
     }
-    connection->writeChunk(chunk, length);
+    connection->writeChunk(chunk, length, std::move(callback));
 }
 
 void HTTPServerRequest::finish() {
     auto connection = getConnection();
-    if (!connection || connection->closed()) {
+    if (!connection) {
         NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
     }
     connection->finish();
@@ -250,6 +518,13 @@ double HTTPServerRequest::requestTime() const {
         elapse = std::chrono::duration_cast<std::chrono::microseconds>(_finishTime - _startTime);
     }
     return elapse.count() / 1000000 + elapse.count() % 1000000 / 1000000.0;
+}
+
+void HTTPServerRequest::parseBody() {
+    HTTPUtil::parseBodyArguments(_headers->get("Content-Type", ""), _body, _bodyArguments, _files, _headers.get());
+    for (const auto &kv: getBodyArguments()) {
+        addArguments(kv.first, kv.second);
+    }
 }
 
 
