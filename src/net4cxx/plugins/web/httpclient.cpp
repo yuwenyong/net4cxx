@@ -239,7 +239,6 @@ void HTTPClientConnection::onConnected() {
 }
 
 void HTTPClientConnection::onWriteComplete() {
-    _pendingWrite = false;
     if (_writeFinished) {
         setNoDelay(false);
     }
@@ -253,7 +252,7 @@ void HTTPClientConnection::onDataRead(Byte *data, size_t length) {
                 break;
             }
             case READ_FIXED_BODY: {
-                onResponseBody((char *) data, length);
+                onFixedBody((char *) data, length);
                 break;
             }
             case READ_CHUNK_LENGTH: {
@@ -269,7 +268,7 @@ void HTTPClientConnection::onDataRead(Byte *data, size_t length) {
                 break;
             }
             case READ_UNTIL_CLOSE: {
-                onResponseBody((char *) data, length);
+                onReadUntilClose((char *) data, length);
                 break;
             }
             default: {
@@ -312,10 +311,9 @@ void HTTPClientConnection::writeFinished() {
     }
     if (_chunkingOutput) {
         write("0\r\n\r\n", true);
-        _pendingWrite = true;
     }
     _writeFinished = true;
-    if (!_pendingWrite) {
+    if (!_writeCallback) {
         setNoDelay(false);
     }
 }
@@ -393,12 +391,11 @@ void HTTPClientConnection::writeHeaders(const RequestStartLine &startLine, HTTPH
     }
     auto data = boost::join(lines, "\r\n") + "\r\n\r\n";
     write(data, true);
-    _pendingWrite = true;
 }
 
 void HTTPClientConnection::readResponse() {
     _state = READ_HEADER;
-    readUntil("\r?\n\r?\n", _maxHeaderSize);
+    readUntilRegex("\r?\n\r?\n", _maxHeaderSize);
 }
 
 void HTTPClientConnection::readBody() {
@@ -417,30 +414,6 @@ void HTTPClientConnection::readBody() {
     }
     _state = READ_UNTIL_CLOSE;
     readUntilClose();
-}
-
-void HTTPClientConnection::readFixedBody(size_t contentLength) {
-    _state = READ_FIXED_BODY;
-    if (contentLength != 0) {
-        readBytes(contentLength);
-    } else {
-        onResponseBody(nullptr, 0);
-    }
-}
-
-void HTTPClientConnection::readChunkLength() {
-    _state = READ_CHUNK_LENGTH;
-    readUntil("\r\n", 64);
-}
-
-void HTTPClientConnection::readChunkData(size_t chunkLen) {
-    _state = READ_CHUNK_DATA;
-    readBytes(chunkLen);
-}
-
-void HTTPClientConnection::readChunkEnds() {
-    _state = READ_CHUNK_ENDS;
-    readBytes(2);
 }
 
 void HTTPClientConnection::writeBody(bool startRead) {
@@ -527,20 +500,16 @@ void HTTPClientConnection::onHeaders(char *data, size_t length) {
     }
 }
 
-void HTTPClientConnection::onResponseBody(char *data, size_t length) {
+void HTTPClientConnection::onFixedBody(char *data, size_t length) {
     if (length != 0) {
-        if (_decompressor) {
-            std::string compressed;
-            compressed = _decompressor->decompressToString((const Byte *) data, length, _chunkSize);
-            while (!_decompressor->getUnconsumedTail().empty()) {
-                compressed.append(_decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize));
-            }
-            onDataReceived(std::move(compressed));
-        } else {
-            onDataReceived(std::string{data, data + length});
-        }
+        _bytesRead += length;
+        onDataReceived(data, length);
     }
-    finish();
+    if (_bytesRead < _bytesToRead) {
+        readFixedBodyBlock();
+    } else {
+        finish();
+    }
 }
 
 void HTTPClientConnection::onChunkLength(char *data, size_t length) {
@@ -553,23 +522,18 @@ void HTTPClientConnection::onChunkLength(char *data, size_t length) {
         if (chunkLen + _totalSize > _maxBodySize) {
             NET4CXX_THROW_EXCEPTION(HTTPInputError, "chunked body too large");
         }
-        _totalSize += chunkLen;
         readChunkData(chunkLen);
     }
 }
 
 void HTTPClientConnection::onChunkData(char *data, size_t length) {
-    if (_decompressor) {
-        std::string compressed;
-        compressed = _decompressor->decompressToString((const Byte *) data, length, _chunkSize);
-        while (!_decompressor->getUnconsumedTail().empty()) {
-            compressed.append(_decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize));
-        }
-        onDataReceived(std::move(compressed));
+    _bytesRead += length;
+    onDataReceived(data, length);
+    if (_bytesRead < _bytesToRead) {
+        readChunkDataBlock();
     } else {
-        onDataReceived(std::string{data, data + length});
+        readChunkEnds();
     }
-    readChunkEnds();
 }
 
 void HTTPClientConnection::onChunkEnds(char *data, size_t length) {
@@ -577,13 +541,16 @@ void HTTPClientConnection::onChunkEnds(char *data, size_t length) {
     readChunkLength();
 }
 
+void HTTPClientConnection::onReadUntilClose(char *data, size_t length) {
+    onDataReceived(data, length);
+    finish();
+}
+
 void HTTPClientConnection::finish() {
     if (_decompressor) {
         auto tail = _decompressor->flushToString();
         if (!tail.empty()) {
-            if (!_writeFinished) {
-                onDataReceived(std::move(tail));
-            }
+            onDataReceived(std::move(tail));
         }
     }
     _state = READ_NONE;
@@ -677,6 +644,21 @@ void HTTPClientConnection::onHeadersReceived(const ResponseStartLine &firstLine,
         if (_headers->has("Transfer-Encoding") || (contentLength && *contentLength != 0)) {
             NET4CXX_THROW_EXCEPTION(ValueError, "Response with code %d should not have body", *_code);
         }
+    }
+}
+
+void HTTPClientConnection::onDataReceived(char *data, size_t length) {
+    _totalSize += length;
+    if (_decompressor) {
+        std::string compressed;
+        compressed = _decompressor->decompressToString((const Byte *) data, length, _chunkSize);
+        onDataReceived(std::move(compressed));
+        while (!_decompressor->getUnconsumedTail().empty()) {
+            compressed = _decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize);
+            onDataReceived(std::move(compressed));
+        }
+    } else {
+        onDataReceived(std::string{data, data + length});
     }
 }
 

@@ -220,7 +220,7 @@ std::string HTTPConnection::formatChunk(const Byte *data, size_t length) {
 
 void HTTPConnection::readHeaders() {
     _state = READ_HEADER;
-    readUntil("\r?\n\r?\n", _maxHeaderSize);
+    readUntilRegex("\r?\n\r?\n", _maxHeaderSize);
     if (_headerTimeout != 0.0) {
         _headerTimeoutCall = reactor()->callLater(_headerTimeout, [this, self=shared_from_this()]() {
             try {

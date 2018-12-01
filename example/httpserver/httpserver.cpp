@@ -33,7 +33,7 @@ public:
                 ->setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) Gecko/20100101 Firefox/61.0");
         return HTTPClient::create()->fetch(request, [this, self=shared_from_this()](const HTTPResponse &response){
             std::cout << response.getCode() << std::endl;
-//            getArgument("name");
+            getArgument("name");
         })->addCallbacks([](DeferredValue value) {
             std::cout << "Success" << std::endl;
             return value;

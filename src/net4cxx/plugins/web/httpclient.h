@@ -22,8 +22,8 @@ class NET4CXX_COMMON_API HTTPRequestBodyProducer {
 public:
     virtual ~HTTPRequestBodyProducer() = default;
 
-    void active(std::weak_ptr<HTTPClientConnection> connection) {
-        _connection = std::move(connection);
+    void active(const std::shared_ptr<HTTPClientConnection> &connection) {
+        _connection = connection;
         onActive();
     }
 
@@ -605,7 +605,7 @@ public:
 #endif
 
     void close() {
-        _closed = false;
+        _closed = true;
     }
 
     DeferredPtr fetch(const std::string &url, CallbackType callback = nullptr) {
@@ -666,11 +666,11 @@ public:
         READ_UNTIL_CLOSE,
     };
 
-    explicit HTTPClientConnection(HTTPClientPtr client,
-                                  HTTPRequestPtr request,
-                                  CallbackType callback,
-                                  size_t maxBufferSize = 0,
-                                  size_t maxHeaderSize = 0)
+    HTTPClientConnection(HTTPClientPtr client,
+                         HTTPRequestPtr request,
+                         CallbackType callback,
+                         size_t maxBufferSize = 0,
+                         size_t maxHeaderSize = 0)
             : IOStream(maxBufferSize)
             , _client(std::move(client))
             , _request(std::move(request))
@@ -703,7 +703,6 @@ public:
 
     void writeChunk(const Byte *chunk, size_t length) {
         write(formatChunk(chunk, length), true);
-        _pendingWrite = true;
     }
 
     void writeChunk(const ByteArray &chunk) {
@@ -728,13 +727,39 @@ protected:
 
     void readBody();
 
-    void readFixedBody(size_t contentLength);
+    void readFixedBody(size_t contentLength) {
+        if (contentLength != 0) {
+            _bytesToRead = contentLength;
+            readFixedBodyBlock();
+        } else {
+            finish();
+        }
+    }
 
-    void readChunkLength();
+    void readFixedBodyBlock() {
+        _state = READ_FIXED_BODY;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
 
-    void readChunkData(size_t chunkLen);
+    void readChunkLength() {
+        _state = READ_CHUNK_LENGTH;
+        readUntil("\r\n", 64);
+    }
 
-    void readChunkEnds();
+    void readChunkData(size_t chunkLen) {
+        _bytesToRead = chunkLen;
+        readChunkDataBlock();
+    }
+
+    void readChunkDataBlock() {
+        _state = READ_CHUNK_DATA;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
+
+    void readChunkEnds() {
+        _state = READ_CHUNK_ENDS;
+        readBytes(2);
+    }
 
     void writeBody(bool startRead);
 
@@ -748,13 +773,15 @@ protected:
 
     void onHeaders(char *data, size_t length);
 
-    void onResponseBody(char *data, size_t length);
+    void onFixedBody(char *data, size_t length);
 
     void onChunkLength(char *data, size_t length);
 
     void onChunkData(char *data, size_t length);
 
     void onChunkEnds(char *data, size_t length);
+
+    void onReadUntilClose(char *data, size_t length);
 
     void finish();
 
@@ -763,6 +790,8 @@ protected:
     }
 
     void onHeadersReceived(const ResponseStartLine &firstLine, const std::shared_ptr<HTTPHeaders> &headers);
+    
+    void onDataReceived(char *data, size_t length);
 
     void onDataReceived(std::string chunk);
 
@@ -785,10 +814,11 @@ protected:
     size_t _maxHeaderSize;
     size_t _chunkSize{65535};
     size_t _totalSize{0};
+    size_t _bytesToRead{0};
+    size_t _bytesRead{0};
     RequestStartLine _requestStartLine;
     ResponseStartLine _responseStartLine;
     bool _chunkingOutput{false};
-    bool _pendingWrite{false};
     bool _writeFinished{false};
     boost::optional<ssize_t> _expectedContentRemaining;
 
