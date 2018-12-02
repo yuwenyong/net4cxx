@@ -29,6 +29,16 @@ void SSLConnection::write(const Byte *data, size_t length) {
     MessageBuffer packet(length);
     packet.write(data, length);
     _writeQueue.emplace_back(std::move(packet));
+    if (_producer && _streamingProducer) {
+        size_t totalSize = 0;
+        for (auto &buffer: _writeQueue) {
+            totalSize += buffer.getActiveSize();
+        }
+        if (totalSize > _writeBufferSize) {
+            _producerPaused = true;
+            _producer->pauseProducing();
+        }
+    }
     startWriting();
 }
 

@@ -27,6 +27,16 @@ void TCPConnection::write(const Byte *data, size_t length) {
     MessageBuffer packet(length);
     packet.write(data, length);
     _writeQueue.emplace_back(std::move(packet));
+    if (_producer && _streamingProducer) {
+        size_t totalSize = 0;
+        for (auto &buffer: _writeQueue) {
+            totalSize += buffer.getActiveSize();
+        }
+        if (totalSize > _writeBufferSize) {
+            _producerPaused = true;
+            _producer->pauseProducing();
+        }
+    }
     startWriting();
 }
 
@@ -154,6 +164,17 @@ void TCPConnection::doWrite() {
         }
         _writeQueue.pop_front();
         if (_writeQueue.empty()) {
+            if (_producer && (!_streamingProducer || _producerPaused) && !_pendingProducing) {
+                auto protocol = _protocol.lock();
+                NET4CXX_ASSERT(protocol);
+                _pendingProducing = true;
+                _reactor->addCallback([this, protocol, self=shared_from_this()]() {
+                    _pendingProducing = false;
+                    if (!_aborting && !_disconnected && _writeQueue.empty()) {
+                        writeDone();
+                    }
+                });
+            }
             return;
         }
     }

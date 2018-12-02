@@ -88,6 +88,14 @@ void RequestHandler::onConnectionClose() {
 
 }
 
+bool RequestHandler::hasStreamRequestBody() const {
+    return false;
+}
+
+void RequestHandler::dataReceived(std::string data) {
+
+}
+
 void RequestHandler::clear() {
     _headers = HTTPHeaders({
                                    {"Server", NET4CXX_VER },
@@ -95,13 +103,6 @@ void RequestHandler::clear() {
                                    {"Date", HTTPUtil::formatTimestamp(time(nullptr))},
                            });
     setDefaultHeaders();
-    if (!_request->supportsHTTP11() && !_request->getConnection()->getNoKeepAlive()) {
-        auto connHeader = _request->getHTTPHeaders()->get("Connection");
-        if (!connHeader.empty() && boost::to_lower_copy(connHeader) == "keep-alive") {
-//            setHeader("Connection", "Keep-Alive");
-            _headers["Connection"] = "Keep-Alive";
-        }
-    }
 //    _writeBuffer.clear();
     _statusCode = 200;
     _reason = HTTP_STATUS_CODES.at(200);
@@ -174,33 +175,36 @@ void RequestHandler::redirect(const std::string &url, bool permanent, boost::opt
     finish();
 }
 
-void RequestHandler::flush(bool includeFooters) {
-    ByteArray chunk = std::move(_writeBuffer);
-    std::string headers;
+void RequestHandler::flush(bool includeFooters, FlushCallbackType callback) {
+    auto connection = getConnection();
+    std::string chunk = boost::join(_writeBuffer, "");
+    _writeBuffer.clear();
     if (!_headersWritten) {
         _headersWritten = true;
         for (auto &transform: _transforms) {
             transform->transformFirstChunk(_statusCode, _headers, chunk, includeFooters);
         }
-        headers = generateHeaders();
+        if (_request->getMethod() == "HEAD") {
+            chunk.clear();
+        }
+        if (_newCookie) {
+            _newCookie->getAll([this](const std::string &key, const Morsel &cookie) {
+                addHeader("Set-Cookie", cookie.outputString());
+            });
+        }
+        auto startLine = ResponseStartLine(_request->getVersion(), _statusCode, _reason);
+        connection->writeHeaders(std::move(startLine), _headers, chunk, std::move(callback));
     } else {
         for (auto &transform: _transforms) {
             transform->transformChunk(chunk, includeFooters);
         }
-    }
-    if (_request->getMethod() == "HEAD") {
-        if (!headers.empty()) {
-            _request->write(headers);
+        if (_request->getMethod() != "HEAD") {
+            connection->writeChunk(chunk, std::move(callback));
         }
-        return;
     }
-    if (!chunk.empty()) {
-        headers.append((const char *)chunk.data(), chunk.size());
-    }
-    _request->write(headers);
 }
 
-void RequestHandler::sendError(int statusCode, std::exception_ptr error) {
+void RequestHandler::sendError(int statusCode, const std::exception_ptr &error) {
     if (_headersWritten) {
         NET4CXX_LOG_ERROR(gGenLog, "Cannot send error response after headers written");
         if (!_finished) {
@@ -232,7 +236,7 @@ void RequestHandler::sendError(int statusCode, std::exception_ptr error) {
     }
 }
 
-void RequestHandler::writeError(int statusCode, std::exception_ptr error) {
+void RequestHandler::writeError(int statusCode, const std::exception_ptr &error) {
     auto &settings = getSettings();
     auto iter = settings.find("serveTraceback");
     if (error && iter != settings.end() && boost::any_cast<bool>(iter->second)) {
@@ -261,7 +265,9 @@ void RequestHandler::requireSetting(const std::string &name, const std::string &
 
 std::string RequestHandler::computeEtag() const {
     SHA1Object hasher;
-    hasher.update(_writeBuffer);
+    for (auto &part: _writeBuffer) {
+        hasher.update(part);
+    }
     std::string etag = "\"" + hasher.hex() + "\"";
     return etag;
 }
@@ -304,7 +310,7 @@ StringVector RequestHandler::getArguments(const std::string &name, const QueryAr
     return values;
 }
 
-void RequestHandler::execute(TransformsType transforms, StringVector args) {
+void RequestHandler::execute(TransformsType transforms, const StringVector &args) {
     _transforms = std::move(transforms);
     std::exception_ptr error;
     try {
@@ -312,7 +318,7 @@ void RequestHandler::execute(TransformsType transforms, StringVector args) {
         if (SUPPORTED_METHODS.find(method) == SUPPORTED_METHODS.end()) {
             NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(405);
         }
-        _pathArgs = std::move(args);
+        _pathArgs = args;
         auto result = prepare();
         if (result) {
             result->addCallbacks([this, self=shared_from_this()](DeferredValue value) {
@@ -379,25 +385,11 @@ void RequestHandler::executeMethod() {
     }
 }
 
-std::string RequestHandler::generateHeaders() const {
-    StringVector lines;
-    lines.emplace_back(_request->getVersion() + " " + std::to_string(_statusCode) + " " + _reason);
-    _headers.getAll([&lines](const std::string &name, const std::string &value) {
-        lines.emplace_back(name + ": " + value);
-    });
-    if (_newCookie) {
-        _newCookie->getAll([&lines](const std::string &key, const Morsel &cookie) {
-            lines.emplace_back("Set-Cookie: " + cookie.outputString());
-        });
-    }
-    return boost::join(lines, "\r\n") + "\r\n\r\n";
-}
-
 void RequestHandler::log() {
     _application->logRequest(shared_from_this());
 }
 
-void RequestHandler::handleRequestException(std::exception_ptr error) {
+void RequestHandler::handleRequestException(const std::exception_ptr &error) {
     logException(error);
     if (_finished) {
         return;
@@ -405,7 +397,6 @@ void RequestHandler::handleRequestException(std::exception_ptr error) {
     try {
         std::rethrow_exception(error);
     } catch (HTTPError &e) {
-        std::string summary = requestSummary();
         int statusCode = e.getCode();
         if (HTTP_STATUS_CODES.find(statusCode) == HTTP_STATUS_CODES.end() && !e.hasReason()) {
             NET4CXX_LOG_ERROR(gGenLog, "Bad HTTP status code: %d", statusCode);
@@ -418,7 +409,7 @@ void RequestHandler::handleRequestException(std::exception_ptr error) {
     }
 }
 
-void RequestHandler::logException(std::exception_ptr error) {
+void RequestHandler::logException(const std::exception_ptr &error) {
     try {
         std::rethrow_exception(error);
     } catch (HTTPError &e) {
@@ -517,15 +508,10 @@ std::tuple<std::string, int> UrlSpec::findGroups() {
 
 
 const StringSet GZipContentEncoding::CONTENT_TYPES = {
-        "text/plain",
-        "text/html",
-        "text/css",
-        "text/xml",
         "application/javascript",
         "application/x-javascript",
         "application/xml",
         "application/atom+xml",
-        "text/javascript",
         "application/json",
         "application/xhtml+xml"
 };
@@ -533,16 +519,13 @@ const StringSet GZipContentEncoding::CONTENT_TYPES = {
 constexpr int GZipContentEncoding::MIN_LENGTH;
 
 GZipContentEncoding::GZipContentEncoding(const std::shared_ptr<HTTPServerRequest> &request) {
-    if (request->supportsHTTP11()) {
-        auto headers = request->getHTTPHeaders();
-        std::string acceptEncoding = headers->get("Accept-Encoding");
-        _gzipping = acceptEncoding.find("gzip") != std::string::npos;
-    } else {
-        _gzipping = false;
-    }
+    auto headers = request->getHTTPHeaders();
+    std::string acceptEncoding = headers->get("Accept-Encoding");
+    _gzipping = acceptEncoding.find("gzip") != std::string::npos;
 }
 
-void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk, bool finishing) {
+void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &headers, std::string &chunk,
+                                              bool finishing) {
     if (headers.has("Vary")) {
         headers["Vary"] = headers.at("Vary") + ", Accept-Encoding";
     } else {
@@ -554,10 +537,10 @@ void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &head
         if (pos != std::string::npos) {
             ctype = ctype.substr(0, pos);
         }
-        _gzipping = CONTENT_TYPES.find(ctype) != CONTENT_TYPES.end()
-                    && (!finishing || chunk.size() >= MIN_LENGTH)
-                    && (finishing || !headers.has("Content-Length"))
-                    && !headers.has("Content-Encoding");
+        _gzipping = compressibleType(ctype) &&
+                    (!finishing || chunk.size() >= MIN_LENGTH) &&
+                    (finishing || !headers.has("Content-Length")) &&
+                    !headers.has("Content-Encoding");
     }
     if (_gzipping) {
         headers["Content-Encoding"] = "gzip";
@@ -570,7 +553,7 @@ void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &head
     }
 }
 
-void GZipContentEncoding::transformChunk(ByteArray &chunk, bool finishing) {
+void GZipContentEncoding::transformChunk(std::string &chunk, bool finishing) {
     if (_gzipping) {
         _gzipFile.write(chunk);
         if (finishing) {
@@ -584,32 +567,58 @@ void GZipContentEncoding::transformChunk(ByteArray &chunk, bool finishing) {
     }
 }
 
-
-void ChunkedTransferEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk,
-                                                  bool finishing) {
-    if (_chunking && statusCode != 304) {
-        if (headers.has("Content-Length") || headers.has("Transfer-Encoding")) {
-            _chunking = false;
-        } else {
-            headers["Transfer-Encoding"] = "chunked";
-            transformChunk(chunk, finishing);
-        }
-    }
+bool GZipContentEncoding::compressibleType(const std::string &ctype) {
+    return boost::starts_with(ctype, "text/") || CONTENT_TYPES.find(ctype) != CONTENT_TYPES.end();
 }
 
-void ChunkedTransferEncoding::transformChunk(ByteArray &chunk, bool finishing) {
-    if (_chunking) {
-        std::string block;
-        if (!chunk.empty()) {
-            block = StrUtil::format("%x\r\n", (int)chunk.size());
-            chunk.insert(chunk.begin(), (const Byte *)block.data(), (const Byte *)block.data() + block.size());
-            block = "\r\n";
-            chunk.insert(chunk.end(), (const Byte *)block.data(), (const Byte *)block.data() + block.size());
+
+void RequestDispatcher::execute() {
+    RequestHandler::TransformsType transforms;
+    for (auto &transform: _application->getTransforms()) {
+        transforms.emplace_back(transform->create(_request));
+    }
+    _handler->execute(std::move(transforms), _pathArgs);
+}
+
+void RequestDispatcher::findHandler() {
+    auto handlers = _application->getHostHandlers(_request);
+    if (handlers.empty()) {
+        RequestHandler::ArgsType handlerArgs = {
+                {"url", "http://" + _application->getDefaultHost() + "/"}
+        };
+        _handler = RequestHandlerFactory<RedirectHandler>().create(_application, _request, handlerArgs);
+        return;
+    }
+    const std::string &requestPath = _request->getPath();
+    boost::smatch match;
+    for (auto &spec: handlers) {
+        if (boost::regex_match(requestPath, match, spec->getRegex())) {
+            _handler = spec->getHandlerFactory()->create(_application, _request, spec->args());
+            for (size_t i = 1; i < match.size(); ++i) {
+                _pathArgs.emplace_back(match[i].str());
+            }
+            for (auto &s: _pathArgs) {
+                s = UrlParse::unquote(s);
+            }
+            return;
         }
-        if (finishing) {
-            block = "0\r\n\r\n";
-            chunk.insert(chunk.end(), (const Byte *)block.data(), (const Byte *)block.data() + block.size());
+    }
+    auto iter = _application->getSettings().find("defaultHandlerFactory");
+    if (iter != _application->getSettings().end()) {
+        auto handlerFactory = boost::any_cast<RequestHandlerFactoryPtr>(iter->second);
+        auto argIter = _application->getSettings().find("defaultHandlerArgs");
+        if (argIter != _application->getSettings().end()) {
+            auto &handlerArgs = boost::any_cast<RequestHandler::ArgsType&>(argIter->second);
+            _handler = handlerFactory->create(_application, _request, handlerArgs);
+        } else {
+            RequestHandler::ArgsType handlerArgs;
+            _handler = handlerFactory->create(_application, _request, handlerArgs);
         }
+    } else {
+        RequestHandler::ArgsType handlerArgs = {
+                {"statusCode", 404}
+        };
+        _handler = RequestHandlerFactory<ErrorHandler>().create(_application, _request, handlerArgs);
     }
 }
 
@@ -618,10 +627,10 @@ WebApp::WebApp(HandlersType handlers, std::string defaultHost, TransformsType tr
         : _defaultHost(std::move(defaultHost))
         , _settings(std::move(settings)) {
     if (transforms.empty()) {
-        if (_settings.find("gzip") != _settings.end() && boost::any_cast<bool>(_settings["gzip"])) {
+        if (_settings.find("compressResponse") != _settings.end() &&
+            boost::any_cast<bool>(_settings["compressResponse"])) {
             addTransform<GZipContentEncoding>();
         }
-        addTransform<ChunkedTransferEncoding>();
     } else {
         _transforms = std::move(transforms);
     }
@@ -631,7 +640,7 @@ WebApp::WebApp(HandlersType handlers, std::string defaultHost, TransformsType tr
 }
 
 ProtocolPtr WebApp::buildProtocol(const Address &address) {
-    return std::make_shared<HTTPConnection>();
+    return std::make_shared<HTTPConnection>(_maxBufferSize);
 }
 
 void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
@@ -645,7 +654,7 @@ void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     } else {
         _handlers.emplace_back(std::make_pair(HostPatternType{hostPattern}, hostHandlers));
     }
-    for (auto spec: hostHandlers) {
+    for (auto &spec: hostHandlers) {
         if (!spec->getName().empty()) {
             if (_namedHandlers.find(spec->getName()) != _namedHandlers.end()) {
                 NET4CXX_LOG_WARN(gAppLog, "Multiple handlers named %s; replacing previous value", spec->getName());
@@ -653,58 +662,6 @@ void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
             _namedHandlers[spec->getName()] = spec;
         }
     }
-}
-
-void WebApp::operator()(std::shared_ptr<HTTPServerRequest> request) {
-    RequestHandler::TransformsType transforms;
-    for (auto &transform: _transforms) {
-        transforms.emplace_back(transform->create(request));
-    }
-    std::shared_ptr<RequestHandler> handler;
-    StringVector args;
-    auto handlers = getHostHandlers(request);
-    if (handlers.empty()) {
-        RequestHandler::ArgsType handlerArgs = {
-                {"url", "http://" + _defaultHost + "/"}
-        };
-        handler = RequestHandlerFactory<RedirectHandler>().create(shared_from_this(), std::move(request), handlerArgs);
-    } else {
-        const std::string &requestPath = request->getPath();
-        boost::smatch match;
-        for (auto spec: handlers) {
-            if (boost::regex_match(requestPath, match, spec->getRegex())) {
-                handler = spec->getHandlerFactory()->create(shared_from_this(), std::move(request), spec->args());
-                for (size_t i = 1; i < match.size(); ++i) {
-                    args.emplace_back(match[i].str());
-                }
-                for (auto &s: args) {
-                    s = UrlParse::unquote(s);
-                }
-                break;
-            }
-        }
-        if (!handler) {
-            auto iter = _settings.find("defaultHandlerFactory");
-            if (iter != _settings.end()) {
-                auto handlerFactory = boost::any_cast<RequestHandlerFactoryPtr>(iter->second);
-                auto argIter = _settings.find("defaultHandlerArgs");
-                if (argIter != _settings.end()) {
-                    auto &handlerArgs = boost::any_cast<RequestHandler::ArgsType&>(argIter->second);
-                    handler = handlerFactory->create(shared_from_this(), std::move(request), handlerArgs);
-                } else {
-                    RequestHandler::ArgsType handlerArgs;
-                    handler = handlerFactory->create(shared_from_this(), std::move(request), handlerArgs);
-                }
-            } else {
-                RequestHandler::ArgsType handlerArgs = {
-                        {"statusCode", 404}
-                };
-                handler = RequestHandlerFactory<ErrorHandler>().create(shared_from_this(), std::move(request),
-                                                                       handlerArgs);
-            }
-        }
-    }
-    handler->execute(std::move(transforms), std::move(args));
 }
 
 void WebApp::logRequest(std::shared_ptr<const RequestHandler> handler) const {
@@ -727,7 +684,7 @@ void WebApp::logRequest(std::shared_ptr<const RequestHandler> handler) const {
     }
 }
 
-std::vector<UrlSpecPtr> WebApp::getHostHandlers(std::shared_ptr<const HTTPServerRequest> request) {
+std::vector<UrlSpecPtr> WebApp::getHostHandlers(const std::shared_ptr<const HTTPServerRequest> &request) {
     std::string host = request->getHost();
     boost::to_lower(host);
     auto pos = host.find(':');

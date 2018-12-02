@@ -10,6 +10,7 @@
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/protocols/iostream.h"
 #include "net4cxx/plugins/web/httputil.h"
+#include "net4cxx/plugins/web/util.h"
 
 
 NS_BEGIN
@@ -19,17 +20,21 @@ NET4CXX_DECLARE_EXCEPTION(BadRequestException, Exception);
 
 
 class HTTPServerRequest;
+class RequestDispatcher;
 
 
 class NET4CXX_COMMON_API HTTPConnection: public IOStream {
 public:
+    typedef std::function<void ()> WriteCallbackType;
     typedef std::function<void ()> CloseCallbackType;
 
     enum State {
-        INITIAL,
+        READ_NONE,
         READ_HEADER,
-        READ_BODY,
-        PROCESS_REQUEST,
+        READ_FIXED_BODY,
+        READ_CHUNK_LENGTH,
+        READ_CHUNK_DATA,
+        READ_CHUNK_ENDS,
     };
 
     explicit HTTPConnection(size_t maxBufferSize=0): IOStream(maxBufferSize) {
@@ -44,24 +49,44 @@ public:
     }
 #endif
 
-    void connectionMade() override;
+    void onConnected() override;
 
-    void dataRead(Byte *data, size_t length) override;
+    void onDataRead(Byte *data, size_t length) override;
 
-    void connectionClose(std::exception_ptr reason) override;
+    void onWriteComplete() override;
 
-    void writeChunk(const Byte *chunk, size_t length);
+    void onDisconnected(std::exception_ptr reason) override;
 
-    void writeChunk(const ByteArray &chunk) {
-        writeChunk(chunk.data(), chunk.size());
+    void writeHeaders(ResponseStartLine startLine, HTTPHeaders &headers, const Byte *chunk = nullptr, size_t length = 0,
+                      WriteCallbackType callback = nullptr);
+
+    void writeHeaders(ResponseStartLine startLine, HTTPHeaders &headers, const ByteArray &chunk,
+                      WriteCallbackType callback = nullptr) {
+        writeHeaders(std::move(startLine), headers, chunk.data(), chunk.size(), std::move(callback));
     }
 
-    void writeChunk(const char *chunk) {
-        writeChunk((const Byte *)chunk, strlen(chunk));
+    void writeHeaders(ResponseStartLine startLine, HTTPHeaders &headers, const char *chunk,
+                      WriteCallbackType callback = nullptr) {
+        writeHeaders(std::move(startLine), headers, (const Byte *)chunk, strlen(chunk), std::move(callback));
     }
 
-    void writeChunk(const std::string &chunk) {
-        writeChunk((const Byte *)chunk.c_str(), chunk.size());
+    void writeHeaders(ResponseStartLine startLine, HTTPHeaders &headers, const std::string &chunk,
+                      WriteCallbackType callback = nullptr) {
+        writeHeaders(std::move(startLine), headers, (const Byte *)chunk.c_str(), chunk.size(), std::move(callback));
+    }
+
+    void writeChunk(const Byte *chunk, size_t length, WriteCallbackType callback = nullptr);
+
+    void writeChunk(const ByteArray &chunk, WriteCallbackType callback = nullptr) {
+        writeChunk(chunk.data(), chunk.size(), std::move(callback));
+    }
+
+    void writeChunk(const char *chunk, WriteCallbackType callback = nullptr) {
+        writeChunk((const Byte *)chunk, strlen(chunk), std::move(callback));
+    }
+
+    void writeChunk(const std::string &chunk, WriteCallbackType callback = nullptr) {
+        writeChunk((const Byte *)chunk.c_str(), chunk.size(), std::move(callback));
     }
 
     void finish();
@@ -70,10 +95,7 @@ public:
         _closeCallback = std::move(callback);
     }
 
-    void close() {
-        loseConnection();
-        clearRequestState();
-    }
+    void close(std::exception_ptr reason) override;
 
     bool getNoKeepAlive() const {
         return _noKeepAlive;
@@ -83,38 +105,118 @@ public:
         return _xheaders;
     }
 
-    std::shared_ptr<const HTTPServerRequest> getRequest() const {
-        return _request;
+    const std::string& getRemoteIp() const {
+        return _remoteIp;
     }
 
-    std::shared_ptr<HTTPServerRequest> getRequest() {
-        return _request;
+    const std::string& getProtocol() const {
+        return _protocol;
     }
 protected:
-    void clearRequestState() {
-        _request.reset();
-        _requestFinished = false;
+    void clearCallbacks() {
+        _writeCallback = nullptr;
         _closeCallback = nullptr;
     }
 
-    void onHeaders(Byte *data, size_t length);
+    void startRequest();
 
-    void onRequestBody(Byte *data, size_t length);
+    std::string formatChunk(const Byte *data, size_t length);
 
-    void onProcessRequest();
+    void readHeaders();
 
-    void onWriteComplete();
+    void readBody();
+
+    void readFixedBody(size_t contentLength) {
+        if (contentLength != 0) {
+            _bytesRead = 0;
+            _bytesToRead = contentLength;
+            readFixedBodyBlock();
+        } else {
+            readFinished();
+        }
+    }
+
+    void readFixedBodyBlock() {
+        _state = READ_FIXED_BODY;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
+
+    void readChunkLength() {
+        _state = READ_CHUNK_LENGTH;
+        readUntil("\r\n", 64);
+    }
+
+    void readChunkData(size_t chunkLen) {
+        _bytesRead = 0;
+        _bytesToRead = chunkLen;
+        readChunkDataBlock();
+    }
+
+    void readChunkDataBlock() {
+        _state = READ_CHUNK_DATA;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
+
+    void readChunkEnds() {
+        _state = READ_CHUNK_ENDS;
+        readBytes(2);
+    }
+
+    void onHeaders(char *data, size_t length);
+
+    void onFixedBody(char *data, size_t length);
+
+    void onChunkLength(char *data, size_t length);
+
+    void onChunkData(char *data, size_t length);
+
+    void onChunkEnds(char *data, size_t length);
+
+    void onHeadersReceived();
+
+    void onDataReceived(char *data, size_t length);
+
+    void readFinished();
+
+    bool canKeepAlive(const RequestStartLine &startLine, const HTTPHeaders &headers);
 
     void finishRequest();
 
-    State _state{INITIAL};
-    std::string _address;
+    void applyXheaders(const HTTPHeaders &headers);
+
+    void unapplyXheaders();
+
+    State _state{READ_NONE};
     bool _noKeepAlive{false};
     bool _xheaders{false};
+    bool _decompress{false};
+    bool _disconnectOnFinish{false};
+    size_t _chunkSize{0};
+    size_t _maxHeaderSize{0};
+    size_t _maxBodySize{0};
+    size_t _totalSize{0};
+    size_t _bytesToRead{0};
+    size_t _bytesRead{0};
+    double _headerTimeout{0.0};
+    double _bodyTimeout{0.0};
+    std::string _remoteIp;
     std::string _protocol;
-    std::shared_ptr<HTTPServerRequest> _request;
-    bool _requestFinished{false};
+    std::string _origRemoteIp;
+    std::string _origProtocol;
+    DelayedCall _headerTimeoutCall;
+    DelayedCall _bodyTimeoutCall;
+    std::shared_ptr<HTTPHeaders> _requestHeaders;
+    RequestStartLine _requestStartLine;
+    ResponseStartLine _responseStartLine;
+    std::shared_ptr<RequestDispatcher> _dispatcher;
+    bool _chunkingOutput{false};
+    bool _pendingWrite{false};
+    bool _readFinished{false};
+    bool _writeFinished{false};
+    WriteCallbackType _writeCallback{nullptr};
     CloseCallbackType _closeCallback{nullptr};
+    std::unique_ptr<GzipDecompressor> _decompressor;
+    boost::optional<ssize_t> _expectedContentRemaining;
 };
 
 using HTTPConnectionPtr = std::shared_ptr<HTTPConnection>;
@@ -122,20 +224,20 @@ using HTTPConnectionPtr = std::shared_ptr<HTTPConnection>;
 
 class NET4CXX_COMMON_API HTTPServerRequest {
 public:
+    typedef std::function<void ()> WriteCallbackType;
     typedef boost::optional<SimpleCookie> CookiesType;
 
     HTTPServerRequest(const HTTPServerRequest &) = delete;
 
     HTTPServerRequest &operator=(const HTTPServerRequest &) = delete;
 
-    HTTPServerRequest(std::shared_ptr<HTTPConnection> connection,
-                      std::string method,
-                      std::string uri,
-                      std::string version = "HTTP/1.0",
-                      std::unique_ptr<HTTPHeaders> &&headers = nullptr,
+    HTTPServerRequest(const std::shared_ptr<HTTPConnection> &connection,
+                      const RequestStartLine *startLine = nullptr,
+                      const std::shared_ptr<HTTPHeaders> &headers = {},
+                      const std::string &method = {},
+                      const std::string &uri = {},
+                      const std::string &version = "HTTP/1.0",
                       std::string body = {},
-                      std::string remoteIp = {},
-                      std::string protocol = {},
                       std::string host = {},
                       HTTPFileListMap files = {});
 
@@ -151,18 +253,18 @@ public:
 
     const SimpleCookie& cookies() const;
 
-    void write(const Byte *chunk, size_t length);
+    void write(const Byte *chunk, size_t length, WriteCallbackType callback = nullptr);
 
-    void write(const ByteArray &chunk) {
-        write(chunk.data(), chunk.size());
+    void write(const ByteArray &chunk, WriteCallbackType callback = nullptr) {
+        write(chunk.data(), chunk.size(), std::move(callback));
     }
 
-    void write(const char *chunk) {
-        write((const Byte *)chunk, strlen(chunk));
+    void write(const char *chunk, WriteCallbackType callback = nullptr) {
+        write((const Byte *)chunk, strlen(chunk), std::move(callback));
     }
 
-    void write(const std::string &chunk) {
-        write((const Byte *)chunk.data(), chunk.length());
+    void write(const std::string &chunk, WriteCallbackType callback = nullptr) {
+        write((const Byte *)chunk.data(), chunk.length(), std::move(callback));
     }
 
     void finish();
@@ -173,8 +275,8 @@ public:
 
     double requestTime() const;
 
-    const HTTPHeaders* getHTTPHeaders() const {
-        return _headers.get();
+    std::shared_ptr<const HTTPHeaders> getHTTPHeaders() const {
+        return _headers;
     }
 
     const std::string& getMethod() const {
@@ -268,18 +370,15 @@ public:
     }
 
     void addFile(const std::string &name, HTTPFile file) {
-        _files[name].emplace_back(file);
+        _files[name].emplace_back(std::move(file));
     }
 
-    template <typename ...Args>
-    static std::shared_ptr<HTTPServerRequest> create(Args&& ...args) {
-        return std::make_shared<HTTPServerRequest>(std::forward<Args>(args)...);
-    }
+    void parseBody();
 protected:
     std::string _method;
     std::string _uri;
     std::string _version;
-    std::unique_ptr<HTTPHeaders> _headers;
+    std::shared_ptr<HTTPHeaders> _headers;
     std::string _body;
     std::string _remoteIp;
     std::string _protocol;

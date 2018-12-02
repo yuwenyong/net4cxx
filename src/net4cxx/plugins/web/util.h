@@ -6,6 +6,7 @@
 #define NET4CXX_PLUGINS_WEB_UTIL_H
 
 #include "net4cxx/common/common.h"
+#include "net4cxx/common/compress/zlib.h"
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/reactor.h"
 #include "net4cxx/shared/global/constants.h"
@@ -77,6 +78,53 @@ protected:
 };
 
 using PeriodicCallbackPtr = std::shared_ptr<PeriodicCallback>;
+
+
+class NET4CXX_COMMON_API GzipDecompressor {
+public:
+    GzipDecompressor()
+            : _decompressObj(16 + Zlib::maxWBits) {
+
+    }
+
+    ByteArray decompress(const Byte *data, size_t len, size_t maxLength=0) {
+        return _decompressObj.decompress(data, len, maxLength);
+    }
+
+    ByteArray decompress(const ByteArray &data, size_t maxLength=0) {
+        return _decompressObj.decompress(data, maxLength);
+    }
+
+    ByteArray decompress(const std::string &data, size_t maxLength=0) {
+        return _decompressObj.decompress(data, maxLength);
+    }
+
+    std::string decompressToString(const Byte *data, size_t len, size_t maxLength=0) {
+        return _decompressObj.decompressToString(data, len, maxLength);
+    }
+
+    std::string decompressToString(const ByteArray &data, size_t maxLength=0) {
+        return _decompressObj.decompressToString(data, maxLength);
+    }
+
+    std::string decompressToString(const std::string &data, size_t maxLength=0) {
+        return _decompressObj.decompressToString(data, maxLength);
+    }
+
+    ByteArray flush() {
+        return _decompressObj.flush();
+    }
+
+    std::string flushToString() {
+        return _decompressObj.flushToString();
+    }
+
+    const ByteArray& getUnconsumedTail() const {
+        return _decompressObj.getUnconsumedTail();
+    }
+protected:
+    DecompressObj _decompressObj;
+};
 
 NS_END
 

@@ -66,6 +66,7 @@ NET4CXX_DECLARE_EXCEPTION(NotImplementedError, Exception);
 NET4CXX_DECLARE_EXCEPTION(TimeoutError, Exception);
 NET4CXX_DECLARE_EXCEPTION(ParsingError, Exception);
 NET4CXX_DECLARE_EXCEPTION(PermissionError, Exception);
+NET4CXX_DECLARE_EXCEPTION(RuntimeError, Exception);
 
 
 #define NET4CXX_MAKE_EXCEPTION(Exception, msg, ...)   Exception() << \

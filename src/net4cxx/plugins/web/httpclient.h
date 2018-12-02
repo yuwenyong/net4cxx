@@ -9,15 +9,50 @@
 #include <boost/optional.hpp>
 #include "net4cxx/core/protocols/iostream.h"
 #include "net4cxx/plugins/web/httputil.h"
+#include "net4cxx/plugins/web/util.h"
 
 
 NS_BEGIN
 
 
-class NET4CXX_COMMON_API HTTPRequest: public std::enable_shared_from_this<HTTPRequest> {
+class HTTPClientConnection;
+
+
+class NET4CXX_COMMON_API HTTPRequestBodyProducer {
 public:
-    typedef std::function<void (ByteArray)> StreamingCallbackType;
-    typedef std::function<void (std::string)> HeaderCallbackType;
+    virtual ~HTTPRequestBodyProducer() = default;
+
+    void active(const std::shared_ptr<HTTPClientConnection> &connection) {
+        _connection = connection;
+        onActive();
+    }
+
+    virtual void onActive() = 0;
+
+    void write(const Byte *chunk, size_t length);
+
+    void write(const ByteArray &chunk) {
+        write(chunk.data(), chunk.size());
+    }
+
+    void write(const char *chunk) {
+        write((const Byte *) chunk, strlen(chunk));
+    }
+
+    void write(const std::string &chunk) {
+        write((const Byte *) chunk.c_str(), chunk.size());
+    }
+
+    void finish();
+protected:
+    std::weak_ptr<HTTPClientConnection> _connection;
+};
+
+
+class NET4CXX_COMMON_API HTTPRequest : public std::enable_shared_from_this<HTTPRequest> {
+public:
+    typedef std::function<void(std::string)> StreamingCallbackType;
+    typedef std::function<void(std::string)> HeaderCallbackType;
 
     explicit HTTPRequest(std::string url,
                          HTTPHeaders headers = {},
@@ -39,11 +74,11 @@ public:
         _startTime = TimestampClock::now();
     }
 
-    HTTPHeaders& headers() {
+    HTTPHeaders &headers() {
         return _headers;
     }
 
-    const HTTPHeaders& headers() const {
+    const HTTPHeaders &headers() const {
         return _headers;
     }
 
@@ -57,7 +92,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getUrl() const {
+    const std::string &getUrl() const {
         return _url;
     }
 
@@ -71,7 +106,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getMethod() const {
+    const std::string &getMethod() const {
         return _method;
     }
 
@@ -85,7 +120,7 @@ public:
         return shared_from_this();
     }
 
-    const HTTPHeaders& getHeaders() const {
+    const HTTPHeaders &getHeaders() const {
         return _headers;
     }
 
@@ -99,8 +134,22 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getBody() const {
+    const std::string &getBody() const {
         return _body;
+    }
+
+    std::shared_ptr<HTTPRequest> setBodyProducer(std::shared_ptr<HTTPRequestBodyProducer> &&bodyProducer) {
+        _bodyProducer = std::move(bodyProducer);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<HTTPRequest> setBodyProducer(const std::shared_ptr<HTTPRequestBodyProducer> &bodyProducer) {
+        _bodyProducer = bodyProducer;
+        return shared_from_this();
+    }
+
+    std::shared_ptr<HTTPRequestBodyProducer> getBodyProducer() const {
+        return _bodyProducer;
     }
 
     std::shared_ptr<HTTPRequest> setAuthUserName(std::string &&authUserName) {
@@ -113,7 +162,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getAuthUserName() const {
+    const std::string &getAuthUserName() const {
         return _authUserName;
     }
 
@@ -127,7 +176,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getAuthMode() const {
+    const std::string &getAuthMode() const {
         return _authMode;
     }
 
@@ -141,7 +190,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getAuthPassword() const {
+    const std::string &getAuthPassword() const {
         return _authPassword;
     }
 
@@ -191,17 +240,26 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getUserAgent() const {
+    const std::string &getUserAgent() const {
         return _userAgent;
     }
 
-    std::shared_ptr<HTTPRequest> setUseGzip(bool useGzip) {
-        _useGzip = useGzip;
+    std::shared_ptr<HTTPRequest> setExpect100Continue(bool expect100Continue) {
+        _expect100Continue = expect100Continue;
         return shared_from_this();
     }
 
-    bool isUseGzip() const {
-        return _useGzip;
+    bool getExpect100Continue() const {
+        return _expect100Continue;
+    }
+
+    std::shared_ptr<HTTPRequest> setDecompressResponse(bool decompressResponse) {
+        _decompressResponse = decompressResponse;
+        return shared_from_this();
+    }
+
+    bool getDecompressResponse() const {
+        return _decompressResponse;
     }
 
     std::shared_ptr<HTTPRequest> setNetworkInterface(std::string &&networkInterface) {
@@ -214,7 +272,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getNetworkInterface() const {
+    const std::string &getNetworkInterface() const {
         return _networkInterface;
     }
 
@@ -228,7 +286,7 @@ public:
         return shared_from_this();
     }
 
-    const StreamingCallbackType& getStreamingCallback() const {
+    const StreamingCallbackType &getStreamingCallback() const {
         return _streamingCallback;
     }
 
@@ -242,7 +300,7 @@ public:
         return shared_from_this();
     }
 
-    const HeaderCallbackType& getHeaderCallback() const {
+    const HeaderCallbackType &getHeaderCallback() const {
         return _headerCallback;
     }
 
@@ -256,7 +314,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getProxyHost() const {
+    const std::string &getProxyHost() const {
         return _proxyHost;
     }
 
@@ -279,7 +337,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getProxyUserName() const {
+    const std::string &getProxyUserName() const {
         return _proxyUserName;
     }
 
@@ -293,7 +351,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getProxyPassword() const {
+    const std::string &getProxyPassword() const {
         return _proxyPassword;
     }
 
@@ -325,7 +383,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getCACerts() const {
+    const std::string &getCACerts() const {
         return _caCerts;
     }
 
@@ -339,7 +397,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getClientKey() const {
+    const std::string &getClientKey() const {
         return _clientKey;
     }
 
@@ -353,7 +411,7 @@ public:
         return shared_from_this();
     }
 
-    const std::string& getClientCert() const {
+    const std::string &getClientCert() const {
         return _clientCert;
     }
 
@@ -379,8 +437,8 @@ public:
         return std::make_shared<HTTPRequest>(*this);
     }
 
-    template <typename ...Args>
-    static std::shared_ptr<HTTPRequest> create(Args&& ...args) {
+    template<typename ...Args>
+    static std::shared_ptr<HTTPRequest> create(Args &&...args) {
         auto request = std::make_shared<HTTPRequest>(std::forward<Args>(args)...);
         return request;
     }
@@ -390,6 +448,7 @@ protected:
     std::string _method{"GET"};
     HTTPHeaders _headers;
     std::string _body;
+    std::shared_ptr<HTTPRequestBodyProducer> _bodyProducer;
     std::string _authUserName;
     std::string _authPassword;
     std::string _authMode;
@@ -398,7 +457,8 @@ protected:
     bool _followRedirects{true};
     int _maxRedirects{5};
     std::string _userAgent;
-    bool _useGzip{true};
+    bool _expect100Continue{false};
+    bool _decompressResponse{true};
     std::string _networkInterface;
     StreamingCallbackType _streamingCallback;
     HeaderCallbackType _headerCallback;
@@ -423,8 +483,13 @@ class NET4CXX_COMMON_API HTTPResponse {
 public:
     HTTPResponse() = default;
 
-    HTTPResponse(HTTPRequestPtr request, int code, std::string reason, HTTPHeaders headers,
-                 std::string body, std::string effectiveUrl, const Duration &requestTime)
+    HTTPResponse(std::shared_ptr<HTTPRequest> request,
+                 int code,
+                 const std::string &reason,
+                 std::shared_ptr<HTTPHeaders> headers,
+                 std::string body,
+                 std::string effectiveUrl,
+                 const Duration &requestTime)
             : _request(std::move(request))
             , _code(code)
             , _headers(std::move(headers))
@@ -434,16 +499,20 @@ public:
         if (reason.empty()) {
             _reason = HTTPUtil::getHTTPReason(code);
         } else {
-            _reason = std::move(reason);
+            _reason = reason;
         }
         if (!_error) {
             if (_code < 200 || _code >= 300) {
-                _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(HTTPError, "") << errinfo_http_code(code));
+                _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(HTTPError, "") << errinfo_http_code(code)
+                                                                                       << errinfo_http_reason(_reason));
             }
         }
     }
 
-    HTTPResponse(HTTPRequestPtr request, int code, std::exception_ptr error, const Duration &requestTime)
+    HTTPResponse(std::shared_ptr<HTTPRequest> request,
+                 int code,
+                 const std::exception_ptr &error,
+                 const Duration &requestTime)
             : _request(std::move(request))
             , _code(code)
             , _error(error)
@@ -451,12 +520,13 @@ public:
         _reason = HTTPUtil::getHTTPReason(code);
         if (!_error) {
             if (_code < 200 || _code >= 300) {
-                _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(HTTPError, "") << errinfo_http_code(code));
+                _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(HTTPError, "") << errinfo_http_code(code)
+                                                                                       << errinfo_http_reason(_reason));
             }
         }
     }
 
-    HTTPRequestPtr getRequest() const {
+    std::shared_ptr<HTTPRequest> getRequest() const {
         return _request;
     }
 
@@ -464,19 +534,19 @@ public:
         return _code;
     }
 
-    const std::string& getReason() const {
+    const std::string &getReason() const {
         return _reason;
     }
 
-    const HTTPHeaders& getHeaders() const {
+    std::shared_ptr<HTTPHeaders> getHeaders() const {
         return _headers;
     }
 
-    const std::string& getBody() const {
+    const std::string &getBody() const {
         return _body;
     }
 
-    const std::string& getEffectiveUrl() const {
+    const std::string &getEffectiveUrl() const {
         return _effectiveUrl;
     }
 
@@ -484,7 +554,7 @@ public:
         return _error;
     }
 
-    const Duration& getRequestTime() const {
+    const Duration &getRequestTime() const {
         return _requestTime;
     }
 
@@ -493,11 +563,12 @@ public:
             std::rethrow_exception(_error);
         }
     }
+
 protected:
-    HTTPRequestPtr _request;
+    std::shared_ptr<HTTPRequest> _request;
     int _code{200};
     std::string _reason;
-    HTTPHeaders _headers;
+    std::shared_ptr<HTTPHeaders> _headers;
     std::string _body;
     std::string _effectiveUrl;
     std::exception_ptr _error;
@@ -505,45 +576,49 @@ protected:
 };
 
 
-NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &os, const HTTPResponse &response);
+NET4CXX_COMMON_API std::ostream &operator<<(std::ostream &os, const HTTPResponse &response);
 
 
-class NET4CXX_COMMON_API HTTPClient: public std::enable_shared_from_this<HTTPClient> {
+class NET4CXX_COMMON_API HTTPClient : public std::enable_shared_from_this<HTTPClient> {
 public:
-    typedef std::function<void (const HTTPResponse &)> CallbackType;
+    typedef std::function<void(const HTTPResponse &)> CallbackType;
 
-    explicit HTTPClient(Reactor *reactor=nullptr,
-               StringMap hostnameMapping={},
-               size_t maxBufferSize=IOStream::DEFAULT_MAX_BUFFER_SIZE)
+    explicit HTTPClient(Reactor *reactor = nullptr,
+                        StringMap hostnameMapping = {},
+                        size_t maxBufferSize = 104857600,
+                        size_t maxHeaderSize = 0)
             : _reactor(reactor ? reactor : Reactor::current())
             , _hostnameMapping(std::move(hostnameMapping))
-            , _maxBufferSize(maxBufferSize) {
+            , _maxBufferSize(maxBufferSize)
+            , _maxHeaderSize(maxHeaderSize) {
 #ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(WatchKeys::HTTPClientCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
+
     ~HTTPClient() {
         NET4CXX_Watcher->dec(WatchKeys::HTTPClientCount);
     }
+
 #endif
 
     void close() {
-
+        _closed = true;
     }
 
-    DeferredPtr fetch(const std::string &url, CallbackType callback= nullptr) {
+    DeferredPtr fetch(const std::string &url, CallbackType callback = nullptr) {
         return fetch(HTTPRequest::create(url), std::move(callback));
     }
 
-    DeferredPtr fetch(const HTTPRequest &request, CallbackType callback= nullptr) {
+    DeferredPtr fetch(const HTTPRequest &request, CallbackType callback = nullptr) {
         return fetch(HTTPRequest::create(request), std::move(callback));
     }
 
-    DeferredPtr fetch(HTTPRequestPtr request, CallbackType callback= nullptr);
+    DeferredPtr fetch(HTTPRequestPtr request, CallbackType callback = nullptr);
 
-    const StringMap& getHostnameMapping() const {
+    const StringMap &getHostnameMapping() const {
         return _hostnameMapping;
     }
 
@@ -551,66 +626,144 @@ public:
         return _maxBufferSize;
     }
 
-    Reactor* reactor() {
+    size_t getMaxHeaderSize() const {
+        return _maxHeaderSize;
+    }
+
+    Reactor *reactor() {
         return _reactor;
     }
 
-    template <typename ...Args>
-    static std::shared_ptr<HTTPClient> create(Args&& ...args) {
+    template<typename ...Args>
+    static std::shared_ptr<HTTPClient> create(Args &&...args) {
         return std::make_shared<HTTPClient>(std::forward<Args>(args)...);
     }
+
 protected:
     void fetchImpl(HTTPRequestPtr request, CallbackType &&callback);
 
-    Reactor * _reactor;
+    Reactor *_reactor;
     StringMap _hostnameMapping;
     size_t _maxBufferSize;
+    size_t _maxHeaderSize;
+    bool _closed{false};
 };
 
 using HTTPClientPtr = std::shared_ptr<HTTPClient>;
 
 
-class NET4CXX_COMMON_API HTTPClientConnection: public IOStream {
+class NET4CXX_COMMON_API HTTPClientConnection : public IOStream {
 public:
-    typedef std::function<void (const HTTPResponse &)> CallbackType;
+    typedef std::function<void(const HTTPResponse &)> CallbackType;
 
     enum State {
-        INITIAL,
+        READ_NONE,
         READ_HEADER,
-        READ_BODY,
+        READ_FIXED_BODY,
         READ_CHUNK_LENGTH,
         READ_CHUNK_DATA,
+        READ_CHUNK_ENDS,
+        READ_UNTIL_CLOSE,
     };
 
-    explicit HTTPClientConnection(HTTPClientPtr client,
-                                  HTTPRequestPtr request,
-                                  CallbackType callback,
-                                  size_t maxBufferSize = 0)
+    HTTPClientConnection(HTTPClientPtr client,
+                         HTTPRequestPtr request,
+                         CallbackType callback,
+                         size_t maxBufferSize = 0,
+                         size_t maxHeaderSize = 0)
             : IOStream(maxBufferSize)
             , _client(std::move(client))
             , _request(std::move(request))
-            , _callback(std::move(callback)) {
+            , _callback(std::move(callback))
+            , _maxBodySize(maxBufferSize)
+            , _maxHeaderSize(maxHeaderSize) {
         _startTime = TimestampClock::now();
 #ifdef NET4CXX_DEBUG
-            NET4CXX_Watcher->inc(WatchKeys::HTTPClientConnectionCount);
+        NET4CXX_Watcher->inc(WatchKeys::HTTPClientConnectionCount);
 #endif
     }
 
 #ifdef NET4CXX_DEBUG
+
     ~HTTPClientConnection() override {
         NET4CXX_Watcher->dec(WatchKeys::HTTPClientConnectionCount);
     }
+
 #endif
 
-    void startProcessing();
+    void startRequest();
 
-    void connectionMade() override;
+    void onConnected() override;
 
-    void dataRead(Byte *data, size_t length) override;
+    void onDataRead(Byte *data, size_t length) override;
 
-    void connectionClose(std::exception_ptr reason) override;
+    void onWriteComplete() override;
+
+    void onDisconnected(std::exception_ptr reason) override;
+
+    void writeChunk(const Byte *chunk, size_t length) {
+        write(formatChunk(chunk, length), true);
+    }
+
+    void writeChunk(const ByteArray &chunk) {
+        writeChunk(chunk.data(), chunk.size());
+    }
+
+    void writeChunk(const char *chunk) {
+        writeChunk((const Byte *) chunk, strlen(chunk));
+    }
+
+    void writeChunk(const std::string &chunk) {
+        writeChunk((const Byte *) chunk.c_str(), chunk.size());
+    }
+
+    void writeFinished();
 protected:
     void startConnecting(const std::string &host, unsigned short port);
+
+    void writeHeaders(const RequestStartLine &startLine, HTTPHeaders &headers);
+
+    void readResponse();
+
+    void readBody();
+
+    void readFixedBody(size_t contentLength) {
+        if (contentLength != 0) {
+            _bytesRead = 0;
+            _bytesToRead = contentLength;
+            readFixedBodyBlock();
+        } else {
+            finish();
+        }
+    }
+
+    void readFixedBodyBlock() {
+        _state = READ_FIXED_BODY;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
+
+    void readChunkLength() {
+        _state = READ_CHUNK_LENGTH;
+        readUntil("\r\n", 64);
+    }
+
+    void readChunkData(size_t chunkLen) {
+        _bytesRead = 0;
+        _bytesToRead = chunkLen;
+        readChunkDataBlock();
+    }
+
+    void readChunkDataBlock() {
+        _state = READ_CHUNK_DATA;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
+
+    void readChunkEnds() {
+        _state = READ_CHUNK_ENDS;
+        readBytes(2);
+    }
+
+    void writeBody(bool startRead);
 
     void onTimeout();
 
@@ -620,33 +773,56 @@ protected:
 
     void handleException(std::exception_ptr error);
 
-    void handle1xx(int code);
+    void onHeaders(char *data, size_t length);
 
-    void onHeaders(Byte *data, size_t length);
+    void onFixedBody(char *data, size_t length);
 
-    void onBody(Byte *data, size_t length);
+    void onChunkLength(char *data, size_t length);
+
+    void onChunkData(char *data, size_t length);
+
+    void onChunkEnds(char *data, size_t length);
+
+    void onReadUntilClose(char *data, size_t length);
+
+    void finish();
 
     void onEndRequest() {
-        loseConnection();
+        close(nullptr);
     }
 
-    void onChunkLength(Byte *data, size_t length);
+    void onHeadersReceived(const ResponseStartLine &firstLine, const std::shared_ptr<HTTPHeaders> &headers);
+    
+    void onDataReceived(char *data, size_t length);
 
-    void onChunkData(Byte *data, size_t length);
+    void onChunkReceived(std::string chunk);
 
-    State _state{INITIAL};
+    std::string formatChunk(const Byte *data, size_t length);
+
+    State _state{READ_NONE};
     Timestamp _startTime;
     HTTPClientPtr _client;
     HTTPRequestPtr _request;
     CallbackType _callback;
     boost::optional<int> _code;
-    std::unique_ptr<HTTPHeaders> _headers;
-    boost::optional<ByteArray> _chunks;
+    std::shared_ptr<HTTPHeaders> _headers;
+    StringVector _chunks;
     std::unique_ptr<GzipDecompressor> _decompressor;
     UrlSplitResult _parsed;
     std::string _parsedHostname;
     DelayedCall _timeout;
     std::string _reason;
+    size_t _maxBodySize;
+    size_t _maxHeaderSize;
+    size_t _chunkSize{65535};
+    size_t _totalSize{0};
+    size_t _bytesToRead{0};
+    size_t _bytesRead{0};
+    RequestStartLine _requestStartLine;
+    ResponseStartLine _responseStartLine;
+    bool _chunkingOutput{false};
+    bool _writeFinished{false};
+    boost::optional<ssize_t> _expectedContentRemaining;
 
     static const StringSet _SUPPORTED_METHODS;
 };
