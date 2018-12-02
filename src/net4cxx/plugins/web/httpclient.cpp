@@ -399,13 +399,30 @@ void HTTPClientConnection::readResponse() {
 }
 
 void HTTPClientConnection::readBody() {
-    std::string contentLengthValue = _headers->get("Content-Length");
-    if (!contentLengthValue.empty()) {
-        auto contentLength = (size_t) std::stoi(contentLengthValue);
-        if (contentLength > _maxBodySize) {
-            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Content-Length too long");
+    boost::optional<size_t> contentLength;
+    if (_headers->has("Content-Length")) {
+        if (_headers->at("Content-Length").find(',') != std::string::npos) {
+            StringVector pieces = StrUtil::split(_headers->at("Content-Length"), ',');
+            for (auto &piece: pieces) {
+                boost::trim(piece);
+            }
+            for (auto &piece: pieces) {
+                if (piece != pieces[0]) {
+                    NET4CXX_THROW_EXCEPTION(HTTPInputError, "Multiple unequal Content-Lengths: %s",
+                                            _headers->at("Content-Length"));
+                }
+            }
+            (*_headers)["Content-Length"] = pieces[0];
         }
-        readFixedBody(contentLength);
+        contentLength = std::stoul(_headers->at("Content-Length"));
+    }
+    if (_responseStartLine.getCode() == 204) {
+        if (_headers->has("Transfer-Encoding") || (contentLength && *contentLength != 0)) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Response with code 204 should not have body");
+        }
+    }
+    if (contentLength) {
+        readFixedBody(*contentLength);
         return;
     }
     if (_headers->get("Transfer-Encoding") == "chunked") {
@@ -485,6 +502,9 @@ void HTTPClientConnection::onHeaders(char *data, size_t length) {
         skipBody = true;
     }
     if (_responseStartLine.getCode() >= 100 && _responseStartLine.getCode() < 200) {
+        if (headers->has("Content-Length") || headers->has("Transfer-Encoding")) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Response code %d cannot have body", _responseStartLine.getCode());
+        }
         readResponse();
         return;
     }
@@ -609,23 +629,6 @@ void HTTPClientConnection::onHeadersReceived(const ResponseStartLine &firstLine,
     _headers = headers;
     _code = firstLine.getCode();
     _reason = firstLine.getReason();
-    boost::optional<size_t> contentLength;
-    if (_headers->has("Content-Length")) {
-        if (_headers->at("Content-Length").find(',') != std::string::npos) {
-            StringVector pieces = StrUtil::split(_headers->at("Content-Length"), ',');
-            for (auto &piece: pieces) {
-                boost::trim(piece);
-            }
-            for (auto &piece: pieces) {
-                if (piece != pieces[0]) {
-                    NET4CXX_THROW_EXCEPTION(ValueError, "Multiple unequal Content-Lengths: %s",
-                                            _headers->at("Content-Length"));
-                }
-            }
-            (*_headers)["Content-Length"] = pieces[0];
-        }
-        contentLength = std::stoul(_headers->at("Content-Length"));
-    }
 
     auto &headerCallback = _request->getHeaderCallback();
     if (headerCallback) {
@@ -635,11 +638,6 @@ void HTTPClientConnection::onHeadersReceived(const ResponseStartLine &firstLine,
             headerCallback(k + ": " + v + "\r\n");
         });
         headerCallback("\r\n");
-    }
-    if ((100 <= _code && _code < 200) || _code == 204) {
-        if (_headers->has("Transfer-Encoding") || (contentLength && *contentLength != 0)) {
-            NET4CXX_THROW_EXCEPTION(ValueError, "Response with code %d should not have body", *_code);
-        }
     }
 }
 
