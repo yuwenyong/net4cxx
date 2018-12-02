@@ -729,6 +729,7 @@ protected:
 
     void readFixedBody(size_t contentLength) {
         if (contentLength != 0) {
+            _bytesRead = 0;
             _bytesToRead = contentLength;
             readFixedBodyBlock();
         } else {
@@ -747,6 +748,7 @@ protected:
     }
 
     void readChunkData(size_t chunkLen) {
+        _bytesRead = 0;
         _bytesToRead = chunkLen;
         readChunkDataBlock();
     }
@@ -793,7 +795,7 @@ protected:
     
     void onDataReceived(char *data, size_t length);
 
-    void onDataReceived(std::string chunk);
+    void onChunkReceived(std::string chunk);
 
     std::string formatChunk(const Byte *data, size_t length);
 

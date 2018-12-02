@@ -501,10 +501,7 @@ void HTTPClientConnection::onHeaders(char *data, size_t length) {
 }
 
 void HTTPClientConnection::onFixedBody(char *data, size_t length) {
-    if (length != 0) {
-        _bytesRead += length;
-        onDataReceived(data, length);
-    }
+    onDataReceived(data, length);
     if (_bytesRead < _bytesToRead) {
         readFixedBodyBlock();
     } else {
@@ -527,7 +524,6 @@ void HTTPClientConnection::onChunkLength(char *data, size_t length) {
 }
 
 void HTTPClientConnection::onChunkData(char *data, size_t length) {
-    _bytesRead += length;
     onDataReceived(data, length);
     if (_bytesRead < _bytesToRead) {
         readChunkDataBlock();
@@ -550,7 +546,7 @@ void HTTPClientConnection::finish() {
     if (_decompressor) {
         auto tail = _decompressor->flushToString();
         if (!tail.empty()) {
-            onDataReceived(std::move(tail));
+            onChunkReceived(std::move(tail));
         }
     }
     _state = READ_NONE;
@@ -648,21 +644,22 @@ void HTTPClientConnection::onHeadersReceived(const ResponseStartLine &firstLine,
 }
 
 void HTTPClientConnection::onDataReceived(char *data, size_t length) {
+    _bytesRead += length;
     _totalSize += length;
     if (_decompressor) {
         std::string compressed;
         compressed = _decompressor->decompressToString((const Byte *) data, length, _chunkSize);
-        onDataReceived(std::move(compressed));
+        onChunkReceived(std::move(compressed));
         while (!_decompressor->getUnconsumedTail().empty()) {
             compressed = _decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize);
-            onDataReceived(std::move(compressed));
+            onChunkReceived(std::move(compressed));
         }
     } else {
-        onDataReceived(std::string{data, data + length});
+        onChunkReceived(std::string{data, data + length});
     }
 }
 
-void HTTPClientConnection::onDataReceived(std::string chunk) {
+void HTTPClientConnection::onChunkReceived(std::string chunk) {
     auto &streamingCallback = _request->getStreamingCallback();
     if (streamingCallback) {
         streamingCallback(std::move(chunk));

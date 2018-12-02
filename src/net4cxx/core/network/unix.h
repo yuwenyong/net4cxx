@@ -109,7 +109,7 @@ protected:
     void cbWrite(const boost::system::error_code &ec, size_t transferredBytes) {
         _writing = false;
         handleWrite(ec, transferredBytes);
-        if (!_aborting && !_disconnected && !_writeQueue.empty()) {
+        if (!_aborting && !_disconnected) {
             if (!_writeQueue.empty()) {
                 doWrite();
             } else {

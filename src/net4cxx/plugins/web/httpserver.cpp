@@ -47,7 +47,7 @@ void HTTPConnection::onDataRead(Byte *data, size_t length) {
             if (_state == READ_HEADER) {
                 onHeaders((char *)data, length);
             } else if (_state == READ_FIXED_BODY) {
-                onRequestBody((char *)data, length);
+                onFixedBody((char *)data, length);
             } else if (_state == READ_CHUNK_LENGTH) {
                 onChunkLength((char *)data, length);
             } else if (_state == READ_CHUNK_DATA) {
@@ -77,7 +77,13 @@ void HTTPConnection::onWriteComplete() {
     if (_writeCallback) {
         WriteCallbackType callback = std::move(_writeCallback);
         _writeCallback = nullptr;
-        callback();
+        try {
+            callback();
+        } catch (std::exception &e) {
+            NET4CXX_LOG_INFO(gGenLog, "Uncaught exception in write callback from %s: %s", _remoteIp, e.what());
+        } catch (...) {
+            NET4CXX_LOG_INFO(gGenLog, "Unknown exception in write callback from %s", _remoteIp);
+        }
     }
     if (_writeFinished) {
         finishRequest();
@@ -88,7 +94,13 @@ void HTTPConnection::onDisconnected(std::exception_ptr reason) {
     if (_closeCallback) {
         CloseCallbackType callback = std::move(_closeCallback);
         _closeCallback = nullptr;
-        callback();
+        try {
+            callback();
+        } catch (std::exception &e) {
+            NET4CXX_LOG_INFO(gGenLog, "Uncaught exception in close callback from %s: %s", _remoteIp, e.what());
+        } catch (...) {
+            NET4CXX_LOG_INFO(gGenLog, "Unknown exception in close callback from %s", _remoteIp);
+        }
     }
     if (_dispatcher) {
         _dispatcher->onConnectionClose();
@@ -135,8 +147,8 @@ void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &head
     if (callback) {
         _writeCallback = std::move(callback);
     }
-    write(data, true);
     _pendingWrite = true;
+    write(data, true);
 }
 
 void HTTPConnection::writeChunk(const Byte *chunk, size_t length, WriteCallbackType callback) {
@@ -157,8 +169,8 @@ void HTTPConnection::finish() {
         }
     }
     if (_chunkingOutput) {
-        write("0\r\n\r\n", true);
         _pendingWrite = true;
+        write("0\r\n\r\n", true);
     }
     _writeFinished = true;
     if (!_readFinished) {
@@ -264,31 +276,7 @@ void HTTPConnection::readBody() {
         }
         return;
     }
-    processRequest();
-}
-
-void HTTPConnection::readFixedBody(size_t contentLength) {
-    _state = READ_FIXED_BODY;
-    if (contentLength != 0) {
-        readBytes(contentLength);
-    } else {
-        onRequestBody(nullptr, 0);
-    }
-}
-
-void HTTPConnection::readChunkLength() {
-    _state = READ_CHUNK_LENGTH;
-    readUntil("\r\n", 64);
-}
-
-void HTTPConnection::readChunkData(size_t chunkLen) {
-    _state = READ_CHUNK_DATA;
-    readBytes(chunkLen);
-}
-
-void HTTPConnection::readChunkEnds() {
-    _state = READ_CHUNK_ENDS;
-    readBytes(2);
+    readFinished();
 }
 
 void HTTPConnection::onHeaders(char *data, size_t length) {
@@ -299,6 +287,51 @@ void HTTPConnection::onHeaders(char *data, size_t length) {
     std::tie(startLine, _requestHeaders) = HTTPUtil::parseHeaders(data, length);
     _requestStartLine = HTTPUtil::parseRequestStartLine(startLine);
     _disconnectOnFinish = !canKeepAlive(_requestStartLine, *_requestHeaders);
+    onHeadersReceived();
+    if (_requestHeaders->get("Expect") == "100-continue" && !_writeFinished) {
+        write("HTTP/1.1 100 (Continue)\r\n\r\n");
+    }
+    readBody();
+}
+
+void HTTPConnection::onFixedBody(char *data, size_t length) {
+    onDataReceived(data, length);
+    if (_bytesRead < _bytesToRead) {
+        readFixedBodyBlock();
+    } else {
+        readFinished();
+    }
+}
+
+void HTTPConnection::onChunkLength(char *data, size_t length) {
+    std::string content(data, length);
+    boost::trim(content);
+    size_t chunkLen = std::stoul(content, nullptr, 16);
+    if (chunkLen == 0) {
+        readFinished();
+    } else {
+        if (chunkLen + _totalSize > _maxBodySize) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "chunked body too large");
+        }
+        readChunkData(chunkLen);
+    }
+}
+
+void HTTPConnection::onChunkData(char *data, size_t length) {
+    onDataReceived(data, length);
+    if (_bytesRead < _bytesToRead) {
+        readChunkDataBlock();
+    } else {
+        readChunkEnds();
+    }
+}
+
+void HTTPConnection::onChunkEnds(char *data, size_t length) {
+    NET4CXX_ASSERT_THROW(boost::string_view(data, length) == "\r\n", "");
+    readChunkLength();
+}
+
+void HTTPConnection::onHeadersReceived() {
     if (_decompress) {
         if (_requestHeaders->get("Content-Encoding") == "gzip") {
             _decompressor = std::make_unique<GzipDecompressor>();
@@ -310,78 +343,35 @@ void HTTPConnection::onHeaders(char *data, size_t length) {
         applyXheaders(*_requestHeaders);
     }
     _dispatcher->headersReceived(_requestStartLine, _requestHeaders);
-    if (_requestHeaders->get("Expect") == "100-continue" && !_writeFinished) {
-        write("HTTP/1.1 100 (Continue)\r\n\r\n");
-    }
-    readBody();
 }
 
-void HTTPConnection::onRequestBody(char *data, size_t length) {
-    if (_bodyTimeoutCall.active()) {
-        _bodyTimeoutCall.cancel();
-    }
-    if (length != 0) {
-        if (_decompressor) {
-            std::string compressed;
-            compressed = _decompressor->decompressToString((const Byte *)data, length, _chunkSize);
-            while (!_decompressor->getUnconsumedTail().empty()) {
-                compressed.append(_decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize));
-            }
-            if (!_writeFinished) {
-                _dispatcher->dataReceived(std::move(compressed));
-            }
-        } else {
-            if (!_writeFinished) {
-                _dispatcher->dataReceived(std::string{data, data + length});
-            }
-        }
-    }
-    processRequest();
-}
-
-void HTTPConnection::onChunkLength(char *data, size_t length) {
-    std::string content(data, length);
-    boost::trim(content);
-    size_t chunkLen = std::stoul(content, nullptr, 16);
-    if (chunkLen == 0) {
-        if (_bodyTimeoutCall.active()) {
-            _bodyTimeoutCall.cancel();
-        }
-        processRequest();
-    } else {
-        if (chunkLen + _totalSize > _maxBodySize) {
-            NET4CXX_THROW_EXCEPTION(HTTPInputError, "chunked body too large");
-        }
-        _totalSize += chunkLen;
-        readChunkData(chunkLen);
-    }
-}
-
-void HTTPConnection::onChunkData(char *data, size_t length) {
+void HTTPConnection::onDataReceived(char *data, size_t length) {
+    _bytesRead += length;
+    _totalSize += length;
     if (_decompressor) {
         std::string compressed;
         compressed = _decompressor->decompressToString((const Byte *)data, length, _chunkSize);
-        while (!_decompressor->getUnconsumedTail().empty()) {
-            compressed.append(_decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize));
-        }
         if (!_writeFinished) {
             _dispatcher->dataReceived(std::move(compressed));
+        }
+        while (!_decompressor->getUnconsumedTail().empty()) {
+            compressed = _decompressor->decompressToString(_decompressor->getUnconsumedTail(), _chunkSize);
+            if (!_writeFinished) {
+                _dispatcher->dataReceived(std::move(compressed));
+            }
         }
     } else {
         if (!_writeFinished) {
             _dispatcher->dataReceived(std::string{data, data + length});
         }
     }
-    readChunkEnds();
 }
 
-void HTTPConnection::onChunkEnds(char *data, size_t length) {
-    NET4CXX_ASSERT_THROW(boost::string_view(data, length) == "\r\n", "");
-    readChunkLength();
-}
-
-void HTTPConnection::processRequest() {
+void HTTPConnection::readFinished() {
     _readFinished = true;
+    if (_bodyTimeoutCall.active()) {
+        _bodyTimeoutCall.cancel();
+    }
     if (_decompressor) {
         auto tail = _decompressor->flushToString();
         if (!tail.empty()) {

@@ -126,17 +126,45 @@ protected:
 
     void readBody();
 
-    void readFixedBody(size_t contentLength);
+    void readFixedBody(size_t contentLength) {
+        if (contentLength != 0) {
+            _bytesRead = 0;
+            _bytesToRead = contentLength;
+            readFixedBodyBlock();
+        } else {
+            readFinished();
+        }
+    }
 
-    void readChunkLength();
+    void readFixedBodyBlock() {
+        _state = READ_FIXED_BODY;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
 
-    void readChunkData(size_t chunkLen);
+    void readChunkLength() {
+        _state = READ_CHUNK_LENGTH;
+        readUntil("\r\n", 64);
+    }
 
-    void readChunkEnds();
+    void readChunkData(size_t chunkLen) {
+        _bytesRead = 0;
+        _bytesToRead = chunkLen;
+        readChunkDataBlock();
+    }
+
+    void readChunkDataBlock() {
+        _state = READ_CHUNK_DATA;
+        readBytes(std::min(_chunkSize, _bytesToRead));
+    }
+
+    void readChunkEnds() {
+        _state = READ_CHUNK_ENDS;
+        readBytes(2);
+    }
 
     void onHeaders(char *data, size_t length);
 
-    void onRequestBody(char *data, size_t length);
+    void onFixedBody(char *data, size_t length);
 
     void onChunkLength(char *data, size_t length);
 
@@ -144,7 +172,11 @@ protected:
 
     void onChunkEnds(char *data, size_t length);
 
-    void processRequest();
+    void onHeadersReceived();
+
+    void onDataReceived(char *data, size_t length);
+
+    void readFinished();
 
     bool canKeepAlive(const RequestStartLine &startLine, const HTTPHeaders &headers);
 
@@ -163,6 +195,8 @@ protected:
     size_t _maxHeaderSize{0};
     size_t _maxBodySize{0};
     size_t _totalSize{0};
+    size_t _bytesToRead{0};
+    size_t _bytesRead{0};
     double _headerTimeout{0.0};
     double _bodyTimeout{0.0};
     std::string _remoteIp;

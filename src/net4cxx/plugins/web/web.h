@@ -188,17 +188,23 @@ public:
 
     void redirect(const std::string &url, bool permanent=false, boost::optional<int> status=boost::none);
 
-    void write(const Byte *chunk, size_t length) {
+    void write(std::string &&chunk) {
         NET4CXX_ASSERT(!_finished);
-        _writeBuffer.insert(_writeBuffer.end(), chunk, chunk + length);
-    }
-
-    void write(const char *chunk) {
-        write((const Byte *)chunk, strlen(chunk));
+        _writeBuffer.emplace_back(std::move(chunk));
     }
 
     void write(const std::string &chunk) {
+        NET4CXX_ASSERT(!_finished);
+        _writeBuffer.emplace_back(chunk);
         write((const Byte *)chunk.data(), chunk.size());
+    }
+
+    void write(const Byte *chunk, size_t length) {
+        write(std::string{(const char *)chunk, length});
+    }
+
+    void write(const char *chunk) {
+        write(std::string{chunk});
     }
 
     void write(const ByteArray &chunk) {
@@ -239,10 +245,17 @@ public:
                 NET4CXX_ASSERT_MSG(_writeBuffer.empty(), "Cannot send body with 304");
                 clearHeadersFor304();
             } else if (!_headers.has("Content-Length")) {
-                setHeader("Content-Length", _writeBuffer.size());
+                size_t contentLength = std::accumulate(_writeBuffer.begin(), _writeBuffer.end(), 0,
+                                                       [](size_t lhs, const std::string &rhs) {
+                                                           return lhs + rhs.size();
+                                                       });
+                setHeader("Content-Length", contentLength);
             }
         }
-        _request->getConnection()->setCloseCallback(nullptr);
+        auto connection = _request->getConnection();
+        if (connection) {
+            connection->setCloseCallback(nullptr);
+        }
         flush(true);
         _request->finish();
         log();
@@ -250,9 +263,9 @@ public:
         onFinish();
     }
 
-    void sendError(int statusCode = 500, std::exception_ptr error = nullptr);
+    void sendError(int statusCode = 500, const std::exception_ptr &error = nullptr);
 
-    virtual void writeError(int statusCode, std::exception_ptr error);
+    virtual void writeError(int statusCode, const std::exception_ptr &error);
 
     void requireSetting(const std::string &name, const std::string &feature="this feature");
 
@@ -288,6 +301,22 @@ public:
 
     std::shared_ptr<WebApp> getApplication() {
         return _application;
+    }
+
+    std::shared_ptr<HTTPConnection> getConnection() {
+        auto connection = _request->getConnection();
+        if (!connection) {
+            NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
+        }
+        return connection;
+    }
+
+    std::shared_ptr<const HTTPConnection> getConnection() const {
+        auto connection = _request->getConnection();
+        if (!connection) {
+            NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
+        }
+        return connection;
     }
 
     template <typename SelfT>
@@ -345,17 +374,15 @@ protected:
         }
     }
 
-    std::string generateHeaders() const;
-
     void log();
 
     std::string requestSummary() const {
         return _request->getMethod() + " " + _request->getURI() + " (" + _request->getRemoteIp() + ")";
     }
 
-    void handleRequestException(std::exception_ptr error);
+    void handleRequestException(const std::exception_ptr &error);
 
-    virtual void logException(std::exception_ptr error);
+    virtual void logException(const std::exception_ptr &error);
 
     void clearHeadersFor304() {
         const StringVector headers = {"Allow", "Content-Encoding", "Content-Language",
@@ -375,7 +402,7 @@ protected:
     StringVector _pathArgs;
     HTTPHeaders _headers;
 //    ListHeadersType _listHeaders;
-    ByteArray _writeBuffer;
+    StringVector _writeBuffer;
     int _statusCode;
     CookiesType _newCookie;
     std::string _reason;
@@ -532,9 +559,9 @@ class NET4CXX_COMMON_API OutputTransform {
 public:
     virtual ~OutputTransform() = default;
 
-    virtual void transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk, bool finishing) =0;
+    virtual void transformFirstChunk(int &statusCode, HTTPHeaders &headers, std::string &chunk, bool finishing) =0;
 
-    virtual void transformChunk(ByteArray &chunk, bool finishing) =0;
+    virtual void transformChunk(std::string &chunk, bool finishing) =0;
 };
 
 
@@ -542,9 +569,9 @@ class NET4CXX_COMMON_API GZipContentEncoding: public OutputTransform {
 public:
     explicit GZipContentEncoding(const std::shared_ptr<HTTPServerRequest> &request);
 
-    void transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk, bool finishing) override;
+    void transformFirstChunk(int &statusCode, HTTPHeaders &headers, std::string &chunk, bool finishing) override;
 
-    void transformChunk(ByteArray &chunk, bool finishing) override;
+    void transformChunk(std::string &chunk, bool finishing) override;
 
     static bool compressibleType(const std::string &ctype);
 
@@ -555,20 +582,6 @@ protected:
     bool _gzipping;
     std::shared_ptr<std::stringstream> _gzipValue;
     GzipFile _gzipFile;
-};
-
-
-class NET4CXX_COMMON_API ChunkedTransferEncoding: public OutputTransform {
-public:
-    explicit ChunkedTransferEncoding(const std::shared_ptr<HTTPServerRequest> &request) {
-        _chunking = request->supportsHTTP11();
-    }
-
-    void transformFirstChunk(int &statusCode, HTTPHeaders &headers, ByteArray &chunk, bool finishing) override;
-
-    void transformChunk(ByteArray &chunk, bool finishing) override;
-protected:
-    bool _chunking;
 };
 
 
@@ -619,6 +632,11 @@ public:
     }
 
     void onConnectionClose() {
+//        if (_handler->hasStreamRequestBody()) {
+//            _handler->onConnectionClose();
+//        } else {
+//            _chunks.clear();
+//        }
         _chunks.clear();
     }
 
