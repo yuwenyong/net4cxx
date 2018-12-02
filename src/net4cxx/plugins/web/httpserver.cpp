@@ -245,9 +245,19 @@ void HTTPConnection::readHeaders() {
 }
 
 void HTTPConnection::readBody() {
-    std::string contentLengthValue = _requestHeaders->get("Content-Length");
-    if (!contentLengthValue.empty()) {
-        auto contentLength = (size_t)std::stoi(contentLengthValue);
+    if (_requestHeaders->has("Content-Length")) {
+        StringVector pieces = StrUtil::split(_requestHeaders->at("Content-Length"), ',');
+        for (auto &piece: pieces) {
+            boost::trim(piece);
+        }
+        for (auto &piece: pieces) {
+            if (piece != pieces[0]) {
+                NET4CXX_THROW_EXCEPTION(HTTPInputError, "Multiple unequal Content-Lengths: %s",
+                                        _requestHeaders->at("Content-Length"));
+            }
+        }
+        (*_requestHeaders)["Content-Length"] = pieces[0];
+        auto contentLength = (size_t)std::stoul(_requestHeaders->at("Content-Length"));
         if (contentLength > _maxBodySize) {
             NET4CXX_THROW_EXCEPTION(HTTPInputError, "Content-Length too long");
         }
