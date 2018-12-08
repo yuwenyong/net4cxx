@@ -104,35 +104,60 @@ class HelloWorldApp: public AppBootstrapper {
 public:
     void onRun() override {
         NET4CXX_LOG_INFO(gAppLog, "Started");
-        auto d = callLater(reactor(), 2.0f);
-        d->addCallback([](DeferredValue result){
-            NET4CXX_LOG_INFO("First callback");
+        auto d1 = sleepAsync(reactor(), 2.0f);
+        auto d2 = sleepAsync(reactor(), 3.0f);
+        auto d3 = sleepAsync(reactor(), 4.0f);
+        d1->addCallbacks([d2](DeferredValue result) {
+            NET4CXX_LOG_INFO(gAppLog, "Trigger 1");
+            d2->cancel();
             return result;
-        })->addErrback([](DeferredValue result){
-            NET4CXX_LOG_ERROR("Error happend");
-            try {
-                result.throwError();
-            } catch (std::exception &e) {
-                NET4CXX_LOG_ERROR(e.what());
-            }
-            return nullptr;
-        })->addCallback([this](DeferredValue result){
-            NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
-            return callLater(reactor(), 2.0f);
-        })->addCallback([](DeferredValue result) {
-            NET4CXX_LOG_INFO("Yeah triggered");
+        }, [](DeferredValue result) {
+            NET4CXX_LOG_INFO(gAppLog, "Error 1");
             return result;
         });
-        auto d2 = makeDeferred();
-        d2->addCallback([](DeferredValue result) {
-            NET4CXX_LOG_INFO("chained");
-            return nullptr;
+        d2->addCallbacks([](DeferredValue result) {
+            NET4CXX_LOG_INFO(gAppLog, "Trigger 2");
+            return result;
+        }, [](DeferredValue result) {
+            NET4CXX_LOG_INFO(gAppLog, "Error 2");
+            return result;
         });
-        d->chainDeferred(d2);
-        d->addTimeout(1.0, reactor(), [](DeferredValue result){
-            NET4CXX_LOG_INFO("Timeout");
-            return nullptr;
+        d3->addCallbacks([](DeferredValue result) {
+            NET4CXX_LOG_INFO(gAppLog, "Trigger 3");
+            return result;
+        }, [](DeferredValue result) {
+            NET4CXX_LOG_INFO(gAppLog, "Error 3");
+            return result;
         });
+//        auto d = callLater(reactor(), 2.0f);
+//        d->addCallback([](DeferredValue result){
+//            NET4CXX_LOG_INFO("First callback");
+//            return result;
+//        })->addErrback([](DeferredValue result){
+//            NET4CXX_LOG_ERROR("Error happend");
+//            try {
+//                result.throwError();
+//            } catch (std::exception &e) {
+//                NET4CXX_LOG_ERROR(e.what());
+//            }
+//            return nullptr;
+//        })->addCallback([this](DeferredValue result){
+//            NET4CXX_LOG_INFO("two seconds later I will trigger later callback");
+//            return callLater(reactor(), 2.0f);
+//        })->addCallback([](DeferredValue result) {
+//            NET4CXX_LOG_INFO("Yeah triggered");
+//            return result;
+//        });
+//        auto d2 = makeDeferred();
+//        d2->addCallback([](DeferredValue result) {
+//            NET4CXX_LOG_INFO("chained");
+//            return nullptr;
+//        });
+//        d->chainDeferred(d2);
+//        d->addTimeout(1.0, reactor(), [](DeferredValue result){
+//            NET4CXX_LOG_INFO("Timeout");
+//            return nullptr;
+//        });
     }
 };
 

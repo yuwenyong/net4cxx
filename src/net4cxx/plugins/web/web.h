@@ -263,7 +263,7 @@ public:
         onFinish();
     }
 
-    void sendError(int statusCode = 500, const std::exception_ptr &error = nullptr);
+    void sendError(int statusCode = 500, const std::exception_ptr &error = nullptr, std::string reason="");
 
     virtual void writeError(int statusCode, const std::exception_ptr &error);
 

@@ -55,7 +55,7 @@ std::ostream &operator<<(std::ostream &os, const HTTPResponse &response) {
 }
 
 
-DeferredPtr HTTPClient::fetch(HTTPRequestPtr request, CallbackType callback) {
+DeferredPtr HTTPClient::fetch(HTTPRequestPtr request, CallbackType callback, bool raiseError) {
     if (_closed) {
         NET4CXX_THROW_EXCEPTION(RuntimeError, "client already closed");
     }
@@ -71,8 +71,8 @@ DeferredPtr HTTPClient::fetch(HTTPRequestPtr request, CallbackType callback) {
             return value;
         });
     }
-    fetchImpl(std::move(request), [result](HTTPResponse response) {
-        if (response.getError()) {
+    fetchImpl(std::move(request), [result, raiseError](HTTPResponse response) {
+        if (raiseError && response.getError()) {
             result->errback(response.getError());
         } else {
             result->callback(std::move(response));
@@ -100,15 +100,10 @@ void HTTPClientConnection::startRequest() {
             std::string userpass;
             std::tie(userpass, std::ignore, netloc) = StrUtil::rpartition(netloc, "@");
         }
-        const boost::regex hostPort(R"(^(.+):(\d+)$)");
-        boost::smatch match;
         std::string host;
-        unsigned short port;
-        if (boost::regex_match(netloc, match, hostPort)) {
-            host = match[1];
-            port = (unsigned short) std::stoul(match[2]);
-        } else {
-            host = netloc;
+        boost::optional<unsigned short> port;
+        std::tie(host, port) = HTTPUtil::splitHostAndPort(netloc);
+        if (!port) {
             port = (unsigned short) (scheme == "https" ? 443 : 80);
         }
         const boost::regex ipv6(R"(^\[.*\]$)");
@@ -121,7 +116,7 @@ void HTTPClientConnection::startRequest() {
         if (iter != hostnameMapping.end()) {
             host = iter->second;
         }
-        startConnecting(host, port);
+        startConnecting(host, *port);
     } catch (...) {
         handleException(std::current_exception());
     }
@@ -198,12 +193,11 @@ void HTTPClientConnection::onConnected() {
         }
         const std::string &requestBody = _request->getBody();
         if (!_request->isAllowNonstandardMethods()) {
-            if (method == "POST" || method == "PATCH" || method == "PUT") {
-                NET4CXX_ASSERT_THROW(!requestBody.empty() && !_request->getBodyProducer(),
-                                     "Body must not be empty for \"%s\" request", method);
-            } else {
-                NET4CXX_ASSERT_THROW(requestBody.empty() || _request->getBodyProducer(),
-                                     "Body must be empty for \"%s\" request", method);
+            bool bodyExpected = method == "POST" || method == "PATCH" || method == "PUT";
+            bool bodyPresent = !requestBody.empty() || _request->getBodyProducer();
+            if (bodyExpected != bodyPresent) {
+                NET4CXX_THROW_EXCEPTION(ValueError, "Body must %sbe empty for method %s", bodyExpected ? "not " : "",
+                                        method);
             }
         }
         if (_request->getExpect100Continue()) {
@@ -226,7 +220,7 @@ void HTTPClientConnection::onConnected() {
             reqPath += parsedQuery;
         }
         setNoDelay(true);
-        auto startLine = RequestStartLine(method, reqPath, "HTTP/1.1");
+        auto startLine = RequestStartLine(method, reqPath, "");
         writeHeaders(startLine, _request->headers());
         if (_request->getExpect100Continue()) {
             readResponse();
@@ -365,6 +359,8 @@ void HTTPClientConnection::startConnecting(const std::string &host, unsigned sho
 }
 
 void HTTPClientConnection::writeHeaders(const RequestStartLine &startLine, HTTPHeaders &headers) {
+    StringVector lines;
+    lines.emplace_back(StrUtil::format("%s %s HTTP/1.1", startLine.getMethod(), startLine.getPath()));
     _requestStartLine = startLine;
     _chunkingOutput = (startLine.getMethod() == "POST" ||
                        startLine.getMethod() == "PUT" ||
@@ -379,8 +375,6 @@ void HTTPClientConnection::writeHeaders(const RequestStartLine &startLine, HTTPH
     } else {
         _expectedContentRemaining = boost::none;
     }
-    StringVector lines;
-    lines.emplace_back(StrUtil::format("%s %s %s", startLine.getMethod(), startLine.getPath(), startLine.getVersion()));
     headers.getAll([&lines](const std::string &name, const std::string &value) {
         lines.emplace_back(name + ": " + value);
     });
@@ -589,8 +583,8 @@ void HTTPClientConnection::finish() {
             newRequest->setMethod("GET");
             newRequest->setBody("");
             const std::array<std::string, 4> fields = {{
-                "Content-Length", "Content-Type", "Content-Encoding", "Transfer-Encoding"
-            }};
+                                                               "Content-Length", "Content-Type", "Content-Encoding", "Transfer-Encoding"
+                                                       }};
             for (auto &field: fields) {
                 try {
                     newRequest->headers().erase(field);

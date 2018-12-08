@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/plugins/web/httputil.h"
+#include <boost/utility/string_view.hpp>
 #include "net4cxx/shared/global/loggers.h"
 
 
@@ -217,14 +218,15 @@ RequestStartLine HTTPUtil::parseRequestStartLine(const std::string &line) {
     std::string method = std::move(requestLineComponents[0]);
     std::string path = std::move(requestLineComponents[1]);
     std::string version = std::move(requestLineComponents[2]);
-    if (!boost::starts_with(version, "HTTP/")) {
+    const boost::regex versionPat(R"(HTTP/1\.[0-9])");
+    if (!boost::regex_match(version, versionPat)) {
         NET4CXX_THROW_EXCEPTION(HTTPInputError, "Malformed HTTP version in HTTP Request-Line: %s", version);
     }
     return RequestStartLine(std::move(method), std::move(path), std::move(version));
 }
 
 ResponseStartLine HTTPUtil::parseResponseStartLine(const std::string &line) {
-    const boost::regex firstLinePattern("(HTTP/1.[01]) ([0-9]+) ([^\r]*).*");
+    const boost::regex firstLinePattern("(HTTP/1.[0-9]) ([0-9]+) ([^\r]*).*");
     boost::smatch match;
     if (!boost::regex_match(line, match, firstLinePattern)) {
         NET4CXX_THROW_EXCEPTION(HTTPInputError, "Error parsing response start line");
@@ -232,14 +234,31 @@ ResponseStartLine HTTPUtil::parseResponseStartLine(const std::string &line) {
     return ResponseStartLine(match[1], std::stoi(match[2]), match[3]);
 }
 
-std::tuple<std::string, std::shared_ptr<HTTPHeaders>> HTTPUtil::parseHeaders(const char *data, size_t length) {
-    const char *eol = StrNStr(data, length, "\r\n");
-    std::string startLine, rest;
-    if (eol) {
-        startLine.assign(data, eol);
-        rest.assign(eol, data + length);
+std::tuple<std::string, boost::optional<unsigned short>> HTTPUtil::splitHostAndPort(const std::string &netloc) {
+    const boost::regex pat(R"(^(.+):(\d+)$)");
+    boost::smatch match;
+    std::string host;
+    boost::optional<unsigned short> port;
+    if (boost::regex_match(netloc, match, pat)) {
+        host = match[1];
+        port = (unsigned short) std::stoul(match[2]);
     } else {
-        startLine.assign(data, length);
+        host = netloc;
+    }
+    return std::make_tuple(std::move(host), port);
+}
+
+std::tuple<std::string, std::shared_ptr<HTTPHeaders>> HTTPUtil::parseHeaders(const char *data, size_t length) {
+    boost::string_view dv{data, length};
+    dv.remove_prefix(std::min(dv.find_first_not_of("\r\n"), dv.size()));
+    auto eol = dv.find('\n');
+    std::string startLine, rest;
+    if (eol != boost::string_view::npos) {
+        startLine.assign(dv.begin(), dv.begin() + eol);
+        boost::trim_right_if(startLine, boost::is_any_of("\r"));
+        rest.assign(dv.begin() + eol, dv.end());
+    } else {
+        startLine.assign(dv.begin(), dv.end());
     }
     std::shared_ptr<HTTPHeaders> headers;
     try {
@@ -287,9 +306,26 @@ std::tuple<std::string, StringMap> HTTPUtil::parseHeader(const std::string &line
                 boost::replace_all(value, "\\\"", "\"");
             }
             pdict[std::move(name)] = std::move(value);
+        } else {
+            pdict[p] = "";
         }
     }
     return std::make_tuple(std::move(key), std::move(pdict));
+}
+
+std::string HTTPUtil::encodeHeader(const std::string &key, const StringMap &pdict) {
+    if (pdict.empty()) {
+        return key;
+    }
+    StringVector out{key,};
+    for (auto &kv: pdict) {
+        if (kv.second.empty()) {
+            out.emplace_back(kv.first);
+        } else {
+            out.emplace_back(kv.first + "=" + kv.second);
+        }
+    }
+    return boost::join(out, "; ");
 }
 
 
@@ -312,11 +348,7 @@ bool HTTPError::hasReason() const {
         return true;
     }
     auto code = getCode();
-    auto iter = HTTP_STATUS_CODES.find(code);
-    if (iter != HTTP_STATUS_CODES.end()) {
-        return true;
-    }
-    return false;
+    return HTTP_STATUS_CODES.find(code) != HTTP_STATUS_CODES.end();
 }
 
 StringVector HTTPError::getCustomErrorInfo() const {
