@@ -539,7 +539,6 @@ void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &head
         }
         _gzipping = compressibleType(ctype) &&
                     (!finishing || chunk.size() >= MIN_LENGTH) &&
-                    (finishing || !headers.has("Content-Length")) &&
                     !headers.has("Content-Encoding");
     }
     if (_gzipping) {
@@ -548,7 +547,11 @@ void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &head
         _gzipFile.initWithOutputStream(_gzipValue);
         transformChunk(chunk, finishing);
         if (headers.has("Content-Length")) {
-            headers["Content-Length"] = std::to_string(chunk.size());
+            if (finishing) {
+                headers["Content-Length"] = std::to_string(chunk.size());
+            } else {
+                headers.erase("Content-Length");
+            }
         }
     }
 }
