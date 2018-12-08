@@ -608,15 +608,15 @@ public:
         _closed = true;
     }
 
-    DeferredPtr fetch(const std::string &url, CallbackType callback = nullptr) {
-        return fetch(HTTPRequest::create(url), std::move(callback));
+    DeferredPtr fetch(const std::string &url, CallbackType callback = nullptr, bool raiseError = true) {
+        return fetch(HTTPRequest::create(url), std::move(callback), raiseError);
     }
 
-    DeferredPtr fetch(const HTTPRequest &request, CallbackType callback = nullptr) {
-        return fetch(HTTPRequest::create(request), std::move(callback));
+    DeferredPtr fetch(const HTTPRequest &request, CallbackType callback = nullptr, bool raiseError = true) {
+        return fetch(HTTPRequest::create(request), std::move(callback), raiseError);
     }
 
-    DeferredPtr fetch(HTTPRequestPtr request, CallbackType callback = nullptr);
+    DeferredPtr fetch(HTTPRequestPtr request, CallbackType callback = nullptr, bool raiseError = true);
 
     const StringMap &getHostnameMapping() const {
         return _hostnameMapping;

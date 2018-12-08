@@ -110,6 +110,8 @@ void HTTPConnection::onDisconnected(std::exception_ptr reason) {
 
 void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &headers, const Byte *chunk, size_t length,
                                   WriteCallbackType callback) {
+    StringVector lines;
+    lines.emplace_back(StrUtil::format("HTTP/1.1 %d %s", startLine.getCode(), startLine.getReason()));
     _responseStartLine = std::move(startLine);
     _chunkingOutput = _requestStartLine.getVersion() == "HTTP/1.1" &&
                       _responseStartLine.getCode() != 304 &&
@@ -129,9 +131,6 @@ void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &head
     } else {
         _expectedContentRemaining = boost::none;
     }
-    StringVector lines;
-    lines.emplace_back(StrUtil::format("%s %d %s", _responseStartLine.getVersion(), _responseStartLine.getCode(),
-                                       _responseStartLine.getReason()));
     headers.getAll([&lines](const std::string &name, const std::string &value) {
         lines.emplace_back(name + ": " + value);
     });
@@ -406,7 +405,10 @@ bool HTTPConnection::canKeepAlive(const RequestStartLine &startLine, const HTTPH
     }
     if (startLine.getVersion() == "HTTP/1.1") {
         return connectionHeader != "close";
-    } else if (headers.has("Content-Length") || startLine.getMethod() == "HEAD" || startLine.getMethod() == "GET") {
+    } else if (headers.has("Content-Length") ||
+               boost::to_lower_copy(headers.get("Transfer-Encoding", "")) == "chunked" ||
+               startLine.getMethod() == "HEAD" ||
+               startLine.getMethod() == "GET") {
         return connectionHeader == "keep-alive";
     }
     return false;

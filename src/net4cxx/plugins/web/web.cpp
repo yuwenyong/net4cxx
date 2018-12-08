@@ -192,7 +192,7 @@ void RequestHandler::flush(bool includeFooters, FlushCallbackType callback) {
                 addHeader("Set-Cookie", cookie.outputString());
             });
         }
-        auto startLine = ResponseStartLine(_request->getVersion(), _statusCode, _reason);
+        auto startLine = ResponseStartLine("", _statusCode, _reason);
         connection->writeHeaders(std::move(startLine), _headers, chunk, std::move(callback));
     } else {
         for (auto &transform: _transforms) {
@@ -204,7 +204,7 @@ void RequestHandler::flush(bool includeFooters, FlushCallbackType callback) {
     }
 }
 
-void RequestHandler::sendError(int statusCode, const std::exception_ptr &error) {
+void RequestHandler::sendError(int statusCode, const std::exception_ptr &error, std::string reason) {
     if (_headersWritten) {
         NET4CXX_LOG_ERROR(gGenLog, "Cannot send error response after headers written");
         if (!_finished) {
@@ -213,7 +213,6 @@ void RequestHandler::sendError(int statusCode, const std::exception_ptr &error) 
         return;
     }
     clear();
-    std::string reason;
     if (error) {
         try {
             std::rethrow_exception(error);
@@ -587,7 +586,7 @@ void RequestDispatcher::findHandler() {
     auto handlers = _application->getHostHandlers(_request);
     if (handlers.empty()) {
         RequestHandler::ArgsType handlerArgs = {
-                {"url", "http://" + _application->getDefaultHost() + "/"}
+                {"url", _request->getProtocol() + "://" + _application->getDefaultHost() + "/"}
         };
         _handler = RequestHandlerFactory<RedirectHandler>().create(_application, _request, handlerArgs);
         return;
@@ -688,12 +687,8 @@ void WebApp::logRequest(std::shared_ptr<const RequestHandler> handler) const {
 }
 
 std::vector<UrlSpecPtr> WebApp::getHostHandlers(const std::shared_ptr<const HTTPServerRequest> &request) {
-    std::string host = request->getHost();
-    boost::to_lower(host);
-    auto pos = host.find(':');
-    if (pos != std::string::npos) {
-        host = host.substr(0, pos);
-    }
+    std::string host;
+    std::tie(host, std::ignore) = HTTPUtil::splitHostAndPort(boost::to_lower_copy(request->getHost()));
     std::vector<UrlSpecPtr> matches;
     for (auto &handler: _handlers) {
         if (boost::regex_match(host, handler.first)) {

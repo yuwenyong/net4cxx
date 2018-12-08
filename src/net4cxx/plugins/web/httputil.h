@@ -6,6 +6,7 @@
 #define NET4CXX_PLUGINS_WEB_HTTPUTIL_H
 
 #include "net4cxx/common/common.h"
+#include <boost/optional.hpp>
 #include <boost/regex.hpp>
 #include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/httputils/httplib.h"
@@ -268,11 +269,15 @@ public:
 
     static ResponseStartLine parseResponseStartLine(const std::string &line);
 
+    static std::tuple<std::string, boost::optional<unsigned short>> splitHostAndPort(const std::string &netloc);
+
     static std::tuple<std::string, std::shared_ptr<HTTPHeaders>> parseHeaders(const char *data, size_t length);
 protected:
     static StringVector parseParam(std::string s);
 
     static std::tuple<std::string, StringMap> parseHeader(const std::string &line);
+
+    static std::string encodeHeader(const std::string &key, const StringMap &pdict);
 };
 
 

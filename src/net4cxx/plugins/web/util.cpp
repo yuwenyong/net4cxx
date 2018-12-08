@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/plugins/web/util.h"
+#include "net4cxx/core/network/defer.h"
 
 
 NS_BEGIN
@@ -17,6 +18,20 @@ void PeriodicCallback::run() {
         NET4CXX_LOG_ERROR(gAppLog, "Error in periodic callback:%s", e.what());
     }
     scheduleNext();
+}
+
+
+DeferredPtr sleepAsync(Reactor *reactor, const Duration &timeout) {
+    auto d = makeDeferred();
+    auto delayed = reactor->callLater(timeout, [d]() {
+        d->callback(nullptr);
+    });
+    d->setCanceller([delayed](DeferredPtr) mutable {
+        if (delayed.active()) {
+            delayed.cancel();
+        }
+    });
+    return d;
 }
 
 NS_END

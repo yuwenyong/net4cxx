@@ -57,6 +57,10 @@ public:
         }
     }
 
+    bool isRunning() const {
+        return _running;
+    }
+
     template <typename ...Args>
     static std::shared_ptr<PeriodicCallback> create(Args&& ...args) {
         return std::make_shared<PeriodicCallback>(std::forward<Args>(args)...);
@@ -78,6 +82,13 @@ protected:
 };
 
 using PeriodicCallbackPtr = std::shared_ptr<PeriodicCallback>;
+
+
+NET4CXX_COMMON_API DeferredPtr sleepAsync(Reactor *reactor, const Duration &timeout);
+
+inline DeferredPtr sleepAsync(Reactor *reactor, double timeout) {
+    return sleepAsync(reactor, std::chrono::milliseconds(int64_t(timeout * 1000)));
+}
 
 
 class NET4CXX_COMMON_API GzipDecompressor {
