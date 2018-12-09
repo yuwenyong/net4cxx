@@ -561,10 +561,28 @@ std::tuple<std::string, int> UrlSpec::findGroups() {
         if (parenLoc != std::string::npos) {
             pieces.push_back("%s" + fragment.substr(parenLoc + 1));
         } else {
-            pieces.push_back(std::move(fragment));
+            try {
+                pieces.push_back(reUnescape(fragment));
+            } catch (std::exception &e) {
+                NET4CXX_THROW_EXCEPTION(ValueError, "Invalid url: %s", pattern);
+            }
         }
     }
     return std::make_tuple(boost::join(pieces, ""), (int)_regex.mark_count());
+}
+
+std::string UrlSpec::reUnescape(const std::string &s) const {
+    const boost::regex pat(R"(\\(.))");
+    boost::smatch what;
+    auto start = s.cbegin(), end = s.cend();
+    while (boost::regex_search(start, end, what, pat)) {
+        char c = *what[1].begin();
+        if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) {
+            NET4CXX_THROW_EXCEPTION(ValueError, "Cannot unescape '\\\\%s", what[1].str());
+        }
+        start = what[0].second;
+    }
+    return boost::regex_replace(s, pat, "\\1", boost::match_default | boost::format_sed);
 }
 
 
@@ -574,7 +592,8 @@ const StringSet GZipContentEncoding::CONTENT_TYPES = {
         "application/xml",
         "application/atom+xml",
         "application/json",
-        "application/xhtml+xml"
+        "application/xhtml+xml",
+        "image/svg+xml"
 };
 
 constexpr int GZipContentEncoding::GZIP_LEVEL;
