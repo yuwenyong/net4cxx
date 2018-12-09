@@ -400,6 +400,9 @@ void HTTPClientConnection::readResponse() {
 void HTTPClientConnection::readBody() {
     boost::optional<size_t> contentLength;
     if (_headers->has("Content-Length")) {
+        if (_headers->has("Transfer-Encoding")) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Response with both Transfer-Encoding and Content-Length");
+        }
         if (_headers->at("Content-Length").find(',') != std::string::npos) {
             StringVector pieces = StrUtil::split(_headers->at("Content-Length"), ',');
             for (auto &piece: pieces) {
@@ -576,8 +579,7 @@ void HTTPClientConnection::finish() {
     if (!originalRequest) {
         originalRequest = _request;
     }
-    if (_request->isFollowRedirects() && _request->getMaxRedirects() > 0
-        && (_code == 301 || _code == 302 || _code == 303 || _code == 307)) {
+    if (shouldFollowRedirect()) {
         auto newRequest = _request->clone();
         std::string url = _request->getUrl();
         url = UrlParse::urlJoin(url, _headers->at("Location"));
@@ -625,9 +627,13 @@ void HTTPClientConnection::onHeadersReceived(const ResponseStartLine &firstLine,
         writeBody(false);
         return;
     }
-    _headers = headers;
     _code = firstLine.getCode();
     _reason = firstLine.getReason();
+    _headers = headers;
+
+    if (shouldFollowRedirect()) {
+        return;
+    }
 
     auto &headerCallback = _request->getHeaderCallback();
     if (headerCallback) {
@@ -657,6 +663,9 @@ void HTTPClientConnection::onDataReceived(char *data, size_t length) {
 }
 
 void HTTPClientConnection::onChunkReceived(std::string chunk) {
+    if (shouldFollowRedirect()) {
+        return;
+    }
     auto &streamingCallback = _request->getStreamingCallback();
     if (streamingCallback) {
         streamingCallback(std::move(chunk));

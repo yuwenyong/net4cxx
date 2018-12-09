@@ -577,6 +577,8 @@ const StringSet GZipContentEncoding::CONTENT_TYPES = {
         "application/xhtml+xml"
 };
 
+constexpr int GZipContentEncoding::GZIP_LEVEL;
+
 constexpr int GZipContentEncoding::MIN_LENGTH;
 
 GZipContentEncoding::GZipContentEncoding(const std::shared_ptr<HTTPServerRequest> &request) {
@@ -605,7 +607,7 @@ void GZipContentEncoding::transformFirstChunk(int &statusCode, HTTPHeaders &head
     if (_gzipping) {
         headers["Content-Encoding"] = "gzip";
         _gzipValue = std::make_shared<std::stringstream>();
-        _gzipFile.initWithOutputStream(_gzipValue);
+        _gzipFile.initWithOutputStream(_gzipValue, GZIP_LEVEL);
         transformChunk(chunk, finishing);
         if (headers.has("Content-Length")) {
             if (finishing) {
