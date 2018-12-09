@@ -489,7 +489,9 @@ public:
 
     template <typename... Args>
     std::string reverse(Args&&... args) {
-        NET4CXX_ASSERT_THROW(!_path.empty(), "Cannot reverse url regex %s", _pattern.c_str());
+        if (_path.empty()) {
+            NET4CXX_THROW_EXCEPTION(ValueError, "Cannot reverse url regex %s", _pattern.c_str());
+        }
         NET4CXX_ASSERT_THROW(sizeof...(Args) == _groupCount, "required number of arguments not found");
         return StrUtil::format(_path, UrlParse::quote(boost::lexical_cast<std::string>(args))...);
     }
