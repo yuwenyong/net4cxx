@@ -415,6 +415,20 @@ public:
         return _clientCert;
     }
 
+    std::shared_ptr<HTTPRequest> setSSLOption(SSLOptionPtr &&sslOption) {
+        _sslOption = std::move(sslOption);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<HTTPRequest> setSSLOption(const SSLOptionPtr &sslOption) {
+        _sslOption = sslOption;
+        return shared_from_this();
+    }
+
+    const SSLOptionPtr &getSSLOption() const {
+        return _sslOption;
+    }
+
     std::shared_ptr<HTTPRequest> setOriginalRequest(std::shared_ptr<HTTPRequest> &&originalRequest) {
         _originalRequest = std::move(originalRequest);
         return shared_from_this();
@@ -471,6 +485,7 @@ protected:
     std::string _caCerts;
     std::string _clientKey;
     std::string _clientCert;
+    SSLOptionPtr _sslOption;
     Timestamp _startTime;
     std::shared_ptr<HTTPRequest> _originalRequest;
 };
@@ -586,11 +601,13 @@ public:
     explicit HTTPClient(Reactor *reactor = nullptr,
                         StringMap hostnameMapping = {},
                         size_t maxBufferSize = 104857600,
-                        size_t maxHeaderSize = 0)
+                        size_t maxHeaderSize = 0,
+                        size_t maxBodySize = 0)
             : _reactor(reactor ? reactor : Reactor::current())
             , _hostnameMapping(std::move(hostnameMapping))
             , _maxBufferSize(maxBufferSize)
-            , _maxHeaderSize(maxHeaderSize) {
+            , _maxHeaderSize(maxHeaderSize)
+            , _maxBodySize(maxBodySize) {
 #ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(WatchKeys::HTTPClientCount);
 #endif
@@ -630,6 +647,10 @@ public:
         return _maxHeaderSize;
     }
 
+    size_t getMaxBodySize() const {
+        return _maxBodySize;
+    }
+
     Reactor *reactor() {
         return _reactor;
     }
@@ -646,6 +667,7 @@ protected:
     StringMap _hostnameMapping;
     size_t _maxBufferSize;
     size_t _maxHeaderSize;
+    size_t _maxBodySize;
     bool _closed{false};
 };
 
@@ -670,13 +692,14 @@ public:
                          HTTPRequestPtr request,
                          CallbackType callback,
                          size_t maxBufferSize = 0,
-                         size_t maxHeaderSize = 0)
+                         size_t maxHeaderSize = 0,
+                         size_t maxBodySize = 0)
             : IOStream(maxBufferSize)
             , _client(std::move(client))
             , _request(std::move(request))
             , _callback(std::move(callback))
-            , _maxBodySize(maxBufferSize)
-            , _maxHeaderSize(maxHeaderSize) {
+            , _maxHeaderSize(maxHeaderSize != 0 ? maxHeaderSize : 65536)
+            , _maxBodySize(maxBodySize != 0 ? maxBodySize : maxBufferSize) {
         _startTime = TimestampClock::now();
 #ifdef NET4CXX_DEBUG
         NET4CXX_Watcher->inc(WatchKeys::HTTPClientConnectionCount);
@@ -812,8 +835,8 @@ protected:
     std::string _parsedHostname;
     DelayedCall _timeout;
     std::string _reason;
-    size_t _maxBodySize;
     size_t _maxHeaderSize;
+    size_t _maxBodySize;
     size_t _chunkSize{65535};
     size_t _totalSize{0};
     size_t _bytesToRead{0};

@@ -154,6 +154,9 @@ void RequestHandler::setCookie(const std::string &name, const std::string &value
         morsel["path"] = path;
     }
     for (auto &kv: args) {
+        if ((kv.first == "httponly" || kv.first == "secure") && kv.second.empty()) {
+            continue;
+        }
         morsel[kv.first] = kv.second;
     }
 }
@@ -168,10 +171,8 @@ void RequestHandler::redirect(const std::string &url, bool permanent, boost::opt
         NET4CXX_ASSERT(300 <= *status && *status <= 399);
     }
     setStatus(*status);
-//    const boost::regex patt(R"([\x00-\x20]+)");
-//    std::string location = UrlParse::urlJoin(_request->getURI(), boost::regex_replace(url, patt, ""));
-    std::string location = UrlParse::urlJoin(_request->getURI(), url);
-    setHeader("Location", location);
+//    std::string location = UrlParse::urlJoin(_request->getURI(), url);
+    setHeader("Location", url);
     finish();
 }
 
@@ -208,7 +209,11 @@ void RequestHandler::sendError(int statusCode, const std::exception_ptr &error, 
     if (_headersWritten) {
         NET4CXX_LOG_ERROR(gGenLog, "Cannot send error response after headers written");
         if (!_finished) {
-            finish();
+            try {
+                finish();
+            } catch (std::exception &e) {
+                NET4CXX_LOG_ERROR(gGenLog, "Failed to flush partial response: %s", e.what());
+            }
         }
         return;
     }
@@ -271,6 +276,43 @@ std::string RequestHandler::computeEtag() const {
     return etag;
 }
 
+bool RequestHandler::checkEtagHeader() const {
+    auto computedEtag = _headers.get("Etag", "");
+    if (computedEtag.empty()) {
+        return false;
+    }
+    std::string inm = _request->getHTTPHeaders()->get("If-None-Match", "");
+    if (inm.empty()) {
+        return false;
+    }
+    std::string etag;
+    const boost::regex pat(R"(\*|(?:W/)?"[^"]*")");
+    boost::smatch what;
+    bool match = false;
+    auto start = inm.cbegin(), end = inm.cend();
+    while (boost::regex_search(start, end, what, pat)) {
+        etag = what[0].str();
+        if (start == inm.cbegin()) {
+            if (etag == "*") {
+                match = true;
+                break;
+            }
+            if (boost::starts_with(computedEtag, "W/")) {
+                computedEtag.erase(0, 2);
+            }
+        }
+        if (boost::starts_with(etag, "W/")) {
+            etag.erase(0, 2);
+        }
+        if (etag == computedEtag) {
+            match = true;
+            break;
+        }
+        start = what[0].second;
+    }
+
+    return match;
+}
 
 const StringSet RequestHandler::SUPPORTED_METHODS = {
         "GET", "HEAD", "POST", "DELETE", "PATCH", "PUT", "OPTIONS"
@@ -324,7 +366,11 @@ void RequestHandler::execute(TransformsType transforms, const StringVector &args
                 whenComplete();
                 return value;
             }, [this, self=shared_from_this()](DeferredValue value) {
-                handleRequestException(value.asError());
+                try {
+                    handleRequestException(value.asError());
+                } catch (std::exception &e) {
+                    NET4CXX_LOG_ERROR(gAppLog, "Exception in exception handler: %s", e.what());
+                }
                 return value;
             });
         } else {
@@ -334,7 +380,11 @@ void RequestHandler::execute(TransformsType transforms, const StringVector &args
         error = std::current_exception();
     }
     if (error) {
-        handleRequestException(error);
+        try {
+            handleRequestException(error);
+        } catch (std::exception &e) {
+            NET4CXX_LOG_ERROR(gAppLog, "Exception in exception handler: %s", e.what());
+        }
     }
 }
 
@@ -346,7 +396,11 @@ void RequestHandler::whenComplete() {
         error = std::current_exception();
     }
     if (error) {
-        handleRequestException(error);
+        try {
+            handleRequestException(error);
+        } catch (std::exception &e) {
+            NET4CXX_LOG_ERROR(gAppLog, "Exception in exception handler: %s", e.what());
+        }
     }
 }
 
@@ -375,7 +429,11 @@ void RequestHandler::executeMethod() {
                 executeFinish();
                 return value;
             })->addErrback([this, self=shared_from_this()](DeferredValue value) {
-                handleRequestException(value.asError());
+                try {
+                    handleRequestException(value.asError());
+                } catch (std::exception &e) {
+                    NET4CXX_LOG_ERROR(gAppLog, "Exception in exception handler: %s", e.what());
+                }
                 return value;
             });
         } else {
@@ -389,7 +447,11 @@ void RequestHandler::log() {
 }
 
 void RequestHandler::handleRequestException(const std::exception_ptr &error) {
-    logException(error);
+    try {
+        logException(error);
+    } catch (std::exception &e) {
+        NET4CXX_LOG_ERROR(gAppLog, "Error in exception logger: %s", e.what());
+    }
     if (_finished) {
         return;
     }

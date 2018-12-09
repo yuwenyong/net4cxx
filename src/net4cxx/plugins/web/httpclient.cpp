@@ -317,26 +317,31 @@ const StringSet HTTPClientConnection::_SUPPORTED_METHODS = {"GET", "HEAD", "POST
 void HTTPClientConnection::startConnecting(const std::string &host, unsigned short port) {
     DeferredPtr connectDeferred;
     if (_parsed.getScheme() == "https") {
-        SSLClientOptionBuilder builder;
-        if (_request->isValidateCert()) {
-            builder.setVerifyMode(SSLVerifyMode::CERT_REQUIRED);
-            builder.setCheckHost(_parsedHostname);
+        SSLOptionPtr sslOption;
+        if (_request->getSSLOption()) {
+            sslOption = _request->getSSLOption();
         } else {
-            builder.setVerifyMode(SSLVerifyMode::CERT_NONE);
+            SSLClientOptionBuilder builder;
+            if (_request->isValidateCert()) {
+                builder.setVerifyMode(SSLVerifyMode::CERT_REQUIRED);
+                builder.setCheckHost(_parsedHostname);
+            } else {
+                builder.setVerifyMode(SSLVerifyMode::CERT_NONE);
+            }
+            const std::string &caCerts = _request->getCACerts();
+            if (!caCerts.empty()) {
+                builder.setVerifyFile(caCerts);
+            }
+            const std::string &clientKey = _request->getClientKey();
+            if (!clientKey.empty()) {
+                builder.setKeyFile(clientKey);
+            }
+            const std::string &clientCert = _request->getClientCert();
+            if (!clientCert.empty()) {
+                builder.setCertFile(clientCert);
+            }
+            sslOption = builder.build();
         }
-        const std::string &caCerts = _request->getCACerts();
-        if (!caCerts.empty()) {
-            builder.setVerifyFile(caCerts);
-        }
-        const std::string &clientKey = _request->getClientKey();
-        if (!clientKey.empty()) {
-            builder.setKeyFile(clientKey);
-        }
-        const std::string &clientCert = _request->getClientCert();
-        if (!clientCert.empty()) {
-            builder.setCertFile(clientCert);
-        }
-        auto sslOption = builder.build();
         SSLClientEndpoint endpoint(_client->reactor(), host, std::to_string(port), std::move(sslOption),
                                    _request->getConnectTimeout());
         connectDeferred = connectProtocol(endpoint, shared_from_this());

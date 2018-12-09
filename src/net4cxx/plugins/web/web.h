@@ -281,11 +281,7 @@ public:
         }
     }
 
-    bool checkEtagHeader() const {
-        auto etag = _headers.get("Etag");
-        std::string inm = _request->getHTTPHeaders()->get("If-None-Match");
-        return !etag.empty() && !inm.empty() && inm.find(etag) != std::string::npos;
-    }
+    bool checkEtagHeader() const;
 
     std::shared_ptr<const HTTPServerRequest> getRequest() const {
         return _request;
