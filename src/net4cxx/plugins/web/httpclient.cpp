@@ -132,7 +132,7 @@ void HTTPClientConnection::onConnected() {
         if (requestTimeout != 0.0) {
             _timeout = _client->reactor()->callLater(requestTimeout, [this, self = shared_from_this()]() {
                 try {
-                    onTimeout();
+                    onTimeout("during request");
                 } catch (...) {
                     handleException(std::current_exception());
                 }
@@ -354,7 +354,7 @@ void HTTPClientConnection::startConnecting(const std::string &host, unsigned sho
         try {
             value.throwError();
         } catch (TimeoutError &error) {
-            onTimeout();
+            onTimeout("while connecting");
         }
         return value;
     })->addErrback([this, self = shared_from_this()](DeferredValue value) {
@@ -416,7 +416,12 @@ void HTTPClientConnection::readBody() {
             }
             (*_headers)["Content-Length"] = pieces[0];
         }
-        contentLength = std::stoul(_headers->at("Content-Length"));
+        try {
+            contentLength = (size_t)std::stoul(_headers->at("Content-Length"));
+        } catch (...) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Only integer Content-Length is allowed: %s",
+                                    _headers->at("Content-Length"));
+        }
     }
     if (_responseStartLine.getCode() == 204) {
         if (_headers->has("Transfer-Encoding") || (contentLength && *contentLength != 0)) {
@@ -447,10 +452,16 @@ void HTTPClientConnection::writeBody(bool startRead) {
     }
 }
 
-void HTTPClientConnection::onTimeout() {
+void HTTPClientConnection::onTimeout(const std::string &info) {
     _timeout.reset();
     if (_callback) {
-        NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(599) << errinfo_http_reason("Timeout");
+        std::string errorMessage;
+        if (info.empty()) {
+            errorMessage = "Timeout";
+        } else {
+            errorMessage = "Timeout " + info;
+        }
+        NET4CXX_THROW_EXCEPTION(HTTPError, "") << errinfo_http_code(599) << errinfo_http_reason(errorMessage);
     }
 }
 

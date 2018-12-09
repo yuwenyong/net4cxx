@@ -788,7 +788,7 @@ protected:
 
     void writeBody(bool startRead);
 
-    void onTimeout();
+    void onTimeout(const std::string &info="");
 
     void removeTimeout();
 

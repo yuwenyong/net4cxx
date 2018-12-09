@@ -241,8 +241,8 @@ public:
                     setStatus(304);
                 }
             }
-            if (_statusCode == 304) {
-                NET4CXX_ASSERT_MSG(_writeBuffer.empty(), "Cannot send body with 304");
+            if (_statusCode == 204 || _statusCode == 304) {
+                NET4CXX_ASSERT_THROW(_writeBuffer.empty(), "Cannot send body with %d", _statusCode);
                 clearHeadersFor304();
             } else if (!_headers.has("Content-Length")) {
                 size_t contentLength = std::accumulate(_writeBuffer.begin(), _writeBuffer.end(), 0,
@@ -524,6 +524,8 @@ public:
 protected:
     std::tuple<std::string, int> findGroups();
 
+    std::string reUnescape(const std::string &s) const;
+
     std::string _pattern;
     RegexType _regex;
     RequestHandlerFactoryPtr _handlerFactory;
@@ -574,7 +576,7 @@ public:
     static const StringSet CONTENT_TYPES;
 
     static constexpr int GZIP_LEVEL = 6;
-    
+
     static constexpr int MIN_LENGTH = 1024;
 protected:
     bool _gzipping;

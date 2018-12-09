@@ -95,20 +95,11 @@ std::string HTTPHeaders::normalizeName(const std::string &name) {
 
 
 std::ostream& operator<<(std::ostream &os, const HTTPHeaders &headers) {
-    os << "{";
-    bool first = true;
-    for (auto &nameValue: headers.items()) {
-        if (first) {
-            os << '\'';
-            first = false;
-        } else {
-            os << ", \'";
-        }
-        os << nameValue.first;
-        os << "\': \'";
-        os << nameValue.second;
-        os << ", \'";
-    }
+    StringVector lines;
+    headers.getAll([&lines](const std::string &name, const std::string &value) {
+        lines.emplace_back(StrUtil::format("%s: %s\n", name, value));
+    });
+    os << boost::join(lines, "");
     return os;
 }
 

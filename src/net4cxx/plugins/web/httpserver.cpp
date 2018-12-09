@@ -114,6 +114,7 @@ void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &head
     lines.emplace_back(StrUtil::format("HTTP/1.1 %d %s", startLine.getCode(), startLine.getReason()));
     _responseStartLine = std::move(startLine);
     _chunkingOutput = _requestStartLine.getVersion() == "HTTP/1.1" &&
+                      _responseStartLine.getCode() != 204 &&
                       _responseStartLine.getCode() != 304 &&
                       !headers.has("Content-Length") &&
                       !headers.has("Transfer-Encoding");
@@ -261,7 +262,13 @@ void HTTPConnection::readBody() {
             }
             (*_requestHeaders)["Content-Length"] = pieces[0];
         }
-        auto contentLength = (size_t)std::stoul(_requestHeaders->at("Content-Length"));
+        size_t contentLength;
+        try {
+            contentLength = (size_t)std::stoul(_requestHeaders->at("Content-Length"));
+        } catch (...) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Only integer Content-Length is allowed: %s",
+                                    _requestHeaders->at("Content-Length"));
+        }
         if (contentLength > _maxBodySize) {
             NET4CXX_THROW_EXCEPTION(HTTPInputError, "Content-Length too long");
         }
