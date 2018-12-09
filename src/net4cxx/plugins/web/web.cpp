@@ -564,7 +564,7 @@ std::tuple<std::string, int> UrlSpec::findGroups() {
             try {
                 pieces.push_back(reUnescape(fragment));
             } catch (std::exception &e) {
-                NET4CXX_THROW_EXCEPTION(ValueError, "Invalid url: %s", pattern);
+                return std::make_tuple("", -1);
             }
         }
     }
