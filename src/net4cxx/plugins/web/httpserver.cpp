@@ -245,17 +245,22 @@ void HTTPConnection::readHeaders() {
 
 void HTTPConnection::readBody() {
     if (_requestHeaders->has("Content-Length")) {
-        StringVector pieces = StrUtil::split(_requestHeaders->at("Content-Length"), ',');
-        for (auto &piece: pieces) {
-            boost::trim(piece);
+        if (_requestHeaders->has("Transfer-Encoding")) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "Response with both Transfer-Encoding and Content-Length");
         }
-        for (auto &piece: pieces) {
-            if (piece != pieces[0]) {
-                NET4CXX_THROW_EXCEPTION(HTTPInputError, "Multiple unequal Content-Lengths: %s",
-                                        _requestHeaders->at("Content-Length"));
+        if (_requestHeaders->get("Content-Length").find(',') != std::string::npos) {
+            StringVector pieces = StrUtil::split(_requestHeaders->at("Content-Length"), ',');
+            for (auto &piece: pieces) {
+                boost::trim(piece);
             }
+            for (auto &piece: pieces) {
+                if (piece != pieces[0]) {
+                    NET4CXX_THROW_EXCEPTION(HTTPInputError, "Multiple unequal Content-Lengths: %s",
+                                            _requestHeaders->at("Content-Length"));
+                }
+            }
+            (*_requestHeaders)["Content-Length"] = pieces[0];
         }
-        (*_requestHeaders)["Content-Length"] = pieces[0];
         auto contentLength = (size_t)std::stoul(_requestHeaders->at("Content-Length"));
         if (contentLength > _maxBodySize) {
             NET4CXX_THROW_EXCEPTION(HTTPInputError, "Content-Length too long");

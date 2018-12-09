@@ -808,6 +808,12 @@ protected:
 
     void onReadUntilClose(char *data, size_t length);
 
+    bool shouldFollowRedirect() const {
+        return _request->isFollowRedirects() &&
+               _request->getMaxRedirects() > 0 &&
+               (_code == 301 || _code == 302 || _code == 303 || _code == 307);
+    }
+
     void finish();
 
     void onEndRequest() {

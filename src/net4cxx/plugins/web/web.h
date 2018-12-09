@@ -328,7 +328,7 @@ public:
     static const StringSet SUPPORTED_METHODS;
 protected:
     std::string convertHeaderValue(const std::string &value) {
-        if (value.length() > 4000 || boost::regex_search(value, _invalidHeaderCharRe)) {
+        if (boost::regex_search(value, _invalidHeaderCharRe)) {
             NET4CXX_THROW_EXCEPTION(ValueError, "Unsafe header value " + value);
         }
         return value;
@@ -573,7 +573,9 @@ public:
 
     static const StringSet CONTENT_TYPES;
 
-    static constexpr int MIN_LENGTH = 5;
+    static constexpr int GZIP_LEVEL = 6;
+    
+    static constexpr int MIN_LENGTH = 1024;
 protected:
     bool _gzipping;
     std::shared_ptr<std::stringstream> _gzipValue;

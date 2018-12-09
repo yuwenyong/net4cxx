@@ -23,6 +23,11 @@ public:
     static void enablePrettyLogging(const OptionParser *options);
 
     static void defineLoggingOptions(OptionParser *options);
+
+protected:
+    static sinks::file::rotation_at_time_point parseRotateWhen(const OptionParser *options);
+
+    static sinks::file::rotation_at_time_interval parseRotateInterval(const OptionParser *options);
 };
 
 NS_END
