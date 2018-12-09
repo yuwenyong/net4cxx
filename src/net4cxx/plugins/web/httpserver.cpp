@@ -32,7 +32,7 @@ void HTTPConnection::onConnected() {
     _noKeepAlive = webApp->getNoKeepAlive();
     _xheaders = webApp->getXHeaders();
     _decompress = webApp->getDecompressRequest();
-    _chunkSize = webApp->getChunkSize() != 0 ? webApp->getChunkSize() : 65535;
+    _chunkSize = webApp->getChunkSize() != 0 ? webApp->getChunkSize() : 65536;
     _maxHeaderSize = webApp->getMaxHeaderSize() != 0 ? webApp->getMaxHeaderSize() : 65536;
     _maxBodySize = webApp->getMaxBodySize() != 0 ? webApp->getMaxBodySize() : _maxBufferSize;
     _headerTimeout = webApp->getIdleConnectionTimeout();
@@ -500,6 +500,7 @@ void HTTPServerRequest::write(const Byte *chunk, size_t length, WriteCallbackTyp
     if (!connection) {
         NET4CXX_THROW_EXCEPTION(StreamClosedError, "Connection already closed");
     }
+    NET4CXX_ASSERT_MSG(boost::starts_with(_version, "HTTP/1."), "deprecated interface only supported in HTTP/1.x");
     connection->writeChunk(chunk, length, std::move(callback));
 }
 
