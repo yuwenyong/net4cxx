@@ -4,6 +4,7 @@
 
 #include "net4cxx/plugins/web/httputil.h"
 #include <boost/utility/string_view.hpp>
+#include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/shared/global/loggers.h"
 
 
@@ -258,6 +259,28 @@ std::tuple<std::string, std::shared_ptr<HTTPHeaders>> HTTPUtil::parseHeaders(con
         NET4CXX_THROW_EXCEPTION(HTTPInputError, "Malformed HTTP headers: %s", rest);
     }
     return std::make_tuple(std::move(startLine), std::move(headers));
+}
+
+StringMap HTTPUtil::parseCookie(const std::string &cookie) {
+    StringMap cookieDict;
+    auto chunks = StrUtil::split(cookie, ';');
+    std::string key, val;
+    for (auto &chunk: chunks) {
+        auto pos = chunk.find('=');
+        if (pos != std::string::npos) {
+            key.assign(chunk.begin(), chunk.begin() + pos);
+            val.assign(chunk.begin() + pos + 1, chunk.end());
+            boost::trim(key);
+            boost::trim(val);
+        } else {
+            key = "";
+            val = boost::trim_copy(chunk);
+        }
+        if (!key.empty() || !val.empty()) {
+            cookieDict[std::move(key)] = CookieUtil::unquote(val);
+        }
+    }
+    return cookieDict;
 }
 
 StringVector HTTPUtil::parseParam(std::string s) {

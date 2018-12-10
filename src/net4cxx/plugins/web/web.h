@@ -245,7 +245,7 @@ public:
                 NET4CXX_ASSERT_THROW(_writeBuffer.empty(), "Cannot send body with %d", _statusCode);
                 clearHeadersFor304();
             } else if (!_headers.has("Content-Length")) {
-                size_t contentLength = std::accumulate(_writeBuffer.begin(), _writeBuffer.end(), 0,
+                size_t contentLength = std::accumulate(_writeBuffer.begin(), _writeBuffer.end(), (size_t)0,
                                                        [](size_t lhs, const std::string &rhs) {
                                                            return lhs + rhs.size();
                                                        });
