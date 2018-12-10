@@ -74,23 +74,21 @@ public:
 
     class CookieSetter {
     public:
-        CookieSetter(BaseCookie *cookie, const std::string *key, Morsel *morsel)
+        CookieSetter(BaseCookie *cookie, const std::string &key)
                 : _cookie(cookie)
-                , _key(key)
-                , _morsel(morsel) {
+                , _key(key) {
 
         }
 
         CookieSetter& operator=(const std::string &value) {
             std::string rval, cval;
             std::tie(rval, cval) = _cookie->valueEncode(value);
-            _morsel->set(*_key, rval, cval);
+            _cookie->set(_key, rval, cval);
             return *this;
         }
     protected:
         BaseCookie *_cookie;
-        const std::string *_key;
-        Morsel *_morsel;
+        std::string _key;
     };
 
     BaseCookie() = default;
@@ -114,12 +112,7 @@ public:
     }
 
     CookieSetter operator[](const std::string &key) {
-        auto iter = _items.find(key);
-        if (iter == _items.end()) {
-            auto result = _items.emplace(key, Morsel());
-            iter = result.first;
-        }
-        return {this, &(iter->first), &(iter->second)};
+        return CookieSetter{this, key};
     }
 
     bool has(const std::string &key) const {
@@ -160,10 +153,12 @@ protected:
     void set(const std::string &key, const std::string &realValue, const std::string &codedValue) {
         auto iter = _items.find(key);
         if (iter == _items.end()) {
-            auto result = _items.emplace(key, Morsel());
-            iter = result.first;
+            Morsel m;
+            m.set(key, realValue, codedValue);
+            _items.emplace(key, std::move(m));
+        } else {
+            iter->second.set(key, realValue, codedValue);
         }
-        iter->second.set(key, realValue, codedValue);
     }
 
     void parseString(const std::string &str, const boost::regex &patt =CookieUtil::cookiePattern);

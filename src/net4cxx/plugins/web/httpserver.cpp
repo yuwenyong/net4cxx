@@ -497,10 +497,18 @@ const SimpleCookie &HTTPServerRequest::cookies() const {
     if (!_cookies) {
         _cookies.emplace();
         if (_headers->has("Cookie")) {
+            StringMap parsed;
             try {
-                _cookies->load(_headers->at("Cookie"));
+                parsed = HTTPUtil::parseCookie(_headers->at("Cookie"));
             } catch (...) {
-                _cookies->clear();
+
+            }
+            for (auto &kv: parsed) {
+                try {
+                    (*_cookies)[kv.first] = kv.second;
+                } catch (...) {
+
+                }
             }
         }
     }
