@@ -205,6 +205,39 @@ void RequestHandler::flush(bool includeFooters, FlushCallbackType callback) {
     }
 }
 
+void RequestHandler::finish() {
+    NET4CXX_ASSERT(!_finished);
+    if (!_headersWritten) {
+        const std::string &method = _request->getMethod();
+        if (_statusCode == 200 && (method == "GET" || method == "HEAD") && !_headers.has("Etag")) {
+            setEtagHeader();
+            if (checkEtagHeader()) {
+                _writeBuffer.clear();
+                setStatus(304);
+            }
+        }
+        if (_statusCode == 204 || _statusCode == 304) {
+            NET4CXX_ASSERT_THROW(_writeBuffer.empty(), "Cannot send body with %d", _statusCode);
+            clearHeadersFor304();
+        } else if (!_headers.has("Content-Length")) {
+            size_t contentLength = std::accumulate(_writeBuffer.begin(), _writeBuffer.end(), (size_t)0,
+                                                   [](size_t lhs, const std::string &rhs) {
+                                                       return lhs + rhs.size();
+                                                   });
+            setHeader("Content-Length", contentLength);
+        }
+    }
+    auto connection = _request->getConnection();
+    if (connection) {
+        connection->setCloseCallback(nullptr);
+    }
+    flush(true);
+    _request->finish();
+    log();
+    _finished = true;
+    onFinish();
+}
+
 void RequestHandler::sendError(int statusCode, const std::exception_ptr &error, std::string reason) {
     if (_headersWritten) {
         NET4CXX_LOG_ERROR(gGenLog, "Cannot send error response after headers written");
