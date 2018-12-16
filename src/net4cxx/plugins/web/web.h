@@ -223,45 +223,15 @@ public:
         write(boost::lexical_cast<std::string>(chunk));
     }
 
-    void write() {
-        NET4CXX_ASSERT(!_finished);
-    }
-
     void flush(bool includeFooters = false, FlushCallbackType callback = nullptr);
 
     template <typename... Args>
     void finish(Args&&... args) {
         write(std::forward<Args>(args)...);
-        if (!_headersWritten) {
-            const std::string &method = _request->getMethod();
-            if (_statusCode == 200 && (method == "GET" || method == "HEAD") && !_headers.has("Etag")) {
-                setEtagHeader();
-                if (checkEtagHeader()) {
-                    _writeBuffer.clear();
-                    setStatus(304);
-                }
-            }
-            if (_statusCode == 204 || _statusCode == 304) {
-                NET4CXX_ASSERT_THROW(_writeBuffer.empty(), "Cannot send body with %d", _statusCode);
-                clearHeadersFor304();
-            } else if (!_headers.has("Content-Length")) {
-                size_t contentLength = std::accumulate(_writeBuffer.begin(), _writeBuffer.end(), (size_t)0,
-                                                       [](size_t lhs, const std::string &rhs) {
-                                                           return lhs + rhs.size();
-                                                       });
-                setHeader("Content-Length", contentLength);
-            }
-        }
-        auto connection = _request->getConnection();
-        if (connection) {
-            connection->setCloseCallback(nullptr);
-        }
-        flush(true);
-        _request->finish();
-        log();
-        _finished = true;
-        onFinish();
+        finish();
     }
+
+    void finish();
 
     void sendError(int statusCode = 500, const std::exception_ptr &error = nullptr, std::string reason="");
 
