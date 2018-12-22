@@ -41,7 +41,7 @@ protected:
 
 class NET4CXX_COMMON_API RequestHandler: public std::enable_shared_from_this<RequestHandler> {
 public:
-    typedef std::map<std::string, boost::any> ArgsType;
+    typedef RequestHandlerArgs ArgsType;
     typedef std::vector<OutputTransformPtr> TransformsType;
 //    typedef std::vector<std::pair<std::string, std::string>> ListHeadersType;
     typedef std::map<std::string, boost::any> SettingsType;
