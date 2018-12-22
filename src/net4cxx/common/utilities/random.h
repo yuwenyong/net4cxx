@@ -6,7 +6,6 @@
 #define NET4CXX_COMMON_UTILITIES_RANDOM_H
 
 #include "net4cxx/common/common.h"
-#include <random>
 #include "net4cxx/common/utilities/errors.h"
 
 NS_BEGIN

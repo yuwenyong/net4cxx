@@ -24,6 +24,7 @@
 #include <vector>
 #include <numeric>
 #include <chrono>
+#include <random>
 
 #include <cmath>
 #include <cstdio>
@@ -62,6 +63,13 @@
 #    define NET4CXX_ENDIAN NET4CXX_LITTLEENDIAN
 #  endif
 #endif
+
+
+#include <boost/any.hpp>
+#include <boost/optional.hpp>
+#include <boost/regex.hpp>
+#include <boost/utility/string_view.hpp>
+#include <boost/variant.hpp>
 
 
 #if COMPILER == COMPILER_MICROSOFT

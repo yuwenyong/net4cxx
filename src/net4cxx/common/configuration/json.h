@@ -6,7 +6,6 @@
 #define NET4CXX_COMMON_CONFIGURATION_JSON_H
 
 #include "net4cxx/common/common.h"
-#include <boost/variant.hpp>
 #include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/utilities/util.h"
 

@@ -203,6 +203,7 @@ protected:
     std::string _protocol;
     std::string _origRemoteIp;
     std::string _origProtocol;
+    StringSet _trustedDownstream;
     DelayedCall _headerTimeoutCall;
     DelayedCall _bodyTimeoutCall;
     std::shared_ptr<HTTPHeaders> _requestHeaders;
@@ -311,6 +312,10 @@ public:
         return _host;
     }
 
+    const std::string& getHostName() const {
+        return _hostName;
+    }
+
     const HTTPFileListMap& getFiles() const {
         return _files;
     }
@@ -383,6 +388,7 @@ protected:
     std::string _remoteIp;
     std::string _protocol;
     std::string _host;
+    std::string _hostName;
     HTTPFileListMap _files;
     std::weak_ptr<HTTPConnection> _connection;
     Timestamp _startTime;

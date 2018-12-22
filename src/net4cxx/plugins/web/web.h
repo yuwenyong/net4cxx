@@ -6,11 +6,10 @@
 #define NET4CXX_PLUGINS_WEB_WEB_H
 
 #include "net4cxx/common/common.h"
-#include <boost/any.hpp>
 #include <boost/lexical_cast.hpp>
 #include "net4cxx/common/compress/gzip.h"
 #include "net4cxx/common/configuration/json.h"
-#include "net4cxx/plugins/web/httpserver.h"
+#include "net4cxx/plugins/web/routing.h"
 
 
 NS_BEGIN
@@ -65,9 +64,9 @@ public:
 
     virtual ~RequestHandler();
 
-    void start(ArgsType &args);
+    void start(const ArgsType &args);
 
-    virtual void initialize(ArgsType &args);
+    virtual void initialize(const ArgsType &args);
 
     const SettingsType& getSettings() const;
 
@@ -384,7 +383,7 @@ class NET4CXX_COMMON_API ErrorHandler: public RequestHandler {
 public:
     using RequestHandler::RequestHandler;
 
-    void initialize(ArgsType &args) override;
+    void initialize(const ArgsType &args) override;
 
     DeferredPtr prepare() override;
 };
@@ -394,7 +393,7 @@ class NET4CXX_COMMON_API RedirectHandler: public RequestHandler {
 public:
     using RequestHandler::RequestHandler;
 
-    void initialize(ArgsType &args) override;
+    void initialize(const ArgsType &args) override;
 
     DeferredPtr onGet(const StringVector &args) override;
 protected:
@@ -409,7 +408,7 @@ public:
 
     using RequestHandler::RequestHandler;
 
-    void initialize(ArgsType &args) override;
+    void initialize(const ArgsType &args) override;
 
     DeferredPtr prepare() override;
 protected:
@@ -425,7 +424,7 @@ public:
 
     virtual const char * getName() const = 0;
 
-    virtual RequestHandlerPtr create(WebAppPtr application, HTTPServerRequestPtr request, ArgsType &args) const =0;
+    virtual RequestHandlerPtr create(WebAppPtr application, HTTPServerRequestPtr request, const ArgsType &args) const =0;
 protected:
     const char *_name{nullptr};
 };
@@ -440,7 +439,7 @@ public:
         return typeid(RequestHandlerT).name();
     }
 
-    RequestHandlerPtr create(WebAppPtr application, HTTPServerRequestPtr request, ArgsType &args) const override {
+    RequestHandlerPtr create(WebAppPtr application, HTTPServerRequestPtr request, const ArgsType &args) const override {
         auto requestHandler = std::make_shared<RequestHandlerT>(std::move(application), std::move(request));
         requestHandler->start(args);
         return requestHandler;
@@ -448,81 +447,12 @@ public:
 };
 
 
-class NET4CXX_COMMON_API UrlSpec: public boost::noncopyable {
-public:
-    typedef boost::regex RegexType;
-    typedef RequestHandler::ArgsType ArgsType;
-
-    UrlSpec(std::string pattern, RequestHandlerFactoryPtr handlerFactory, std::string name);
-
-    UrlSpec(std::string pattern, RequestHandlerFactoryPtr handlerFactory, ArgsType args={}, std::string name={});
-
-    template <typename... Args>
-    std::string reverse(Args&&... args) {
-        if (_path.empty()) {
-            NET4CXX_THROW_EXCEPTION(ValueError, "Cannot reverse url regex %s", _pattern.c_str());
-        }
-        NET4CXX_ASSERT_THROW(sizeof...(Args) == _groupCount, "required number of arguments not found");
-        return StrUtil::format(_path, UrlParse::quote(boost::lexical_cast<std::string>(args))...);
-    }
-
-    const RegexType& getRegex() const {
-        return _regex;
-    }
-
-    const std::string& getPattern() const {
-        return _pattern;
-    }
-
-    const std::string& getName() const {
-        return _name;
-    }
-
-    std::shared_ptr<const BasicRequestHandlerFactory> getHandlerFactory() const {
-        return _handlerFactory;
-    }
-
-    std::shared_ptr<BasicRequestHandlerFactory> getHandlerFactory() {
-        return _handlerFactory;
-    }
-
-    const ArgsType& args() const {
-        return _args;
-    }
-
-    ArgsType& args() {
-        return _args;
-    }
-protected:
-    std::tuple<std::string, int> findGroups();
-
-    std::string reUnescape(const std::string &s) const;
-
-    std::string _pattern;
-    RegexType _regex;
-    RequestHandlerFactoryPtr _handlerFactory;
-    ArgsType _args;
-    std::string _name;
-    std::string _path;
-    int _groupCount;
-};
-
-using UrlSpecPtr = std::shared_ptr<UrlSpec>;
-
-NET4CXX_COMMON_API inline std::ostream& operator<<(std::ostream &sout, const UrlSpec &url) {
-    sout << StrUtil::format("UrlSpec(%s, %s, name=%s)", url.getPattern(), url.getHandlerFactory()->getName(),
-                            url.getName());
-    return sout;
-}
-
 template <typename HandlerClassT, typename... Args>
 UrlSpecPtr url(std::string pattern, Args&&... args) {
     return std::make_shared<UrlSpec>(std::move(pattern),
                                      std::make_shared<RequestHandlerFactory<HandlerClassT>>(),
                                      std::forward<Args>(args)...);
 }
-
-using urls = std::vector<UrlSpecPtr>;
 
 
 class NET4CXX_COMMON_API OutputTransform {
@@ -775,8 +705,20 @@ public:
     const std::string& getProtocol() const {
         return _protocol;
     }
+
+    void setTrustedDownstream(StringSet &&trustedDownstream) {
+        _trustedDownstream = std::move(trustedDownstream);
+    }
+
+    void setTrustedDownstream(const StringSet &trustedDownstream) {
+        _trustedDownstream = trustedDownstream;
+    }
+
+    const StringSet& getTrustedDownstream() const {
+        return _trustedDownstream;
+    }
 protected:
-    std::vector<UrlSpecPtr> getHostHandlers(const std::shared_ptr<const HTTPServerRequest> &request);
+    std::vector<UrlSpecPtr> getHostHandlers(const std::shared_ptr<const HTTPServerRequest> &request) const;
 
     TransformsType _transforms;
     HostHandlersType _handlers;
@@ -793,6 +735,7 @@ protected:
     double _idleConnectionTimeout{3600.0};
     double _bodyTimeout{0.0};
     std::string _protocol;
+    StringSet _trustedDownstream;
 };
 
 

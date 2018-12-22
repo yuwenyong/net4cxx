@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/plugins/web/httputil.h"
-#include <boost/utility/string_view.hpp>
 #include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/shared/global/loggers.h"
 
@@ -104,6 +103,40 @@ std::ostream& operator<<(std::ostream &os, const HTTPHeaders &headers) {
     return os;
 }
 
+
+std::string HTTPUtil::urlConcat(std::string url, const QueryArgMap &args) {
+    auto parsedUrl = UrlParse::urlParse(std::move(url));
+    auto parsedQuery = UrlParse::parseQSL(parsedUrl.getQuery(), true);
+    for (auto &kv: args) {
+        parsedQuery.emplace_back(kv.first, kv.second);
+    }
+    auto finalQuery = UrlParse::urlEncode(parsedQuery);
+    url = UrlParse::urlUnparse({
+                                       parsedUrl.getScheme(),
+                                       parsedUrl.getNetloc(),
+                                       parsedUrl.getPath(),
+                                       parsedUrl.getParams(),
+                                       finalQuery,
+                                       parsedUrl.getFragment()
+                               });
+    return url;
+}
+
+std::string HTTPUtil::urlConcat(std::string url, const QueryArgList &args) {
+    auto parsedUrl = UrlParse::urlParse(std::move(url));
+    auto parsedQuery = UrlParse::parseQSL(parsedUrl.getQuery(), true);
+    parsedQuery.insert(parsedQuery.end(), args.begin(), args.end());
+    auto finalQuery = UrlParse::urlEncode(parsedQuery);
+    url = UrlParse::urlUnparse({
+                                       parsedUrl.getScheme(),
+                                       parsedUrl.getNetloc(),
+                                       parsedUrl.getPath(),
+                                       parsedUrl.getParams(),
+                                       finalQuery,
+                                       parsedUrl.getFragment()
+                               });
+    return url;
+}
 
 void HTTPUtil::parseBodyArguments(const std::string &contentType, const std::string &body, QueryArgListMap &arguments,
                                   HTTPFileListMap &files, const HTTPHeaders *headers) {
