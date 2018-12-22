@@ -35,6 +35,7 @@ public:
         READ_CHUNK_LENGTH,
         READ_CHUNK_DATA,
         READ_CHUNK_ENDS,
+        READ_LAST_CHUNK_ENDS
     };
 
     explicit HTTPConnection(size_t maxBufferSize=0): IOStream(maxBufferSize) {
@@ -162,6 +163,11 @@ protected:
         readBytes(2);
     }
 
+    void readLastChunkEnds() {
+        _state = READ_LAST_CHUNK_ENDS;
+        readBytes(2);
+    }
+
     void onHeaders(char *data, size_t length);
 
     void onFixedBody(char *data, size_t length);
@@ -171,6 +177,8 @@ protected:
     void onChunkData(char *data, size_t length);
 
     void onChunkEnds(char *data, size_t length);
+
+    void onLastChunkEnds(char *data, size_t length);
 
     void onHeadersReceived();
 

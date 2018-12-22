@@ -216,7 +216,7 @@ void RequestHandler::finish() {
                 setStatus(304);
             }
         }
-        if (_statusCode == 204 || _statusCode == 304) {
+        if (_statusCode == 204 || _statusCode == 304 || (_statusCode >= 100 && _statusCode < 200)) {
             NET4CXX_ASSERT_THROW(_writeBuffer.empty(), "Cannot send body with %d", _statusCode);
             clearHeadersFor304();
         } else if (!_headers.has("Content-Length")) {

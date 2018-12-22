@@ -54,6 +54,8 @@ void HTTPConnection::onDataRead(Byte *data, size_t length) {
                 onChunkData((char *)data, length);
             } else if (_state == READ_CHUNK_ENDS) {
                 onChunkEnds((char *)data, length);
+            } else if (_state == READ_LAST_CHUNK_ENDS) {
+                onLastChunkEnds((char *)data, length);
             } else {
                 NET4CXX_ASSERT_MSG(false, "Unreachable");
             }
@@ -119,6 +121,7 @@ void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &head
     _chunkingOutput = _requestStartLine.getVersion() == "HTTP/1.1" &&
                       _responseStartLine.getCode() != 204 &&
                       _responseStartLine.getCode() != 304 &&
+                      (_responseStartLine.getCode() < 100 || _responseStartLine.getCode() >= 200) &&
                       !headers.has("Content-Length") &&
                       !headers.has("Transfer-Encoding");
     if (_requestStartLine.getVersion() == "HTTP/1.0" &&
@@ -332,7 +335,7 @@ void HTTPConnection::onChunkLength(char *data, size_t length) {
     boost::trim(content);
     size_t chunkLen = std::stoul(content, nullptr, 16);
     if (chunkLen == 0) {
-        readFinished();
+        readLastChunkEnds();
     } else {
         if (chunkLen + _totalSize > _maxBodySize) {
             NET4CXX_THROW_EXCEPTION(HTTPInputError, "chunked body too large");
@@ -353,6 +356,13 @@ void HTTPConnection::onChunkData(char *data, size_t length) {
 void HTTPConnection::onChunkEnds(char *data, size_t length) {
     NET4CXX_ASSERT_THROW(boost::string_view(data, length) == "\r\n", "");
     readChunkLength();
+}
+
+void HTTPConnection::onLastChunkEnds(char *data, size_t length) {
+    if (boost::string_view(data, length) != "\r\n") {
+        NET4CXX_THROW_EXCEPTION(HTTPInputError, "improperly terminated chunked request");
+    }
+    readFinished();
 }
 
 void HTTPConnection::onHeadersReceived() {

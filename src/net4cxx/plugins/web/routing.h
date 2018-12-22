@@ -10,14 +10,14 @@
 
 NS_BEGIN
 
-
 class BasicRequestHandlerFactory;
 
+using RequestHandlerArgs = std::map<std::string, boost::any>;
 
 class NET4CXX_COMMON_API UrlSpec: public boost::noncopyable {
 public:
     typedef boost::regex RegexType;
-    typedef std::map<std::string, boost::any> ArgsType;
+    typedef RequestHandlerArgs ArgsType;
 
     UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory> handlerFactory, std::string name);
 

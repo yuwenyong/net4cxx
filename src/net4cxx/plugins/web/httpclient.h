@@ -699,6 +699,7 @@ public:
         READ_CHUNK_LENGTH,
         READ_CHUNK_DATA,
         READ_CHUNK_ENDS,
+        READ_LAST_CHUNK_ENDS,
         READ_UNTIL_CLOSE,
     };
 
@@ -800,6 +801,11 @@ protected:
         readBytes(2);
     }
 
+    void readLastChunkEnds() {
+        _state = READ_LAST_CHUNK_ENDS;
+        readBytes(2);
+    }
+
     void writeBody(bool startRead);
 
     void onTimeout(const std::string &info="");
@@ -819,6 +825,8 @@ protected:
     void onChunkData(char *data, size_t length);
 
     void onChunkEnds(char *data, size_t length);
+
+    void onLastChunkEnds(char *data, size_t length);
 
     void onReadUntilClose(char *data, size_t length);
 
