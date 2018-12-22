@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/plugins/web/httpclient.h"
-#include <boost/utility/string_view.hpp>
 #include "net4cxx/common/crypto/base64.h"
 #include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/endpoints.h"
@@ -156,6 +155,9 @@ void HTTPClientConnection::onConnected() {
         }
         if (!_request->getProxyPassword().empty()) {
             NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyPassword not supported");
+        }
+        if (!_request->getProxyAuthMode().empty()) {
+            NET4CXX_THROW_EXCEPTION(NotImplementedError, "ProxyAuthMode not supported");
         }
         auto &headers = _request->headers();
         if (!headers.has("Connection")) {
@@ -432,7 +434,7 @@ void HTTPClientConnection::readBody() {
         readFixedBody(*contentLength);
         return;
     }
-    if (_headers->get("Transfer-Encoding") == "chunked") {
+    if (boost::to_lower_copy(_headers->get("Transfer-Encoding", "")) == "chunked") {
         readChunkLength();
         return;
     }

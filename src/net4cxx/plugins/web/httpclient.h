@@ -6,7 +6,6 @@
 #define NET4CXX_PLUGINS_WEB_HTTPCLIENT_H
 
 #include "net4cxx/common/common.h"
-#include <boost/optional.hpp>
 #include "net4cxx/core/protocols/iostream.h"
 #include "net4cxx/plugins/web/httputil.h"
 #include "net4cxx/plugins/web/util.h"
@@ -355,6 +354,20 @@ public:
         return _proxyPassword;
     }
 
+    std::shared_ptr<HTTPRequest> setProxyAuthMode(std::string &&proxyAuthMode) {
+        _proxyAuthMode = std::move(proxyAuthMode);
+        return shared_from_this();
+    }
+
+    std::shared_ptr<HTTPRequest> setProxyAuthMode(const std::string &proxyAuthMode) {
+        _proxyAuthMode = proxyAuthMode;
+        return shared_from_this();
+    }
+
+    const std::string &getProxyAuthMode() const {
+        return _proxyAuthMode;
+    }
+
     std::shared_ptr<HTTPRequest> setAllowNonstandardMethods(bool allowNonstandardMethods) {
         _allowNonstandardMethods = allowNonstandardMethods;
         return shared_from_this();
@@ -480,6 +493,7 @@ protected:
     unsigned short _proxyPort{0};
     std::string _proxyUserName;
     std::string _proxyPassword;
+    std::string _proxyAuthMode;
     bool _allowNonstandardMethods{false};
     bool _validateCert{true};
     std::string _caCerts;
@@ -811,7 +825,7 @@ protected:
     bool shouldFollowRedirect() const {
         return _request->isFollowRedirects() &&
                _request->getMaxRedirects() > 0 &&
-               (_code == 301 || _code == 302 || _code == 303 || _code == 307);
+               (_code == 301 || _code == 302 || _code == 303 || _code == 307 || _code == 308);
     }
 
     void finish();

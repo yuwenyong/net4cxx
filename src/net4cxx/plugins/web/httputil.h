@@ -6,8 +6,6 @@
 #define NET4CXX_PLUGINS_WEB_HTTPUTIL_H
 
 #include "net4cxx/common/common.h"
-#include <boost/optional.hpp>
-#include <boost/regex.hpp>
 #include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/httputils/httplib.h"
 #include "net4cxx/common/httputils/urlparse.h"
@@ -226,21 +224,9 @@ public:
 
 class NET4CXX_COMMON_API HTTPUtil {
 public:
-    template <typename QueryArgsT>
-    static std::string urlConcat(std::string url, const QueryArgsT &args) {
-        if (args.empty()) {
-            return url;
-        }
-        if (url.empty() || (url.back() != '?' && url.back() != '&')) {
-            if (url.find('?') != std::string::npos) {
-                url.push_back('&');
-            } else {
-                url.push_back('?');
-            }
-        }
-        url += UrlParse::urlEncode(args);
-        return url;
-    }
+    static std::string urlConcat(std::string url, const QueryArgMap &args);
+
+    static std::string urlConcat(std::string url, const QueryArgList &args);
 
     static void parseBodyArguments(const std::string &contentType, const std::string &body, QueryArgListMap &arguments,
                                    HTTPFileListMap &files, const HTTPHeaders *headers=nullptr);

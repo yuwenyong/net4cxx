@@ -6,8 +6,6 @@
 #define NET4CXX_CORE_PROTOCOLS_IOSTREAM_H
 
 #include "net4cxx/common/common.h"
-#include <boost/optional.hpp>
-#include <boost/regex.hpp>
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/protocol.h"
 #include "net4cxx/core/network/reactor.h"

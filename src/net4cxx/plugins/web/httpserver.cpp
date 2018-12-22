@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/plugins/web/httpserver.h"
-#include <boost/utility/string_view.hpp>
 #include "net4cxx/core/network/ssl.h"
 #include "net4cxx/plugins/web/web.h"
 
@@ -37,6 +36,7 @@ void HTTPConnection::onConnected() {
     _maxBodySize = webApp->getMaxBodySize() != 0 ? webApp->getMaxBodySize() : _maxBufferSize;
     _headerTimeout = webApp->getIdleConnectionTimeout();
     _bodyTimeout = webApp->getBodyTimeout();
+    _trustedDownstream = webApp->getTrustedDownstream();
 
     startRequest();
 }
@@ -104,6 +104,9 @@ void HTTPConnection::onDisconnected(std::exception_ptr reason) {
     }
     if (_dispatcher) {
         _dispatcher->onConnectionClose();
+    }
+    if (_xheaders) {
+        unapplyXheaders();
     }
     clearCallbacks();
 }
@@ -284,7 +287,7 @@ void HTTPConnection::readBody() {
         }
         return;
     }
-    if (_requestHeaders->get("Transfer-Encoding") == "chunked") {
+    if (boost::to_lower_copy(_requestHeaders->get("Transfer-Encoding", "")) == "chunked") {
         readChunkLength();
         if (_bodyTimeout != 0.0) {
             _bodyTimeoutCall = reactor()->callLater(_bodyTimeout, [this, self=shared_from_this()]() {
@@ -441,7 +444,13 @@ void HTTPConnection::finishRequest() {
 
 void HTTPConnection::applyXheaders(const HTTPHeaders &headers) {
     auto ip = headers.get("X-Forwarded-For", _remoteIp);
-    ip = boost::trim_copy(StrUtil::split(ip, ',').back());
+    auto cands = StrUtil::split(ip, ',');
+    for (auto iter =cands.rbegin(); iter != cands.rend(); ++iter) {
+        ip = boost::trim_copy(*iter);
+        if (_trustedDownstream.find(ip) == _trustedDownstream.end()) {
+            break;
+        }
+    }
     ip = headers.get("X-Real-Ip", ip);
     if (NetUtil::isValidIP(ip)) {
         _remoteIp = std::move(ip);
@@ -485,6 +494,7 @@ HTTPServerRequest::HTTPServerRequest(const std::shared_ptr<HTTPConnection> &conn
     } else {
         _host = _headers->get("Host", "127.0.0.1");
     }
+    std::tie(_hostName, std::ignore) = HTTPUtil::splitHostAndPort(boost::to_lower_copy(_host));
     std::tie(_path, std::ignore, _query) = StrUtil::partition(_uri, "?");
     _arguments = UrlParse::parseQS(_query, true);
     _queryArguments = _arguments;
