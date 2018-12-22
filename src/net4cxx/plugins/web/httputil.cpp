@@ -105,6 +105,9 @@ std::ostream& operator<<(std::ostream &os, const HTTPHeaders &headers) {
 
 
 std::string HTTPUtil::urlConcat(std::string url, const QueryArgMap &args) {
+    if (args.empty()) {
+        return url;
+    }
     auto parsedUrl = UrlParse::urlParse(std::move(url));
     auto parsedQuery = UrlParse::parseQSL(parsedUrl.getQuery(), true);
     for (auto &kv: args) {
@@ -123,6 +126,9 @@ std::string HTTPUtil::urlConcat(std::string url, const QueryArgMap &args) {
 }
 
 std::string HTTPUtil::urlConcat(std::string url, const QueryArgList &args) {
+    if (args.empty()) {
+        return url;
+    }
     auto parsedUrl = UrlParse::urlParse(std::move(url));
     auto parsedQuery = UrlParse::parseQSL(parsedUrl.getQuery(), true);
     parsedQuery.insert(parsedQuery.end(), args.begin(), args.end());
