@@ -524,6 +524,7 @@ public:
             , _headers(std::move(headers))
             , _body(std::move(body))
             , _effectiveUrl(std::move(effectiveUrl))
+            , _errorIsResponseCode(false)
             , _requestTime(requestTime) {
         if (reason.empty()) {
             _reason = HTTPUtil::getHTTPReason(code);
@@ -532,6 +533,7 @@ public:
         }
         if (!_error) {
             if (_code < 200 || _code >= 300) {
+                _errorIsResponseCode = true;
                 _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(HTTPError, "") << errinfo_http_code(code)
                                                                                        << errinfo_http_reason(_reason));
             }
@@ -579,6 +581,10 @@ public:
         return _effectiveUrl;
     }
 
+    bool getErrorIsResponseCode() const {
+        return _errorIsResponseCode;
+    }
+
     std::exception_ptr getError() const {
         return _error;
     }
@@ -600,6 +606,7 @@ protected:
     std::shared_ptr<HTTPHeaders> _headers;
     std::string _body;
     std::string _effectiveUrl;
+    bool _errorIsResponseCode;
     std::exception_ptr _error;
     Duration _requestTime{};
 };

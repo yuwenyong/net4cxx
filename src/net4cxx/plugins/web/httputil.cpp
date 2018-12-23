@@ -3,6 +3,7 @@
 //
 
 #include "net4cxx/plugins/web/httputil.h"
+#include "net4cxx/common/email/utils.h"
 #include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/shared/global/loggers.h"
 
@@ -35,17 +36,18 @@ StringVector HTTPHeaders::getList(const std::string &name) const {
 void HTTPHeaders::parseLine(const std::string &line) {
     NET4CXX_ASSERT(!line.empty());
     if (std::isspace(line[0])) {
+        if (_lastKey.empty()) {
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "first header line cannot start with whitespace");
+        }
         std::string newPart = " " + boost::trim_left_copy(line);
         auto &asList = _asList.at(_lastKey);
-        if (asList.empty()) {
-            NET4CXX_THROW_EXCEPTION(IndexError, "list index out of range");
-        }
+        NET4CXX_ASSERT(!asList.empty());
         asList.back() += newPart;
         _items.at(_lastKey) += newPart;
     } else {
         size_t pos = line.find(':');
         if (pos == 0 || pos == std::string::npos) {
-            NET4CXX_THROW_EXCEPTION(ValueError, "Need more than 1 value to unpack");
+            NET4CXX_THROW_EXCEPTION(HTTPInputError, "no colon in header line");
         }
         std::string name = line.substr(0, pos);
         std::string value = line.substr(pos + 1, std::string::npos);
@@ -301,12 +303,7 @@ std::tuple<std::string, std::shared_ptr<HTTPHeaders>> HTTPUtil::parseHeaders(con
     } else {
         startLine.assign(dv.begin(), dv.end());
     }
-    std::shared_ptr<HTTPHeaders> headers;
-    try {
-        headers = HTTPHeaders::parse(rest);
-    } catch (Exception &e) {
-        NET4CXX_THROW_EXCEPTION(HTTPInputError, "Malformed HTTP headers: %s", rest);
-    }
+    auto headers = HTTPHeaders::parse(rest);
     return std::make_tuple(std::move(startLine), std::move(headers));
 }
 
@@ -355,7 +352,7 @@ std::tuple<std::string, StringMap> HTTPUtil::parseHeader(const std::string &line
     StringVector parts = parseParam(";" + line);
     std::string key = std::move(parts[0]);
     parts.erase(parts.begin());
-    StringMap pdict;
+    QueryArgList params{{"Dummy", "value"}};
     size_t i;
     std::string name, value;
     for (auto &p: parts) {
@@ -363,15 +360,18 @@ std::tuple<std::string, StringMap> HTTPUtil::parseHeader(const std::string &line
         if (i != std::string::npos) {
             name = boost::to_lower_copy(boost::trim_copy(p.substr(0, i)));
             value = boost::trim_copy(p.substr(i + 1));
-            if (value.size() >= 2 && value.front() == '\"' && value.back() == '\"') {
-                value = value.substr(1, value.size() - 2);
-                boost::replace_all(value, "\\\\", "\\");
-                boost::replace_all(value, "\\\"", "\"");
-            }
-            pdict[std::move(name)] = std::move(value);
-        } else {
-            pdict[p] = "";
+            params.emplace_back(std::move(name), std::move(value));
         }
+    }
+    params = EMailUtils::decodeParams(std::move(params));
+    params.erase(params.begin());
+    StringMap pdict;
+    for (auto &kv: params) {
+        value = EMailUtils::collapseRFC2231Value(kv.second);
+        if (value.size() >= 2 && value.front() == '\"' && value.back() == '\"') {
+            value = value.substr(1, value.size() - 2);
+        }
+        pdict[std::move(kv.first)] = std::move(value);
     }
     return std::make_tuple(std::move(key), std::move(pdict));
 }

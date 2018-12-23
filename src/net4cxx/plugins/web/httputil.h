@@ -255,6 +255,10 @@ public:
 
     static ResponseStartLine parseResponseStartLine(const std::string &line);
 
+    static std::string encodeUsernamePassword(const std::string &username, const std::string &password) {
+        return username + ':' + password;
+    }
+
     static std::tuple<std::string, boost::optional<unsigned short>> splitHostAndPort(const std::string &netloc);
 
     static QueryArgList QStoQSL(const QueryArgListMap &args);

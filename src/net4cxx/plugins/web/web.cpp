@@ -560,6 +560,7 @@ void FallbackHandler::initialize(const ArgsType &args) {
 DeferredPtr FallbackHandler::prepare() {
     _fallback(_request);
     _finished = true;
+    onFinish();
     return nullptr;
 }
 

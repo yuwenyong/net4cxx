@@ -7,7 +7,6 @@
 
 #include "net4cxx/common/common.h"
 #include <boost/algorithm/string.hpp>
-#include <boost/regex.hpp>
 #include "net4cxx/common/utilities/errors.h"
 
 NS_BEGIN
