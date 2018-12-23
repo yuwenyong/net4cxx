@@ -279,6 +279,16 @@ std::tuple<std::string, boost::optional<unsigned short>> HTTPUtil::splitHostAndP
     return std::make_tuple(std::move(host), port);
 }
 
+QueryArgList HTTPUtil::QStoQSL(const QueryArgListMap &args) {
+    QueryArgList res;
+    for (auto &kv: args) {
+        for (auto &v: kv.second) {
+            res.emplace_back(kv.first, v);
+        }
+    }
+    return res;
+}
+
 std::tuple<std::string, std::shared_ptr<HTTPHeaders>> HTTPUtil::parseHeaders(const char *data, size_t length) {
     boost::string_view dv{data, length};
     dv.remove_prefix(std::min(dv.find_first_not_of("\r\n"), dv.size()));

@@ -257,6 +257,8 @@ public:
 
     static std::tuple<std::string, boost::optional<unsigned short>> splitHostAndPort(const std::string &netloc);
 
+    static QueryArgList QStoQSL(const QueryArgListMap &args);
+
     static std::tuple<std::string, std::shared_ptr<HTTPHeaders>> parseHeaders(const char *data, size_t length);
 
     static StringMap parseCookie(const std::string &cookie);
