@@ -117,10 +117,11 @@ void RequestHandler::setStatus(int statusCode, const std::string &reason) {
     if (!reason.empty()) {
         _reason = reason;
     } else {
-        try {
-            _reason = HTTP_STATUS_CODES.at(statusCode);
-        } catch (std::out_of_range &e) {
-            NET4CXX_THROW_EXCEPTION(ValueError, "unknown status code %d", statusCode);
+        auto iter = HTTP_STATUS_CODES.find(statusCode);
+        if (iter != HTTP_STATUS_CODES.end()) {
+            _reason = iter->second;
+        } else {
+            _reason = "Unknown";
         }
     }
 }
@@ -491,6 +492,7 @@ void RequestHandler::handleRequestException(const std::exception_ptr &error) {
     try {
         std::rethrow_exception(error);
     } catch (HTTPError &e) {
+        sendError(e.getCode(), error);
         int statusCode = e.getCode();
         if (HTTP_STATUS_CODES.find(statusCode) == HTTP_STATUS_CODES.end() && !e.hasReason()) {
             NET4CXX_LOG_ERROR(gGenLog, "Bad HTTP status code: %d", statusCode);
@@ -540,15 +542,20 @@ void RedirectHandler::initialize(const ArgsType &args) {
 }
 
 DeferredPtr RedirectHandler::onGet(const StringVector &args) {
+    std::string toUrl;
     if (args.empty()) {
-        redirect(_url, _permanent);
+        toUrl = _url;
     } else {
         boost::format fmt(_url);
         for (auto &arg: args) {
             fmt % arg;
         }
-        redirect(fmt.str(), _permanent);
+        toUrl = fmt.str();
     }
+    if (!_request->getQueryArguments().empty()) {
+        toUrl = HTTPUtil::urlConcat(std::move(toUrl), HTTPUtil::QStoQSL(_request->getQueryArguments()));
+    }
+    redirect(toUrl, _permanent);
     return nullptr;
 }
 

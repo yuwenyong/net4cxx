@@ -124,6 +124,9 @@ void HTTPConnection::writeHeaders(ResponseStartLine startLine, HTTPHeaders &head
                       (_responseStartLine.getCode() < 100 || _responseStartLine.getCode() >= 200) &&
                       !headers.has("Content-Length") &&
                       !headers.has("Transfer-Encoding");
+    if (_requestStartLine.getVersion() == "HTTP/1.1" && _disconnectOnFinish) {
+        headers["Connection"] = "close";
+    }
     if (_requestStartLine.getVersion() == "HTTP/1.0" &&
         boost::to_lower_copy(_requestHeaders->get("Connection")) == "keep-alive") {
         headers["Connection"] = "Keep-Alive";
@@ -161,6 +164,7 @@ void HTTPConnection::writeChunk(const Byte *chunk, size_t length, WriteCallbackT
     if (callback) {
         _writeCallback = std::move(callback);
     }
+    _pendingWrite = true;
     write(formatChunk(chunk, length), true);
 }
 
@@ -467,6 +471,9 @@ void HTTPConnection::applyXheaders(const HTTPHeaders &headers) {
     }
     std::string proto = headers.get("X-Forwarded-Proto", _protocol);
     proto = headers.get("X-Scheme", proto);
+    if (!proto.empty()) {
+        proto = boost::trim_copy(StrUtil::split(proto, ',').back());
+    }
     if (proto == "http" || proto == "https") {
         _protocol = std::move(proto);
     }
