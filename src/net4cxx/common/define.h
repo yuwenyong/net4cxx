@@ -99,7 +99,7 @@ NS_END
 #endif
 
 
-#define NET4CXX_VERSION      "3.0.0"
+#define NET4CXX_VERSION      "3.0.1"
 #define NET4CXX_VER          "net4cxx/" NET4CXX_VERSION
 
 

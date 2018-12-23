@@ -493,13 +493,6 @@ void RequestHandler::handleRequestException(const std::exception_ptr &error) {
         std::rethrow_exception(error);
     } catch (HTTPError &e) {
         sendError(e.getCode(), error);
-        int statusCode = e.getCode();
-        if (HTTP_STATUS_CODES.find(statusCode) == HTTP_STATUS_CODES.end() && !e.hasReason()) {
-            NET4CXX_LOG_ERROR(gGenLog, "Bad HTTP status code: %d", statusCode);
-            sendError(500, error);
-        } else {
-            sendError(statusCode, error);
-        }
     } catch (...) {
         sendError(500, error);
     }
