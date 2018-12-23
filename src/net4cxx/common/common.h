@@ -25,6 +25,7 @@
 #include <numeric>
 #include <chrono>
 #include <random>
+#include <tuple>
 
 #include <cmath>
 #include <cstdio>

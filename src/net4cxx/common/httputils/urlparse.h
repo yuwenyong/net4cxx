@@ -6,8 +6,6 @@
 #define NET4CXX_COMMON_HTTPUTILS_URLPARSE_H
 
 #include "net4cxx/common/common.h"
-#include <tuple>
-#include <boost/optional.hpp>
 
 NS_BEGIN
 

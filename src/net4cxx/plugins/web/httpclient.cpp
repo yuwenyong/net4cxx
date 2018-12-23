@@ -185,9 +185,7 @@ void HTTPClientConnection::onConnected() {
             if (!authMode.empty() && authMode != "basic") {
                 NET4CXX_THROW_EXCEPTION(ValueError, "unsupported auth mode %s", authMode);
             }
-            std::string auth = userName + ":" + password;
-            auth = "Basic " + Base64::b64encode(auth);
-            headers["Authorization"] = auth;
+            headers["Authorization"] = "Basic " + Base64::b64encode(HTTPUtil::encodeUsernamePassword(userName, password));
         }
         const std::string &userAgent = _request->getUserAgent();
         if (!userAgent.empty()) {

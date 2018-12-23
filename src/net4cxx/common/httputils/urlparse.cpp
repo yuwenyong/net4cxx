@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/httputils/urlparse.h"
-#include <boost/utility/string_ref.hpp>
 #include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/errors.h"
 #include "net4cxx/common/utilities/strutil.h"
