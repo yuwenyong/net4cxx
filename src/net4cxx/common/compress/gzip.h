@@ -9,7 +9,6 @@
 #include <fstream>
 #include <iostream>
 #include <sstream>
-#include <boost/optional.hpp>
 #include "net4cxx/common/compress/zlib.h"
 #include "net4cxx/common/utilities/errors.h"
 

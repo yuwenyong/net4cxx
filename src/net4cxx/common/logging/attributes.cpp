@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/logging/attributes.h"
-#include <boost/algorithm/string.hpp>
 
 
 NS_BEGIN

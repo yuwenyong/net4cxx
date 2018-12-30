@@ -6,7 +6,6 @@
 #define NET4CXX_COMMON_UTILITIES_STRUTIL_H
 
 #include "net4cxx/common/common.h"
-#include <boost/algorithm/string.hpp>
 #include <boost/format.hpp>
 
 

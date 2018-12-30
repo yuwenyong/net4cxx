@@ -8,8 +8,6 @@
 #include "net4cxx/common/common.h"
 #include <boost/log/sinks.hpp>
 #include <boost/log/utility/functional.hpp>
-#include <boost/optional.hpp>
-#include <boost/variant.hpp>
 #include "net4cxx/common/logging/attributes.h"
 
 NS_BEGIN

@@ -44,6 +44,30 @@ public:
 
     void del(const char *key);
 
+    int get(const char *key) const {
+        std::lock_guard<std::mutex> lock(_lock);
+        return _objs.at(key);
+    }
+
+    int get(const char *key, int defValue) const {
+        std::lock_guard<std::mutex> lock(_lock);
+        auto iter = _objs.find(key);
+        return iter != _objs.end() ? iter->second : defValue;
+    }
+
+    template <typename FuncT>
+    void getAll(FuncT func) const {
+        std::lock_guard<std::mutex> lock(_lock);
+        for (auto &kv: _objs) {
+            func(kv.first, kv.second);
+        }
+    }
+
+    int getCount() const {
+        std::lock_guard<std::mutex> lock(_lock);
+        return _objs.size();
+    }
+
     void addSetCallback(const char *key, const SetCallback &callback);
 
     void addIncCallback(const char *key, const IncCallback &callback);

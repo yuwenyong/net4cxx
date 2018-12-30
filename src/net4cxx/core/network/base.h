@@ -9,7 +9,6 @@
 #include <boost/asio.hpp>
 #include <boost/asio/ssl.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/errors.h"
 #include "net4cxx/common/utilities/messagebuffer.h"
 

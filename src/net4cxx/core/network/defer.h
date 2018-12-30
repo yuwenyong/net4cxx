@@ -6,9 +6,6 @@
 #define NET4CXX_CORE_NETWORK_DEFER_H
 
 #include "net4cxx/common/common.h"
-#include <boost/any.hpp>
-#include <boost/optional.hpp>
-#include <boost/variant.hpp>
 #include "net4cxx/common/debugging/assert.h"
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/core/network/base.h"
