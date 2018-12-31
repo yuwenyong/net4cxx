@@ -54,7 +54,7 @@ std::ostream &operator<<(std::ostream &os, const HTTPResponse &response) {
 }
 
 
-DeferredPtr HTTPClient::fetch(HTTPRequestPtr request, CallbackType callback, bool raiseError) {
+DeferredPtr HTTPClient::fetch(std::shared_ptr<HTTPRequest> request, CallbackType callback, bool raiseError) {
     if (_closed) {
         NET4CXX_THROW_EXCEPTION(RuntimeError, "client already closed");
     }
@@ -80,7 +80,7 @@ DeferredPtr HTTPClient::fetch(HTTPRequestPtr request, CallbackType callback, boo
     return result;
 }
 
-void HTTPClient::fetchImpl(HTTPRequestPtr request, CallbackType &&callback) {
+void HTTPClient::fetchImpl(std::shared_ptr<HTTPRequest> request, CallbackType &&callback) {
     auto connection = std::make_shared<HTTPClientConnection>(shared_from_this(), std::move(request),
                                                              std::move(callback), _maxBufferSize, _maxHeaderSize);
     connection->startRequest();

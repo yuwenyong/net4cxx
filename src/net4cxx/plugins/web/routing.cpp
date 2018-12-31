@@ -13,7 +13,7 @@ UrlSpec::UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory
 
 }
 
-UrlSpec::UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory> handlerFactory, ArgsType args,
+UrlSpec::UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory> handlerFactory, boost::any args,
                  std::string name)
         : _pattern(std::move(pattern))
         , _handlerFactory(std::move(handlerFactory))
