@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/logging/sinks.h"
-#include <boost/algorithm/string.hpp>
 #include <boost/core/null_deleter.hpp>
 #include "net4cxx/common/logging/logging.h"
 

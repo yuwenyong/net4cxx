@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/compress/gzip.h"
-#include <boost/algorithm/string.hpp>
 #include <boost/endian/conversion.hpp>
 #include <boost/filesystem.hpp>
 

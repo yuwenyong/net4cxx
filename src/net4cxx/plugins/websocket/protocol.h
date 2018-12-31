@@ -7,8 +7,6 @@
 
 #include "net4cxx/plugins/websocket/base.h"
 #include <boost/logic/tribool.hpp>
-#include <boost/optional.hpp>
-#include <boost/regex.hpp>
 #include "net4cxx/common/debugging/watcher.h"
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/core/network/protocol.h"

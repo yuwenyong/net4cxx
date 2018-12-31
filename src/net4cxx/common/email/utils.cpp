@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/common/email/utils.h"
-#include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/strutil.h"
 
 

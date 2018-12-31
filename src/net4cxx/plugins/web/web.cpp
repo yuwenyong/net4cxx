@@ -26,19 +26,15 @@ RequestHandler::~RequestHandler() {
 #endif
 }
 
-void RequestHandler::start(const ArgsType &args) {
+void RequestHandler::start(const boost::any &args) {
     _request->getConnection()->setCloseCallback([this, self=shared_from_this()](){
         onConnectionClose();
     });
     initialize(args);
 }
 
-void RequestHandler::initialize(const ArgsType &args) {
+void RequestHandler::initialize(const boost::any &args) {
 
-}
-
-const RequestHandler::SettingsType& RequestHandler::getSettings() const {
-    return _application->getSettings();
 }
 
 DeferredPtr RequestHandler::onHead(const StringVector &args) {
@@ -275,9 +271,7 @@ void RequestHandler::sendError(int statusCode, const std::exception_ptr &error, 
 }
 
 void RequestHandler::writeError(int statusCode, const std::exception_ptr &error) {
-    auto &settings = getSettings();
-    auto iter = settings.find("serveTraceback");
-    if (error && iter != settings.end() && boost::any_cast<bool>(iter->second)) {
+    if (error && _application->getServeTraceback()) {
         setHeader("Content-Type", "text/plain");
         try {
             std::rethrow_exception(error);
@@ -290,14 +284,6 @@ void RequestHandler::writeError(int statusCode, const std::exception_ptr &error)
     } else {
         finish(StrUtil::format("<html><title>%d: %s</title><body>%d: %s</body></html>", statusCode, _reason, statusCode,
                                _reason));
-    }
-}
-
-void RequestHandler::requireSetting(const std::string &name, const std::string &feature) {
-    const auto &settings = _application->getSettings();
-    if (settings.find("name") == settings.end()) {
-        NET4CXX_THROW_EXCEPTION(Exception, "You must define the '%s' setting in your application to use %s", name,
-                                feature);
     }
 }
 
@@ -516,8 +502,9 @@ void RequestHandler::logException(const std::exception_ptr &error) {
 }
 
 
-void ErrorHandler::initialize(const ArgsType &args) {
-    setStatus(boost::any_cast<int>(args.at("statusCode")));
+void ErrorHandler::initialize(const boost::any &args) {
+    const auto &arg = boost::any_cast<const ErrorHandlerArgs&>(args);
+    setStatus(arg.getStatusCode());
 }
 
 DeferredPtr ErrorHandler::prepare() {
@@ -526,11 +513,11 @@ DeferredPtr ErrorHandler::prepare() {
 }
 
 
-void RedirectHandler::initialize(const ArgsType &args) {
-    _url = boost::any_cast<std::string>(args.at("url"));
-    auto iter = args.find("permanent");
-    if (iter != args.end()) {
-        _permanent = boost::any_cast<bool>(iter->second);
+void RedirectHandler::initialize(const boost::any &args) {
+    const auto &arg = boost::any_cast<const RedirectHandlerArgs&>(args);
+    _url = arg.getUrl();
+    if (arg.getPermanent()) {
+        _permanent = *arg.getPermanent();
     }
 }
 
@@ -553,8 +540,9 @@ DeferredPtr RedirectHandler::onGet(const StringVector &args) {
 }
 
 
-void FallbackHandler::initialize(const ArgsType &args) {
-    _fallback = boost::any_cast<FallbackType>(args.at("fallback"));
+void FallbackHandler::initialize(const boost::any &args) {
+    const auto &arg = boost::any_cast<const FallbackHandlerArgs&>(args);
+    _fallback = arg.getFallback();
 }
 
 DeferredPtr FallbackHandler::prepare() {
@@ -647,9 +635,7 @@ void RequestDispatcher::execute() {
 void RequestDispatcher::findHandler() {
     auto handlers = _application->getHostHandlers(_request);
     if (handlers.empty()) {
-        RequestHandler::ArgsType handlerArgs = {
-                {"url", _request->getProtocol() + "://" + _application->getDefaultHost() + "/"}
-        };
+        RedirectHandlerArgs handlerArgs(_request->getProtocol() + "://" + _application->getDefaultHost() + "/");
         _handler = RequestHandlerFactory<RedirectHandler>().create(_application, _request, handlerArgs);
         return;
     }
@@ -667,32 +653,20 @@ void RequestDispatcher::findHandler() {
             return;
         }
     }
-    auto iter = _application->getSettings().find("defaultHandlerFactory");
-    if (iter != _application->getSettings().end()) {
-        auto handlerFactory = boost::any_cast<RequestHandlerFactoryPtr>(iter->second);
-        auto argIter = _application->getSettings().find("defaultHandlerArgs");
-        if (argIter != _application->getSettings().end()) {
-            auto &handlerArgs = boost::any_cast<RequestHandler::ArgsType&>(argIter->second);
-            _handler = handlerFactory->create(_application, _request, handlerArgs);
-        } else {
-            RequestHandler::ArgsType handlerArgs;
-            _handler = handlerFactory->create(_application, _request, handlerArgs);
-        }
+    if (_application->getDefaultHandlerFactory()) {
+        _handler = _application->getDefaultHandlerFactory()->create(_application, _request,
+                                                                    _application->getDefaultHandlerArgs());
     } else {
-        RequestHandler::ArgsType handlerArgs = {
-                {"statusCode", 404}
-        };
+        ErrorHandlerArgs handlerArgs(404);
         _handler = RequestHandlerFactory<ErrorHandler>().create(_application, _request, handlerArgs);
     }
 }
 
 
-WebApp::WebApp(HandlersType handlers, std::string defaultHost, TransformsType transforms, SettingsType settings)
-        : _defaultHost(std::move(defaultHost))
-        , _settings(std::move(settings)) {
+WebApp::WebApp(HandlersType handlers, bool compressResponse, std::string defaultHost, TransformsType transforms)
+        : _defaultHost(std::move(defaultHost)) {
     if (transforms.empty()) {
-        if (_settings.find("compressResponse") != _settings.end() &&
-            boost::any_cast<bool>(_settings["compressResponse"])) {
+        if (compressResponse) {
             addTransform<GZipContentEncoding>();
         }
     } else {
@@ -714,9 +688,9 @@ void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     if (!_handlers.empty() && _handlers.back().first.str() == ".*$") {
         auto iter = _handlers.end();
         std::advance(iter, -1);
-        _handlers.insert(iter, std::make_pair(HostPatternType{hostPattern}, hostHandlers));
+        _handlers.insert(iter, std::make_pair(boost::regex{hostPattern}, hostHandlers));
     } else {
-        _handlers.emplace_back(std::make_pair(HostPatternType{hostPattern}, hostHandlers));
+        _handlers.emplace_back(std::make_pair(boost::regex{hostPattern}, hostHandlers));
     }
     for (auto &spec: hostHandlers) {
         if (!spec->getName().empty()) {
@@ -728,11 +702,9 @@ void WebApp::addHandlers(std::string hostPattern, HandlersType hostHandlers) {
     }
 }
 
-void WebApp::logRequest(std::shared_ptr<const RequestHandler> handler) const {
-    auto iter = _settings.find("logFunction");
-    if (iter != _settings.end()) {
-        const auto &logFunction = boost::any_cast<const LogFunctionType&>(iter->second);
-        logFunction(std::move(handler));
+void WebApp::logRequest(const std::shared_ptr<const RequestHandler> &handler) const {
+    if (_logFunction) {
+        _logFunction(handler);
         return;
     }
     int statusCode = handler->getStatus();

@@ -6,7 +6,6 @@
 #define NET4CXX_COMMON_CRYPTO_HASHLIB_H
 
 #include "net4cxx/common/common.h"
-
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <boost/mpl/string.hpp>

@@ -6,8 +6,6 @@
 #define NET4CXX_PLUGINS_WEBSOCKET_UTIL_H
 
 #include "net4cxx/plugins/websocket/base.h"
-#include <boost/optional.hpp>
-#include <boost/regex.hpp>
 #include "net4cxx/common/configuration/json.h"
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/common/utilities/util.h"

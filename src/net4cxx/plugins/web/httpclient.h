@@ -546,11 +546,13 @@ public:
                  const Duration &requestTime)
             : _request(std::move(request))
             , _code(code)
+            , _errorIsResponseCode(false)
             , _error(error)
             , _requestTime(requestTime) {
         _reason = HTTPUtil::getHTTPReason(code);
         if (!_error) {
             if (_code < 200 || _code >= 300) {
+                _errorIsResponseCode = true;
                 _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(HTTPError, "") << errinfo_http_code(code)
                                                                                        << errinfo_http_reason(_reason));
             }
@@ -654,7 +656,7 @@ public:
         return fetch(HTTPRequest::create(request), std::move(callback), raiseError);
     }
 
-    DeferredPtr fetch(HTTPRequestPtr request, CallbackType callback = nullptr, bool raiseError = true);
+    DeferredPtr fetch(std::shared_ptr<HTTPRequest> request, CallbackType callback = nullptr, bool raiseError = true);
 
     const StringMap &getHostnameMapping() const {
         return _hostnameMapping;
@@ -682,7 +684,7 @@ public:
     }
 
 protected:
-    void fetchImpl(HTTPRequestPtr request, CallbackType &&callback);
+    void fetchImpl(std::shared_ptr<HTTPRequest> request, CallbackType &&callback);
 
     Reactor *_reactor;
     StringMap _hostnameMapping;
@@ -710,8 +712,8 @@ public:
         READ_UNTIL_CLOSE,
     };
 
-    HTTPClientConnection(HTTPClientPtr client,
-                         HTTPRequestPtr request,
+    HTTPClientConnection(std::shared_ptr<HTTPClient> client,
+                         std::shared_ptr<HTTPRequest> request,
                          CallbackType callback,
                          size_t maxBufferSize = 0,
                          size_t maxHeaderSize = 0,
@@ -859,8 +861,8 @@ protected:
 
     State _state{READ_NONE};
     Timestamp _startTime;
-    HTTPClientPtr _client;
-    HTTPRequestPtr _request;
+    std::shared_ptr<HTTPClient> _client;
+    std::shared_ptr<HTTPRequest> _request;
     CallbackType _callback;
     boost::optional<int> _code;
     std::shared_ptr<HTTPHeaders> _headers;

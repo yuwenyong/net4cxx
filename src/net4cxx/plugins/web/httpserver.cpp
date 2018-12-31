@@ -44,20 +44,31 @@ void HTTPConnection::onConnected() {
 void HTTPConnection::onDataRead(Byte *data, size_t length) {
     try {
         try {
-            if (_state == READ_HEADER) {
-                onHeaders((char *)data, length);
-            } else if (_state == READ_FIXED_BODY) {
-                onFixedBody((char *)data, length);
-            } else if (_state == READ_CHUNK_LENGTH) {
-                onChunkLength((char *)data, length);
-            } else if (_state == READ_CHUNK_DATA) {
-                onChunkData((char *)data, length);
-            } else if (_state == READ_CHUNK_ENDS) {
-                onChunkEnds((char *)data, length);
-            } else if (_state == READ_LAST_CHUNK_ENDS) {
-                onLastChunkEnds((char *)data, length);
-            } else {
-                NET4CXX_ASSERT_MSG(false, "Unreachable");
+            switch (_state) {
+                case READ_HEADER: {
+                    onHeaders((char *)data, length);
+                    break;
+                }
+                case READ_FIXED_BODY: {
+                    onFixedBody((char *)data, length);
+                    break;
+                }
+                case READ_CHUNK_LENGTH: {
+                    onChunkLength((char *)data, length);
+                    break;
+                }
+                case READ_CHUNK_DATA: {
+                    onChunkData((char *)data, length);
+                    break;
+                }
+                case READ_CHUNK_ENDS: {
+                    onChunkEnds((char *)data, length);
+                    break;
+                }
+                default: {
+                    NET4CXX_ASSERT_MSG(false, "Unreachable");
+                    break;
+                }
             }
         } catch (HTTPInputError &e) {
             NET4CXX_LOG_INFO(gGenLog, "Malformed HTTP request from %s: %s", _remoteIp, e.what());

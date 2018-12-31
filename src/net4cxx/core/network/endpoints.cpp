@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/core/network/endpoints.h"
-#include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/strutil.h"
 #include "net4cxx/core/network/defer.h"
 #include "net4cxx/core/network/reactor.h"

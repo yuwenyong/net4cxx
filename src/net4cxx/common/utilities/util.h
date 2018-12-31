@@ -6,7 +6,6 @@
 #define NET4CXX_COMMON_UTILITIES_UTIL_H
 
 #include "net4cxx/common/common.h"
-#include <boost/algorithm/string.hpp>
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 

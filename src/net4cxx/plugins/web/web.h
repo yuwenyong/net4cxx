@@ -41,19 +41,15 @@ protected:
 
 class NET4CXX_COMMON_API RequestHandler: public std::enable_shared_from_this<RequestHandler> {
 public:
-    typedef RequestHandlerArgs ArgsType;
-    typedef std::vector<OutputTransformPtr> TransformsType;
-//    typedef std::vector<std::pair<std::string, std::string>> ListHeadersType;
-    typedef std::map<std::string, boost::any> SettingsType;
+    typedef std::vector<std::shared_ptr<OutputTransform>> TransformsType;
     typedef boost::optional<SimpleCookie> CookiesType;
-//    typedef boost::optional<std::vector<SimpleCookie>> NewCookiesType;
     typedef boost::property_tree::ptree SimpleJSONType;
     typedef std::function<void ()> FlushCallbackType;
 
     friend class WebApp;
     friend class RequestDispatcher;
 
-    RequestHandler(WebAppPtr application, HTTPServerRequestPtr request)
+    RequestHandler(std::shared_ptr<WebApp> application, std::shared_ptr<HTTPServerRequest> request)
             : _application(std::move(application))
             , _request(std::move(request)) {
         clear();
@@ -64,11 +60,9 @@ public:
 
     virtual ~RequestHandler();
 
-    void start(const ArgsType &args);
+    void start(const boost::any &args);
 
-    virtual void initialize(const ArgsType &args);
-
-    const SettingsType& getSettings() const;
+    virtual void initialize(const boost::any &args);
 
     virtual DeferredPtr onHead(const StringVector &args);
 
@@ -236,8 +230,6 @@ public:
 
     virtual void writeError(int statusCode, const std::exception_ptr &error);
 
-    void requireSetting(const std::string &name, const std::string &feature="this feature");
-
     template <typename... Args>
     std::string reverseUrl(const std::string &name, Args&&... args);
 
@@ -266,6 +258,16 @@ public:
 
     std::shared_ptr<WebApp> getApplication() {
         return _application;
+    }
+
+    template <typename AppT>
+    std::shared_ptr<const AppT> getApplication() const {
+        return std::static_pointer_cast<AppT>(_application);
+    }
+
+    template <typename AppT>
+    std::shared_ptr<AppT> getApplication() {
+        return std::static_pointer_cast<AppT>(_application);;
     }
 
     std::shared_ptr<HTTPConnection> getConnection() {
@@ -358,15 +360,14 @@ protected:
         }
     }
 
-    WebAppPtr _application;
-    HTTPServerRequestPtr _request;
+    std::shared_ptr<WebApp> _application;
+    std::shared_ptr<HTTPServerRequest> _request;
     bool _headersWritten{false};
     bool _finished{false};
     bool _autoFinish{true};
     TransformsType _transforms;
     StringVector _pathArgs;
     HTTPHeaders _headers;
-//    ListHeadersType _listHeaders;
     StringVector _writeBuffer;
     int _statusCode;
     CookiesType _newCookie;
@@ -379,13 +380,64 @@ protected:
 using RequestHandlerPtr = std::shared_ptr<RequestHandler>;
 
 
+class NET4CXX_COMMON_API ErrorHandlerArgs {
+public:
+    ErrorHandlerArgs() = default;
+
+    explicit ErrorHandlerArgs(int statusCode): _statusCode(statusCode) {}
+
+    void setStatusCode(int statusCode) {
+        _statusCode = statusCode;
+    }
+
+    int getStatusCode() const {
+        return _statusCode;
+    }
+protected:
+    int _statusCode{200};
+};
+
+
 class NET4CXX_COMMON_API ErrorHandler: public RequestHandler {
 public:
     using RequestHandler::RequestHandler;
 
-    void initialize(const ArgsType &args) override;
+    void initialize(const boost::any &args) override;
 
     DeferredPtr prepare() override;
+};
+
+
+class NET4CXX_COMMON_API RedirectHandlerArgs {
+public:
+    RedirectHandlerArgs() = default;
+
+    explicit RedirectHandlerArgs(std::string url): _url(std::move(url)) {}
+
+    RedirectHandlerArgs(std::string url, bool permanent): _url(std::move(url)), _permanent(permanent) {}
+
+    void setUrl(std::string url) {
+        _url = std::move(url);
+    }
+
+    std::string getUrl() const {
+        return _url;
+    }
+
+    void setPermanent(bool permanent) {
+        _permanent = permanent;
+    }
+    
+    void resetPermanent() {
+        _permanent = boost::none;
+    }
+
+    boost::optional<bool> getPermanent() const {
+        return _permanent;
+    }
+protected:
+    std::string _url;
+    boost::optional<bool> _permanent;
 };
 
 
@@ -393,7 +445,7 @@ class NET4CXX_COMMON_API RedirectHandler: public RequestHandler {
 public:
     using RequestHandler::RequestHandler;
 
-    void initialize(const ArgsType &args) override;
+    void initialize(const boost::any &args) override;
 
     DeferredPtr onGet(const StringVector &args) override;
 protected:
@@ -402,13 +454,33 @@ protected:
 };
 
 
+class NET4CXX_COMMON_API FallbackHandlerArgs {
+public:
+    typedef std::function<void (std::shared_ptr<HTTPServerRequest>)> FallbackType;
+    
+    FallbackHandlerArgs() = default;
+    
+    explicit FallbackHandlerArgs(FallbackType fallback): _fallback(std::move(fallback)) {}
+    
+    void setFallback(FallbackType fallback) {
+        _fallback = std::move(fallback);
+    }
+    
+    FallbackType getFallback() const {
+        return _fallback;
+    }
+protected:
+    FallbackType _fallback;
+};
+
+
 class NET4CXX_COMMON_API FallbackHandler: public RequestHandler {
 public:
-    typedef std::function<void (HTTPServerRequestPtr)> FallbackType;
+    typedef FallbackHandlerArgs::FallbackType FallbackType;
 
     using RequestHandler::RequestHandler;
 
-    void initialize(const ArgsType &args) override;
+    void initialize(const boost::any &args) override;
 
     DeferredPtr prepare() override;
 protected:
@@ -418,15 +490,13 @@ protected:
 
 class NET4CXX_COMMON_API BasicRequestHandlerFactory {
 public:
-    typedef RequestHandler::ArgsType ArgsType;
-
     virtual ~BasicRequestHandlerFactory() = default;
 
     virtual const char * getName() const = 0;
 
-    virtual RequestHandlerPtr create(WebAppPtr application, HTTPServerRequestPtr request, const ArgsType &args) const =0;
-protected:
-    const char *_name{nullptr};
+    virtual std::shared_ptr<RequestHandler> create(std::shared_ptr<WebApp> application,
+                                                   std::shared_ptr<HTTPServerRequest> request,
+                                                   const boost::any &args) const = 0;
 };
 
 using RequestHandlerFactoryPtr = std::shared_ptr<BasicRequestHandlerFactory>;
@@ -439,7 +509,9 @@ public:
         return typeid(RequestHandlerT).name();
     }
 
-    RequestHandlerPtr create(WebAppPtr application, HTTPServerRequestPtr request, const ArgsType &args) const override {
+    std::shared_ptr<RequestHandler> create(std::shared_ptr<WebApp> application,
+                                           std::shared_ptr<HTTPServerRequest> request,
+                                           const boost::any &args) const override {
         auto requestHandler = std::make_shared<RequestHandlerT>(std::move(application), std::move(request));
         requestHandler->start(args);
         return requestHandler;
@@ -490,7 +562,7 @@ protected:
 class NET4CXX_COMMON_API BasicOutputTransformFactory {
 public:
     virtual ~BasicOutputTransformFactory() = default;
-    virtual OutputTransformPtr create(const std::shared_ptr<HTTPServerRequest> &request) = 0;
+    virtual std::shared_ptr<OutputTransform> create(const std::shared_ptr<HTTPServerRequest> &request) = 0;
 
 };
 
@@ -499,7 +571,7 @@ using OutputTransformFactoryPtr = std::shared_ptr<BasicOutputTransformFactory>;
 template<typename OutputTransformT>
 class OutputTransformFactory: public BasicOutputTransformFactory {
 public:
-    OutputTransformPtr create(const std::shared_ptr<HTTPServerRequest> &request) override {
+    std::shared_ptr<OutputTransform> create(const std::shared_ptr<HTTPServerRequest> &request) override {
         return std::make_shared<OutputTransformT>(request);
     }
 };
@@ -507,7 +579,7 @@ public:
 
 class NET4CXX_COMMON_API RequestDispatcher {
 public:
-    RequestDispatcher(WebAppPtr application, const std::shared_ptr<HTTPConnection> &connection)
+    RequestDispatcher(std::shared_ptr<WebApp> application, const std::shared_ptr<HTTPConnection> &connection)
             : _application(std::move(application))
             , _connection(connection) {
 
@@ -551,7 +623,7 @@ protected:
 
     void findHandler();
 
-    WebAppPtr _application;
+    std::shared_ptr<WebApp> _application;
     std::weak_ptr<HTTPConnection> _connection;
     std::shared_ptr<HTTPServerRequest> _request;
     StringVector _chunks;
@@ -563,18 +635,16 @@ protected:
 class NET4CXX_COMMON_API WebApp: public Factory, public std::enable_shared_from_this<WebApp> {
 public:
     typedef std::vector<UrlSpecPtr> HandlersType;
-    typedef boost::regex HostPatternType;
-    typedef std::pair<HostPatternType, HandlersType> HostHandlerType;
-    typedef std::vector<HostHandlerType> HostHandlersType;
+    typedef std::pair<boost::regex, HandlersType> HostHandlerType;
+    typedef std::list<HostHandlerType> HostHandlersType;
     typedef std::map<std::string, UrlSpecPtr> NamedHandlersType;
-    typedef std::map<std::string, boost::any> SettingsType;
-    typedef std::vector<OutputTransformFactoryPtr> TransformsType;
-    typedef std::function<void (std::shared_ptr<const RequestHandler>)> LogFunctionType;
+    typedef std::vector<std::shared_ptr<BasicOutputTransformFactory>> TransformsType;
+    typedef std::function<void (const std::shared_ptr<const RequestHandler>&)> LogFunctionType;
 
     friend class RequestDispatcher;
 
-    explicit WebApp(HandlersType handlers={}, std::string defaultHost="", TransformsType transforms={},
-                    SettingsType settings={});
+    explicit WebApp(HandlersType handlers={}, bool compressResponse = false, std::string defaultHost="",
+                    TransformsType transforms={});
 
     virtual ~WebApp() = default;
 
@@ -582,13 +652,13 @@ public:
 
     void addHandlers(std::string hostPattern, HandlersType hostHandlers);
 
-    void addTransform(OutputTransformFactoryPtr transformClass) {
+    void addTransform(std::shared_ptr<BasicOutputTransformFactory> transformClass) {
         _transforms.emplace_back(std::move(transformClass));
     }
 
-    template <typename OutputTransformT>
-    void addTransform() {
-        _transforms.emplace_back(std::make_shared<OutputTransformFactory<OutputTransformT>>());
+    template <typename OutputTransformT, typename... Args>
+    void addTransform(Args&&... args) {
+        _transforms.emplace_back(std::make_shared<OutputTransformFactory<OutputTransformT>>(std::forward<Args>(args)...));
     }
 
     std::shared_ptr<RequestDispatcher> startRequest(const std::shared_ptr<HTTPConnection> &connection) {
@@ -604,22 +674,50 @@ public:
         return iter->second->reverse(std::forward<Args>(args)...);
     }
 
-    void logRequest(std::shared_ptr<const RequestHandler> handler) const;
+    void logRequest(const std::shared_ptr<const RequestHandler> &handler) const;
 
     const TransformsType& getTransforms() const {
         return _transforms;
+    }
+
+    void setLogFunction(LogFunctionType logFunction) {
+        _logFunction = std::move(logFunction);
     }
 
     const std::string& getDefaultHost() const {
         return _defaultHost;
     }
 
-    const SettingsType& getSettings() const {
-        return _settings;
+    void setDefaultHandlerFactory(std::shared_ptr<BasicRequestHandlerFactory> &&defaultHandlerFactory) {
+        _defaultHandlerFactory = std::move(defaultHandlerFactory);
     }
 
-    SettingsType& getSettings() {
-        return _settings;
+    void setDefaultHandlerFactory(const std::shared_ptr<BasicRequestHandlerFactory> &defaultHandlerFactory) {
+        _defaultHandlerFactory = defaultHandlerFactory;
+    }
+
+    const std::shared_ptr<BasicRequestHandlerFactory>& getDefaultHandlerFactory() const {
+        return _defaultHandlerFactory;
+    }
+
+    void setDefaultHandlerArgs(boost::any &&defaultHandlerArgs) {
+        _defaultHandlerArgs = std::move(defaultHandlerArgs);
+    }
+
+    void setDefaultHandlerArgs(const boost::any &defaultHandlerArgs) {
+        _defaultHandlerArgs = defaultHandlerArgs;
+    }
+
+    const boost::any& getDefaultHandlerArgs() const {
+        return _defaultHandlerArgs;
+    }
+
+    void setServeTraceback(bool serveTraceback) {
+        _serveTraceback = serveTraceback;
+    }
+
+    bool getServeTraceback() const {
+        return _serveTraceback;
     }
 
     void setNoKeepAlive(bool noKeepAlive) {
@@ -724,7 +822,10 @@ protected:
     HostHandlersType _handlers;
     NamedHandlersType _namedHandlers;
     std::string _defaultHost;
-    SettingsType _settings;
+    LogFunctionType _logFunction;
+    std::shared_ptr<BasicRequestHandlerFactory> _defaultHandlerFactory;
+    boost::any _defaultHandlerArgs;
+    bool _serveTraceback{false};
     bool _noKeepAlive{false};
     bool _xheaders{false};
     bool _decompressRequest{false};
@@ -740,10 +841,17 @@ protected:
 
 
 template <typename ReturnT>
-std::shared_ptr<ReturnT> makeWebApp(WebApp::HandlersType handlers={}, std::string defaultHost="",
-                                    WebApp::TransformsType transforms={}, WebApp::SettingsType settings={}) {
-    return std::make_shared<ReturnT>(std::move(handlers), std::move(defaultHost), std::move(transforms),
-                                     std::move(settings));
+std::shared_ptr<ReturnT> makeWebApp(WebApp::HandlersType handlers={}, bool compressResponse = false,
+                                    std::string defaultHost="", WebApp::TransformsType transforms={}) {
+    return std::make_shared<ReturnT>(std::move(handlers), compressResponse, std::move(defaultHost),
+                                     std::move(transforms));
+}
+
+template <typename ReturnT, typename... Args>
+std::shared_ptr<ReturnT> makeWebAppEx(WebApp::HandlersType handlers, bool compressResponse, std::string defaultHost, 
+                                      WebApp::TransformsType transforms, Args&&... args) {
+    return std::make_shared<ReturnT>(std::move(handlers), compressResponse, std::move(defaultHost),
+                                     std::move(transforms), std::forward<Args>(args)...);
 }
 
 

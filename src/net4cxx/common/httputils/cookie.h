@@ -6,7 +6,6 @@
 #define NET4CXX_COMMON_HTTPUTILS_COOKIE_H
 
 #include "net4cxx/common/common.h"
-#include <boost/algorithm/string.hpp>
 #include "net4cxx/common/utilities/errors.h"
 
 NS_BEGIN

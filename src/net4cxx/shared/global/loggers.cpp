@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/shared/global/loggers.h"
-#include <boost/regex.hpp>
 
 
 NS_BEGIN

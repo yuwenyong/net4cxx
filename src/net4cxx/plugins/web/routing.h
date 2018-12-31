@@ -12,16 +12,12 @@ NS_BEGIN
 
 class BasicRequestHandlerFactory;
 
-using RequestHandlerArgs = std::map<std::string, boost::any>;
 
 class NET4CXX_COMMON_API UrlSpec: public boost::noncopyable {
 public:
-    typedef boost::regex RegexType;
-    typedef RequestHandlerArgs ArgsType;
-
     UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory> handlerFactory, std::string name);
 
-    UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory> handlerFactory, ArgsType args={},
+    UrlSpec(std::string pattern, std::shared_ptr<BasicRequestHandlerFactory> handlerFactory, boost::any args={},
             std::string name={});
 
     template <typename... Args>
@@ -33,7 +29,7 @@ public:
         return StrUtil::format(_path, UrlParse::quote(boost::lexical_cast<std::string>(args))...);
     }
 
-    const RegexType& getRegex() const {
+    const boost::regex& getRegex() const {
         return _regex;
     }
 
@@ -53,7 +49,7 @@ public:
         return _handlerFactory;
     }
 
-    const ArgsType& getArgs() const {
+    const boost::any& getArgs() const {
         return _args;
     }
 protected:
@@ -62,9 +58,9 @@ protected:
     std::string reUnescape(const std::string &s) const;
 
     std::string _pattern;
-    RegexType _regex;
+    boost::regex _regex;
     std::shared_ptr<BasicRequestHandlerFactory> _handlerFactory;
-    ArgsType _args;
+    boost::any _args;
     std::string _name;
     std::string _path;
     int _groupCount;
@@ -74,7 +70,7 @@ using UrlSpecPtr = std::shared_ptr<UrlSpec>;
 
 NET4CXX_COMMON_API std::ostream& operator<<(std::ostream &sout, const UrlSpec &url);
 
-using urls = std::vector<UrlSpecPtr>;
+using urls = std::vector<std::shared_ptr<UrlSpec>>;
 
 NS_END
 

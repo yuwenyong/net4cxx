@@ -6,9 +6,7 @@
 #define NET4CXX_COMMON_CONFIGURATION_OPTIONS_H
 
 #include "net4cxx/common/common.h"
-#include <iostream>
 #include <boost/function.hpp>
-#include <boost/optional.hpp>
 #include <boost/program_options.hpp>
 #include <boost/ptr_container/ptr_map.hpp>
 #include "net4cxx/common/utilities/errors.h"

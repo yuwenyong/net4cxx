@@ -10,6 +10,7 @@
 #include <algorithm>
 #include <array>
 #include <exception>
+#include <iostream>
 #include <list>
 #include <map>
 #include <memory>
@@ -66,6 +67,7 @@
 #endif
 
 
+#include <boost/algorithm/string.hpp>
 #include <boost/any.hpp>
 #include <boost/optional.hpp>
 #include <boost/regex.hpp>
