@@ -27,11 +27,17 @@ const char* WatchKeys::UNIXDatagramConnectionCount = "sys.UNIXDatagramConnection
 
 const char* WatchKeys::DeferredCount = "sys.DeferredCount";
 
+const char* WatchKeys::IOStreamCount = "sys.IOStreamCount";
+const char* WatchKeys::UInt8ReceiverCount = "sys.UInt8ReceiverCount";
+const char* WatchKeys::UInt8ExtReceiverCount = "sys.UInt8ExtReceiverCount";
+const char* WatchKeys::UInt16ReceiverCount = "sys.UInt16ReceiverCount";
+const char* WatchKeys::UInt16ExtReceiverCount = "sys.UInt16ExtReceiverCount";
+const char* WatchKeys::UInt32ReceiverCount = "sys.UInt32ReceiverCount";
+
 const char* WatchKeys::WebSocketServerProtocolCount = "sys.WebSocketServerProtocolCount";
 const char* WatchKeys::WebSocketClientProtocolCount = "sys.WebSocketClientProtocolCount";
 
 const char* WatchKeys::PeriodicCallbackCount = "sys.PeriodicCallbackCount";
-const char* WatchKeys::IOStreamCount = "sys.IOStreamCount";
 const char* WatchKeys::HTTPClientCount = "sys.HTTPClientCount";
 const char* WatchKeys::HTTPClientConnectionCount = "sys.HTTPClientConnectionCount";
 const char* WatchKeys::HTTPConnectionCount = "sys.HTTPConnectionCount";

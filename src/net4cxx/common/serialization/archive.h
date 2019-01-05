@@ -6,7 +6,9 @@
 #define NET4CXX_COMMON_SERIALIZATION_ARCHIVE_H
 
 #include "net4cxx/common/common.h"
+#include "net4cxx/common/serialization/byteconvert.h"
 #include "net4cxx/common/utilities/errors.h"
+
 
 NS_BEGIN
 
@@ -21,26 +23,11 @@ enum class ArchiveMode {
 };
 
 
-template<typename ArchiveT>
-class ArchiveModeGuard {
+template <typename ByteOrderT=ByteOrderNative>
+class Archive {
 public:
-    ArchiveModeGuard(ArchiveT *archive, ArchiveMode mode)
-            : _archive(archive)
-            , _mode(archive->getMode()) {
-        _archive->setMode(mode);
-    }
+    using ByteOrderType = ByteOrderT;
 
-    ~ArchiveModeGuard() {
-        _archive->setMode(_mode);
-    }
-protected:
-    ArchiveT *_archive;
-    ArchiveMode _mode;
-};
-
-
-class NET4CXX_COMMON_API Archive {
-public:
     Archive() = default;
 
     explicit Archive(size_t reserved) {
@@ -88,37 +75,37 @@ public:
         return _storage.size() - _pos;
     }
 
-    Byte* contents() {
+    Byte* data() {
         if (empty()) {
             NET4CXX_THROW_EXCEPTION(ArchiveError, "Empty buffer");
         }
         return _storage.data() + _pos;
     }
 
-    const Byte* contents() const {
+    const Byte* data() const {
         if (empty()) {
             NET4CXX_THROW_EXCEPTION(ArchiveError, "Empty buffer");
         }
         return _storage.data() + _pos;
     }
 
-    bool storageEmtpy() const {
+    bool bufferEmtpy() const {
         return _storage.empty();
     }
 
-    size_t storageSize() const {
+    size_t bufferSize() const {
         return _storage.size();
     }
 
-    Byte* storageContents() {
-        if (storageEmtpy()) {
+    Byte* buffer() {
+        if (bufferEmtpy()) {
             NET4CXX_THROW_EXCEPTION(ArchiveError, "Empty buffer");
         }
         return _storage.data();
     }
 
-    const Byte* storageContents() const {
-        if (storageEmtpy()) {
+    const Byte* buffer() const {
+        if (bufferEmtpy()) {
             NET4CXX_THROW_EXCEPTION(ArchiveError, "Empty buffer");
         }
         return _storage.data();
@@ -143,6 +130,11 @@ public:
     void ignore(size_t skip) {
         checkSkipOverflow(skip);
         _pos += skip;
+    }
+
+    Archive& operator<<(bool value) {
+        append<uint8_t>(value ? (uint8_t)1 : (uint8_t)0);
+        return *this;
     }
 
     Archive& operator<<(uint8_t value) {
@@ -186,20 +178,50 @@ public:
     }
 
     Archive& operator<<(float value) {
-        append<float>(value);
+        appendReal<float>(value);
         return *this;
     }
 
     Archive& operator<<(double value) {
-        append<double>(value);
+        appendReal<double>(value);
         return *this;
     }
 
-    Archive& operator<<(const char *value);
+    Archive& operator<<(const char *value) {
+        size_t len = strlen(value);
+        if (len >= 0xff) {
+            append<uint8_t>(0xff);
+            append<uint32_t>(static_cast<uint32_t>(len));
+        } else {
+            append<uint8_t>(static_cast<uint8_t>(len));
+        }
+        append((const Byte *)value, len);
+        return *this;
+    }
 
-    Archive& operator<<(std::string &value);
+    Archive& operator<<(std::string &value) {
+        size_t len = value.size();
+        if (len >= 0xff) {
+            append<uint8_t>(0xff);
+            append<uint32_t>(static_cast<uint32_t>(len));
+        } else {
+            append<uint8_t>(static_cast<uint8_t>(len));
+        }
+        append((const Byte *)value.data(), len);
+        return *this;
+    }
 
-    Archive& operator<<(const ByteArray &value);
+    Archive& operator<<(const ByteArray &value) {
+        size_t len = value.size();
+        if (len >= 0xff) {
+            append<uint8_t>(0xff);
+            append<uint32_t>(static_cast<uint32_t>(len));
+        } else {
+            append<uint8_t>(static_cast<uint8_t>(len));
+        }
+        append(value.data(), len);
+        return *this;
+    }
 
     template <size_t LEN>
     Archive& operator<<(const std::array<char, LEN> &value) {
@@ -300,13 +322,13 @@ public:
 
     template <typename ValueT>
     Archive& operator<<(ValueT &value) {
-        ArchiveModeGuard<Archive> guard(this, ArchiveMode::Write);
+        ArchiveModeGuard guard(this, ArchiveMode::Write);
         value.serialize(*this);
         return *this;
     }
 
     Archive& operator>>(bool &value) {
-        value = read<char>() > 0;
+        value = read<uint8_t>() > 0;
         return *this;
     }
 
@@ -350,13 +372,49 @@ public:
         return *this;
     }
 
-    Archive& operator>>(float &value);
+    Archive& operator>>(float &value) {
+        value = readReal<float>();
+        if (!std::isfinite(value)) {
+            NET4CXX_THROW_EXCEPTION(ArchiveError, "Infinite float value");
+        }
+        return *this;
+    }
 
-    Archive& operator>>(double &value);
+    Archive& operator>>(double &value) {
+        value = readReal<double>();
+        if (!std::isfinite(value)) {
+            NET4CXX_THROW_EXCEPTION(ArchiveError, "Infinite double value");
+        }
+        return *this;
+    }
 
-    Archive& operator>>(std::string &value);
+    Archive& operator>>(std::string &value) {
+        size_t len = read<uint8_t>();
+        if (len == 0xFF) {
+            len = read<uint32_t>();
+        }
+        std::string result;
+        if (len > 0) {
+            result.resize(len);
+            read((Byte *)result.data(), len);
+        }
+        value.swap(result);
+        return *this;
+    }
 
-    Archive& operator>>(ByteArray &value);
+    Archive& operator>>(ByteArray &value) {
+        size_t len = read<uint8_t>();
+        if (len == 0xFF) {
+            len = read<uint32_t>();
+        }
+        ByteArray result;
+        if (len > 0) {
+            result.resize(len);
+            read(result.data(), len);
+        }
+        value.swap(result);
+        return *this;
+    }
 
     template <size_t LEN>
     Archive& operator>>(std::array<char, LEN> &value) {
@@ -459,7 +517,7 @@ public:
 
     template <typename ValueT>
     Archive& operator>>(ValueT &value) {
-        ArchiveModeGuard<Archive> guard(this, ArchiveMode::Read);
+        ArchiveModeGuard guard(this, ArchiveMode::Read);
         value.serialize(*this);
         return *this;
     }
@@ -473,6 +531,23 @@ public:
         }
     }
 protected:
+    class ArchiveModeGuard {
+    public:
+        ArchiveModeGuard(Archive *archive, ArchiveMode mode)
+                : _archive(archive)
+                , _mode(archive->getMode()) {
+            _archive->setMode(mode);
+        }
+
+        ~ArchiveModeGuard() {
+            _archive->setMode(_mode);
+        }
+    protected:
+        Archive *_archive;
+        ArchiveMode _mode;
+    };
+
+
     template <typename ElemT, typename AllocT, template <typename, typename > class ContainerT>
     void appendSequence(ContainerT<ElemT, AllocT> &value) {
         size_t len = value.size();
@@ -548,8 +623,15 @@ protected:
     };
 
     template <typename ValueT>
+    void appendReal(ValueT value) {
+        static_assert(std::is_fundamental<ValueT>::value, "append(compound)");
+        append((uint8 *)&value, sizeof(value));
+    }
+
+    template <typename ValueT>
     void append(ValueT value) {
         static_assert(std::is_fundamental<ValueT>::value, "append(compound)");
+        value = ByteConvert::convertTo(value, ByteOrderType{});
         append((uint8 *)&value, sizeof(value));
     }
 
@@ -639,10 +721,20 @@ protected:
     }
 
     template <typename ValueT>
+    ValueT readReal() {
+        checkReadOverflow(sizeof(ValueT));
+        ValueT val;
+        memcpy(&val, _storage.data() + _pos, sizeof(ValueT));
+        _pos += sizeof(ValueT);
+        return val;
+    }
+
+    template <typename ValueT>
     ValueT read() {
         checkReadOverflow(sizeof(ValueT));
         ValueT val;
         memcpy(&val, _storage.data() + _pos, sizeof(ValueT));
+        val = ByteConvert::convertFrom(val, ByteOrderType{});
         _pos += sizeof(ValueT);
         return val;
     }
@@ -653,9 +745,21 @@ protected:
         _pos += len;
     }
 
-    void checkReadOverflow(size_t len) const;
+    void checkReadOverflow(size_t len) const {
+        if (_pos + len > _storage.size()) {
+            NET4CXX_THROW_EXCEPTION(ArchivePositionError,
+                                    "Attempted to skip value with size: %lu in Archive (pos: %lu size: %lu)",
+                                    len, _pos, _storage.size());
+        }
+    }
 
-    void checkSkipOverflow(size_t len) const;
+    void checkSkipOverflow(size_t len) const {
+        if (_pos + len > _storage.size()) {
+            NET4CXX_THROW_EXCEPTION(ArchivePositionError,
+                                    "Attempted to skip value with size: %lu in Archive (pos: %lu size: %lu)",
+                                    len, _pos, _storage.size());
+        }
+    }
 
     ArchiveMode _mode{ArchiveMode::Write};
     size_t _pos{0};

@@ -36,7 +36,7 @@ public:
     }
 
     void display() const {
-        std::cout << _name << ":" << _age << ":" << _gender << ":" << _height;
+        std::cout << _name << ":" << _age << ":" << _gender << ":" << _height << std::endl;
     }
 
     template<typename ArchiveT>
@@ -162,8 +162,39 @@ public:
 };
 
 int main (int argc, char **argv) {
-   HelloWorldApp app;
-   app.run(argc, argv);
+//   HelloWorldApp app;
+//   app.run(argc, argv);
+    Person p1{"testName", 21, "M", 167.5};
+    Person p2;
+
+    Archive<> a1;
+    Archive<ByteOrderNetwork> a2;
+    Archive<ByteOrderBigEndian> a3;
+    Archive<ByteOrderLittleEndian> a4;
+
+    std::cout << "Archive test start" << std::endl;
+    p1.display();
+
+    std::cout << "Archive Native" << std::endl;
+    a1 << p1;
+    a1 >> p2;
+    p2.display();
+
+    std::cout << "Archive Network" << std::endl;
+    a2 << p1;
+    a2 >> p2;
+    p2.display();
+
+    std::cout << "Archive BE" << std::endl;
+    a3 << p1;
+    a3 >> p2;
+    p2.display();
+
+    std::cout << "Archive LE" << std::endl;
+    a4 << p1;
+    a4 >> p2;
+    p2.display();
+
 //    auto d1 = makeDeferred();
 //    d1->addCallback([](DeferredValue value) {
 //        std::cout << "success:" << *value.asValue<std::string>() << std::endl;

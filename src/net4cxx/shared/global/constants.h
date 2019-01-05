@@ -31,12 +31,17 @@ public:
 
     static const char *DeferredCount;
 
+    static const char *IOStreamCount;
+    static const char *UInt8ReceiverCount;
+    static const char *UInt8ExtReceiverCount;
+    static const char *UInt16ReceiverCount;
+    static const char *UInt16ExtReceiverCount;
+    static const char *UInt32ReceiverCount;
 
     static const char *WebSocketServerProtocolCount;
     static const char *WebSocketClientProtocolCount;
 
     static const char *PeriodicCallbackCount;
-    static const char *IOStreamCount;
     static const char *HTTPClientCount;
     static const char *HTTPClientConnectionCount;
     static const char *HTTPConnectionCount;
