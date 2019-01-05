@@ -19,8 +19,7 @@
 #include "net4cxx/common/httputils/httplib.h"
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/common/logging/logging.h"
-#include "net4cxx/common/serialization/bearchive.h"
-#include "net4cxx/common/serialization/learchive.h"
+#include "net4cxx/common/serialization/archive.h"
 #include "net4cxx/common/utilities/messagebuffer.h"
 #include "net4cxx/common/utilities/objectmanager.h"
 #include "net4cxx/common/utilities/random.h"
@@ -35,6 +34,7 @@
 #include "net4cxx/core/network/tcp.h"
 #include "net4cxx/core/network/udp.h"
 #include "net4cxx/core/protocols/iostream.h"
+#include "net4cxx/core/protocols/uintnreceiver.h"
 
 #include "net4cxx/plugins/web/httpclient.h"
 #include "net4cxx/plugins/web/web.h"

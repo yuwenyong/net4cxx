@@ -153,12 +153,17 @@ void BasicBootstrapper::setupCommonWatchObjects() {
 
     NET4CXX_WATCH_OBJECT(WatchKeys::DeferredCount);
 
+    NET4CXX_WATCH_OBJECT(WatchKeys::IOStreamCount);
+    NET4CXX_WATCH_OBJECT(WatchKeys::UInt8ReceiverCount);
+    NET4CXX_WATCH_OBJECT(WatchKeys::UInt8ExtReceiverCount);
+    NET4CXX_WATCH_OBJECT(WatchKeys::UInt16ReceiverCount);
+    NET4CXX_WATCH_OBJECT(WatchKeys::UInt16ExtReceiverCount);
+    NET4CXX_WATCH_OBJECT(WatchKeys::UInt32ReceiverCount);
+
     NET4CXX_WATCH_OBJECT(WatchKeys::WebSocketServerProtocolCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::WebSocketClientProtocolCount);
 
     NET4CXX_WATCH_OBJECT(WatchKeys::PeriodicCallbackCount);
-
-    NET4CXX_WATCH_OBJECT(WatchKeys::IOStreamCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::HTTPClientCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::HTTPClientConnectionCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::HTTPConnectionCount);
