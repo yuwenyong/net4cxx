@@ -20,6 +20,8 @@
 #include "net4cxx/common/httputils/urlparse.h"
 #include "net4cxx/common/logging/logging.h"
 #include "net4cxx/common/serialization/archive.h"
+#include "net4cxx/common/threading/concurrentqueue.h"
+#include "net4cxx/common/threading/taskpool.h"
 #include "net4cxx/common/utilities/messagebuffer.h"
 #include "net4cxx/common/utilities/objectmanager.h"
 #include "net4cxx/common/utilities/random.h"
