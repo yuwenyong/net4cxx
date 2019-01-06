@@ -30,6 +30,10 @@ public:
         _taskList.clear_and_dispose(TaskDisposer());
     }
 
+    bool start() {
+        return start(std::thread::hardware_concurrency());
+    }
+
     bool start(size_t threadCount);
 
     template <typename FuncT>
