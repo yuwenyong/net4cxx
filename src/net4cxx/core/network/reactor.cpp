@@ -17,7 +17,7 @@ NS_BEGIN
 thread_local Reactor* Reactor::_current = nullptr;
 
 Reactor::Reactor()
-        : _ioContext()
+        : _ioContext(1)
         , _signalSet(_ioContext) {
 
 }
