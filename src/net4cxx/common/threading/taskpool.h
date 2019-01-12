@@ -9,7 +9,7 @@
 #include <future>
 #include <thread>
 #include <boost/intrusive/list.hpp>
-
+#include <boost/thread/future.hpp>
 
 NS_BEGIN
 

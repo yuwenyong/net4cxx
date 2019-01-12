@@ -6,6 +6,7 @@
 #define NET4CXX_CORE_NETWORK_REACTOR_H
 
 #include "net4cxx/common/common.h"
+#include <boost/ptr_container/ptr_vector.hpp>
 #include <boost/signals2.hpp>
 #include "net4cxx/core/network/base.h"
 #include "net4cxx/core/network/resolver.h"
@@ -28,7 +29,7 @@ public:
     Reactor(const Reactor&) = delete;
     Reactor& operator=(const Reactor&) = delete;
 
-    Reactor();
+    explicit Reactor(size_t numThreads=0);
 
     ~Reactor() = default;
 
@@ -123,6 +124,14 @@ public:
 
     void stop();
 
+    Reactor* selectReactor() {
+        if (_numThreads) {
+            return &_reactorPool[++_nextIndex % _numThreads];
+        } else {
+            return this;
+        }
+    }
+
     static Reactor *current() {
         return _current;
     }
@@ -150,6 +159,9 @@ protected:
     bool _installSignalHandlers{false};
     volatile bool _running{false};
     StopCallbacks _stopCallbacks;
+    boost::ptr_vector<Reactor> _reactorPool;
+    size_t _numThreads{0};
+    size_t _nextIndex{0};
     thread_local static Reactor *_current;
 };
 

@@ -27,12 +27,12 @@ public:
 
     void setCrashReportPath(const std::string &crashReportPath);
 
-    void enableReactor() {
-        _reactorEnabled = true;
+    void enableReactor(size_t numThreads=0) {
+        _numThreads = numThreads;
     }
 
     void disableReactor() {
-        _reactorEnabled = false;
+        _numThreads = boost::none;
     }
 
     Reactor* reactor() {
@@ -54,7 +54,7 @@ protected:
     static Bootstrapper *_instance;
 
     bool _inited{false};
-    bool _reactorEnabled{false};
+    boost::optional<size_t> _numThreads;
     Reactor *_reactor{nullptr};
 };
 

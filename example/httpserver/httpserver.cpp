@@ -17,6 +17,7 @@ public:
     }
 
     DeferredPtr onGet(const StringVector &args) override {
+        std::cerr << "ThreadId:" << std::this_thread::get_id() << std::endl;
         return testAsyncFunc2();
     }
 
@@ -122,7 +123,12 @@ public:
 
 class HTTPServerApp: public AppBootstrapper {
 public:
-    void onRun() {
+    void onInit() override {
+        AppBootstrapper::onInit();
+        enableReactor(4);
+    }
+
+    void onRun() override {
         auto webApp = makeWebApp<WebApp>({
                                                  url<Books>(R"(/books/)"),
                                                  url<Book>(R"(/books/(\d+)/)")

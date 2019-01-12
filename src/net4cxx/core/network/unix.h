@@ -208,11 +208,7 @@ protected:
 
     void handleAccept(const boost::system::error_code &ec);
 
-    void doAccept() {
-        _connection = std::make_shared<UNIXServerConnection>(_reactor);
-        _acceptor.async_accept(_connection->getSocket(), std::bind(&UNIXListener::cbAccept, shared_from_this(),
-                                                                   std::placeholders::_1));
-    }
+    void doAccept();
 
     std::string _path;
     std::shared_ptr<Factory> _factory;

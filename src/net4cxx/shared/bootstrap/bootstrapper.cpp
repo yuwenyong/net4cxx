@@ -38,8 +38,8 @@ void Bootstrapper::run(const boost::function1<std::string, std::string> &name_ma
     CrashReport::outputCrashReport();
     NET4CXX_Options->parseEnvironment(name_mapper);
     std::unique_ptr<Reactor> reactor;
-    if (_reactorEnabled) {
-        reactor = std::make_unique<Reactor>();
+    if (_numThreads) {
+        reactor = std::make_unique<Reactor>(*_numThreads);
         _reactor = reactor.get();
         _reactor->makeCurrent();
     }
@@ -62,8 +62,8 @@ void Bootstrapper::run(int argc, const char *const *argv) {
     CrashReport::outputCrashReport();
     NET4CXX_Options->parseCommandLine(argc, argv);
     std::unique_ptr<Reactor> reactor;
-    if (_reactorEnabled) {
-        reactor = std::make_unique<Reactor>();
+    if (_numThreads) {
+        reactor = std::make_unique<Reactor>(*_numThreads);
         _reactor = reactor.get();
         _reactor->makeCurrent();
     }
@@ -86,8 +86,8 @@ void Bootstrapper::run(const char *path) {
     CrashReport::outputCrashReport();
     NET4CXX_Options->parseConfigFile(path);
     std::unique_ptr<Reactor> reactor;
-    if (_reactorEnabled) {
-        reactor = std::make_unique<Reactor>();
+    if (_numThreads) {
+        reactor = std::make_unique<Reactor>(*_numThreads);
         _reactor = reactor.get();
         _reactor->makeCurrent();
     }
