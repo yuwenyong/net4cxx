@@ -1,0 +1,3 @@
+add_executable(exception_test exception_test.cpp)
+add_dependencies(exception_test net4cxx)
+target_link_libraries(exception_test net4cxx)

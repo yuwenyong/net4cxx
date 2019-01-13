@@ -18,6 +18,8 @@ public:
     static void setCrashReportPath(const std::string &crashReportPath) {
         _crashReportPath = crashReportPath;
     }
+
+    static bool checkCrashReportExists();
 protected:
     static std::string _crashReportPath;
 };

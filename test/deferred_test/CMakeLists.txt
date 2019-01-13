@@ -1,0 +1,3 @@
+add_executable(deferred_test deferred_test.cpp)
+add_dependencies(deferred_test net4cxx)
+target_link_libraries(deferred_test net4cxx)

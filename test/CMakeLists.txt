@@ -1,0 +1,11 @@
+
+include_directories(${CMAKE_SOURCE_DIR}/src/)
+add_subdirectory(archive_test)
+add_subdirectory(deferred_test)
+add_subdirectory(exception_test)
+add_subdirectory(httpserverasync_test)
+add_subdirectory(httpservermt_test)
+add_subdirectory(periodcallback_test)
+add_subdirectory(json_test)
+add_subdirectory(sleepasync_test)
+add_subdirectory(taskpool_test)

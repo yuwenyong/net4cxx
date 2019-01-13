@@ -1,0 +1,3 @@
+add_executable(periodcallback_test periodcallback_test.cpp)
+add_dependencies(periodcallback_test net4cxx)
+target_link_libraries(periodcallback_test net4cxx)

@@ -40,6 +40,10 @@ void CrashReport::outputCrashReport() {
     }
 }
 
+bool CrashReport::checkCrashReportExists() {
+    return boost::filesystem::exists(_crashReportPath);
+}
+
 CrashReportInstaller gCrashReportInit;
 
 NS_END

@@ -1,0 +1,3 @@
+add_executable(archive_test archive_test.cpp)
+add_dependencies(archive_test net4cxx)
+target_link_libraries(archive_test net4cxx)

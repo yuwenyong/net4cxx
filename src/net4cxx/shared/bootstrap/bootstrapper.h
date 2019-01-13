@@ -39,6 +39,8 @@ public:
         return _reactor;
     }
 
+    virtual void onPreInit();
+
     virtual void onInit();
 
     virtual void onRun();
@@ -61,14 +63,20 @@ protected:
 
 class NET4CXX_COMMON_API BasicBootstrapper: public Bootstrapper {
 public:
-    void onInit() override;
+    void onPreInit() override;
 
 protected:
     void setupCommonWatchObjects();
 };
 
 
-class NET4CXX_COMMON_API AppBootstrapper: public BasicBootstrapper {
+class NET4CXX_COMMON_API CommonBootstrapper: public BasicBootstrapper {
+public:
+    void onPreInit() override;
+};
+
+
+class NET4CXX_COMMON_API AppBootstrapper: public CommonBootstrapper {
 public:
     void onInit() override;
 };
