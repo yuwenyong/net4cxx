@@ -1,0 +1,3 @@
+add_executable(httpserverasync_test httpserverasync_test.cpp)
+add_dependencies(httpserverasync_test net4cxx)
+target_link_libraries(httpserverasync_test net4cxx)

@@ -1,0 +1,3 @@
+add_executable(taskpool_test taskpool_test.cpp)
+add_dependencies(taskpool_test net4cxx)
+target_link_libraries(taskpool_test net4cxx)

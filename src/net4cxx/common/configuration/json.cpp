@@ -46,7 +46,7 @@ static inline bool InRange(double d, T min, U max) {
 static std::string valueToString(double value, bool useSpecialFloats, unsigned int precision) {
     if (std::isfinite(value)) {
         std::ostringstream os;
-        os << std::setprecision(precision) << value;
+        os << std::setprecision((int)precision) << value;
         return os.str();
     } else {
         if (value != value) {
@@ -1041,7 +1041,7 @@ bool JsonValue::removeIndex(size_t index, JsonValue *removed) {
     if (removed) {
         *removed = std::move(array[index]);
     }
-    array.erase(std::next(array.begin(), index));
+    array.erase(std::next(array.begin(), (std::ptrdiff_t)index));
     return true;
 }
 
@@ -1838,16 +1838,16 @@ bool BuiltReader::readArray(Token &token) {
             return recoverFromError(tokenArrayEnd);
         }
 
-        Token token;
-        ok = readToken(token);
-        while (token.type == tokenComment && ok) {
-            ok = readToken(token);
+        Token currentToken;
+        ok = readToken(currentToken);
+        while (currentToken.type == tokenComment && ok) {
+            ok = readToken(currentToken);
         }
-        bool badTokenType = (token.type != tokenArraySeparator && token.type != tokenArrayEnd);
+        bool badTokenType = (currentToken.type != tokenArraySeparator && currentToken.type != tokenArrayEnd);
         if (!ok || badTokenType) {
-            return addErrorAndRecover("Missing ',' or ']' in array declaration", token, tokenArrayEnd);
+            return addErrorAndRecover("Missing ',' or ']' in array declaration", currentToken, tokenArrayEnd);
         }
-        if (token.type == tokenArrayEnd) {
+        if (currentToken.type == tokenArrayEnd) {
             break;
         }
     }

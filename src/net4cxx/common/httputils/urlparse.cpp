@@ -477,7 +477,7 @@ std::string UrlParse::urlJoin(const std::string &base, const std::string &url, b
         done = true;
         while (i < n) {
             if (segments[i] == ".." && segments[i - 1] != "" && segments[i - 1] != "..") {
-                auto iter = std::next(segments.begin(), i - 1);
+                auto iter = std::next(segments.begin(), (ssize_t)i - 1);
                 segments.erase(iter, std::next(iter, 2));
                 done = false;
                 break;

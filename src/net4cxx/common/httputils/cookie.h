@@ -15,18 +15,18 @@ NET4CXX_DECLARE_EXCEPTION(CookieError, Exception);
 
 class NET4CXX_COMMON_API CookieUtil {
 public:
-    static std::string quote(const std::string &s, const std::vector<char> &legalChars= CookieUtil::legalChars,
-                             const std::array<char, 256> &idmap= CookieUtil::idmap);
+    static std::string quote(const std::string &s, const std::vector<char> &legalChars= CookieUtil::LegalChars,
+                             const std::array<char, 256> &idmap= CookieUtil::Idmap);
 
     static std::string unquote(const std::string &s);
 
-    static const std::vector<char> legalChars;
-    static const std::array<char, 256> idmap;
-    static const std::map<char, std::string> translator;
-    static const boost::regex octalPatt;
-    static const boost::regex quotePatt;
-    static const char *legalCharsPatt;
-    static const boost::regex cookiePattern;
+    static const std::vector<char> LegalChars;
+    static const std::array<char, 256> Idmap;
+    static const std::map<char, std::string> Translator;
+    static const boost::regex OctalPatt;
+    static const boost::regex QuotePatt;
+    static const char *LegalCharsPatt;
+    static const boost::regex CookiePattern;
 };
 
 
@@ -45,8 +45,8 @@ public:
     }
 
     void set(const std::string &key, const std::string &val, const std::string &codedVal,
-             const std::vector<char> &legalChars= CookieUtil::legalChars,
-             const std::array<char, 256> &idmap= CookieUtil::idmap);
+             const std::vector<char> &legalChars= CookieUtil::LegalChars,
+             const std::array<char, 256> &idmap= CookieUtil::Idmap);
 
     std::string output(const StringMap *attrs= nullptr, const std::string &header= "Set-Cookie:") const {
         return header + " " + outputString(attrs);
@@ -159,7 +159,7 @@ protected:
         }
     }
 
-    void parseString(const std::string &str, const boost::regex &patt =CookieUtil::cookiePattern);
+    void parseString(const std::string &str, const boost::regex &patt =CookieUtil::CookiePattern);
 
     MorselContainerType _items;
 };

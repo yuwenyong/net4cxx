@@ -113,7 +113,7 @@ public:
             return boost::none;
         }
         if (text->size() > limit) {
-            std::string result(text->begin(), text->begin() + limit);
+            std::string result(text->begin(), text->begin() + (std::ptrdiff_t)limit);
             return result;
         } else {
             return text;

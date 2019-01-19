@@ -60,7 +60,7 @@ protected:
     template< typename ArgsT>
     logging::record open_record_unlocked(ArgsT const& args) {
         StringLiteral fileValue = args[logger_keywords::file | StringLiteral()];
-        size_t lineValue = args[logger_keywords::line | 0];
+        size_t lineValue = args[logger_keywords::line | 0ul];
         StringLiteral funcValue = args[logger_keywords::func | StringLiteral()];
 
         logging::attribute_set &attrs = BaseT::attributes();

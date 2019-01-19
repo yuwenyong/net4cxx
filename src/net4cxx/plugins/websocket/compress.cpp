@@ -205,7 +205,7 @@ ByteArray PerMessageDeflate::compressMessageData(const Byte *data, size_t length
 
 ByteArray PerMessageDeflate::endCompressMessage() {
     auto data = _compressor->flush(Zlib::zSyncFlush);
-    data.erase(std::prev(data.end(), std::max(4ul, data.size())), data.end());
+    data.erase(std::prev(data.end(), (ssize_t)std::max(4ul, data.size())), data.end());
     return data;
 }
 

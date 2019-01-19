@@ -257,11 +257,7 @@ protected:
 
     void handleAccept(const boost::system::error_code &ec);
 
-    void doAccept() {
-        _connection = std::make_shared<SSLServerConnection>(_sslOption, _reactor);
-        _acceptor.async_accept(_connection->getSocket().lowest_layer(),
-                               std::bind(&SSLListener::cbAccept, shared_from_this(), std::placeholders::_1));
-    }
+    void doAccept();
 
     std::string _port;
     std::shared_ptr<Factory> _factory;

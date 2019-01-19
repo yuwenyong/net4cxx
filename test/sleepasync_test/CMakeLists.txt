@@ -1,0 +1,3 @@
+add_executable(sleepasync_test sleepasync_test.cpp)
+add_dependencies(sleepasync_test net4cxx)
+target_link_libraries(sleepasync_test net4cxx)

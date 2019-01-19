@@ -39,11 +39,16 @@ public:
 };
 
 
+class WebSocketClientApp: public AppBootstrapper {
+public:
+    void onRun() override {
+        auto factory = std::make_shared<BroadcastClientFactory>("ws://127.0.0.1:9000");
+        connectWS(reactor(), factory);
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    auto factory = std::make_shared<BroadcastClientFactory>("ws://127.0.0.1:9000");
-    connectWS(&reactor, factory);
-    reactor.run();
+    WebSocketClientApp app;
+    app.run(argc, argv);
     return 0;
 }

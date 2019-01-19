@@ -27,17 +27,19 @@ public:
 
     void setCrashReportPath(const std::string &crashReportPath);
 
-    void enableReactor() {
-        _reactorEnabled = true;
+    void enableReactor(size_t numThreads=0) {
+        _numThreads = numThreads;
     }
 
     void disableReactor() {
-        _reactorEnabled = false;
+        _numThreads = boost::none;
     }
 
     Reactor* reactor() {
         return _reactor;
     }
+
+    virtual void onPreInit();
 
     virtual void onInit();
 
@@ -54,21 +56,27 @@ protected:
     static Bootstrapper *_instance;
 
     bool _inited{false};
-    bool _reactorEnabled{false};
+    boost::optional<size_t> _numThreads;
     Reactor *_reactor{nullptr};
 };
 
 
 class NET4CXX_COMMON_API BasicBootstrapper: public Bootstrapper {
 public:
-    void onInit() override;
+    void onPreInit() override;
 
 protected:
     void setupCommonWatchObjects();
 };
 
 
-class NET4CXX_COMMON_API AppBootstrapper: public BasicBootstrapper {
+class NET4CXX_COMMON_API CommonBootstrapper: public BasicBootstrapper {
+public:
+    void onPreInit() override;
+};
+
+
+class NET4CXX_COMMON_API AppBootstrapper: public CommonBootstrapper {
 public:
     void onInit() override;
 };

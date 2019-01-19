@@ -386,10 +386,23 @@ void SSLListener::handleAccept(const boost::system::error_code &ec) {
         auto protocol = _factory->buildProtocol(address);
         if (protocol) {
             protocol->setFactory(_factory);
-            _connection->cbAccept(protocol);
+            if (_connection->reactor() == _reactor) {
+                _connection->cbAccept(protocol);
+            } else {
+                _connection->reactor()->addCallback([connection = std::move(_connection),
+                                                     protocol = std::move(protocol)]() {
+                    connection->cbAccept(protocol);
+                });
+            }
         }
     }
     _connection.reset();
+}
+
+void SSLListener::doAccept() {
+    _connection = std::make_shared<SSLServerConnection>(_sslOption, _reactor->selectReactor());
+    _acceptor.async_accept(_connection->getSocket().lowest_layer(),
+                           std::bind(&SSLListener::cbAccept, shared_from_this(), std::placeholders::_1));
 }
 
 

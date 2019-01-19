@@ -72,12 +72,18 @@ ProtocolPtr BroadcastServerFactory::buildProtocol(const Address &address) {
     return std::make_shared<BroadcastServerProtocol>();
 }
 
+
+class WebSocketServerApp: public AppBootstrapper {
+public:
+    void onRun() override {
+        auto factory = std::make_shared<BroadcastServerFactory>("ws://127.0.0.1:9000");
+        listenWS(reactor(), factory);
+        factory->tick(reactor());
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    auto factory = std::make_shared<BroadcastServerFactory>("ws://127.0.0.1:9000");
-    listenWS(&reactor, factory);
-    factory->tick(&reactor);
-    reactor.run();
+    WebSocketServerApp app;
+    app.run(argc, argv);
     return 0;
 }

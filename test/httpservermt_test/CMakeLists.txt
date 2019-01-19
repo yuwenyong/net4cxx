@@ -1,0 +1,3 @@
+add_executable(httpservermt_test httpservermt_test.cpp)
+add_dependencies(httpservermt_test net4cxx)
+target_link_libraries(httpservermt_test net4cxx)

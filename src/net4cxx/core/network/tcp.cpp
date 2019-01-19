@@ -349,10 +349,23 @@ void TCPListener::handleAccept(const boost::system::error_code &ec) {
         auto protocol = _factory->buildProtocol(address);
         if (protocol) {
             protocol->setFactory(_factory);
-            _connection->cbAccept(protocol);
+            if (_connection->reactor() == _reactor) {
+                _connection->cbAccept(protocol);
+            } else {
+                _connection->reactor()->addCallback([connection = std::move(_connection),
+                                                     protocol = std::move(protocol)]() {
+                    connection->cbAccept(protocol);
+                });
+            }
         }
     }
     _connection.reset();
+}
+
+void TCPListener::doAccept() {
+    _connection = std::make_shared<TCPServerConnection>(_reactor->selectReactor());
+    _acceptor.async_accept(_connection->getSocket(), std::bind(&TCPListener::cbAccept, shared_from_this(),
+                                                               std::placeholders::_1));
 }
 
 

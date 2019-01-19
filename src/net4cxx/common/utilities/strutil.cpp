@@ -64,8 +64,8 @@ StrUtil::PartitionResult StrUtil::partition(const std::string &s, const std::str
         return std::make_tuple(s, "", "");
     } else {
         std::string before, after;
-        before.assign(s.begin(), std::next(s.begin(), pos));
-        after.assign(std::next(s.begin(), pos + sep.size()), s.end());
+        before.assign(s.begin(), std::next(s.begin(), (ssize_t)pos));
+        after.assign(std::next(s.begin(), (ssize_t)(pos + sep.size())), s.end());
         return std::make_tuple(before, sep, after);
     }
 }
@@ -76,8 +76,8 @@ StrUtil::PartitionResult StrUtil::rpartition(const std::string &s, const std::st
         return std::make_tuple("", "", s);
     } else {
         std::string before, after;
-        before.assign(s.begin(), std::next(s.begin(), pos));
-        after.assign(std::next(s.begin(), pos + sep.size()), s.end());
+        before.assign(s.begin(), std::next(s.begin(), (ssize_t)pos));
+        after.assign(std::next(s.begin(), (ssize_t)(pos + sep.size())), s.end());
         return std::make_tuple(before, sep, after);
     }
 }
@@ -98,7 +98,7 @@ StringVector StrUtil::split(const std::string &s, const std::string &delim, bool
         if (end == s.end()) {
             break;
         }
-        beg = end + delim.size();
+        beg = end + (std::ptrdiff_t)delim.size();
     }
     return result;
 }

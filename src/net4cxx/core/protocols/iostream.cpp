@@ -130,7 +130,7 @@ void IOStream::readFromBuffer() {
         const char *loc = StrNStr((const char *)_readBuffer.getReadPointer(), _readBuffer.getActiveSize(),
                                   _readDelimiter->c_str());
         if (loc) {
-            size_t readBytes = loc - (const char *)_readBuffer.getReadPointer() + _readDelimiter->size();
+            size_t readBytes = (size_t)(loc - (const char *)_readBuffer.getReadPointer()) + _readDelimiter->size();
             checkMaxBytes(*_readDelimiter, readBytes);
             _readDelimiter = boost::none;
             onDataRead(_readBuffer.getReadPointer(), readBytes);

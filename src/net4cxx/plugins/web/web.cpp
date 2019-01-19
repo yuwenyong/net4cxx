@@ -644,7 +644,7 @@ void RequestDispatcher::findHandler() {
     for (auto &spec: handlers) {
         if (boost::regex_match(requestPath, match, spec->getRegex())) {
             _handler = spec->getHandlerFactory()->create(_application, _request, spec->getArgs());
-            for (size_t i = 1; i < match.size(); ++i) {
+            for (int i = 1; i < (int)match.size(); ++i) {
                 _pathArgs.emplace_back(match[i].str());
             }
             for (auto &s: _pathArgs) {

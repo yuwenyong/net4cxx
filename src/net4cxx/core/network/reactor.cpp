@@ -16,10 +16,13 @@ NS_BEGIN
 
 thread_local Reactor* Reactor::_current = nullptr;
 
-Reactor::Reactor()
+Reactor::Reactor(size_t numThreads)
         : _ioContext(1)
-        , _signalSet(_ioContext) {
-
+        , _signalSet(_ioContext)
+        , _numThreads(numThreads) {
+    for (size_t i = 0; i != numThreads; ++i) {
+        _reactorPool.push_back(new Reactor());
+    }
 }
 
 void Reactor::run(bool installSignalHandlers) {
@@ -30,10 +33,19 @@ void Reactor::run(bool installSignalHandlers) {
     if (_ioContext.stopped()) {
         _ioContext.restart();
     }
+    std::vector<std::thread> threads;
+    for (auto &reactor : _reactorPool) {
+        threads.emplace_back(std::thread([&reactor](){
+            reactor.run(false);
+        }));
+    }
     Reactor *oldCurrent = _current;
     _current = this;
     WorkGurad work = boost::asio::make_work_guard(_ioContext);
     startRunning(installSignalHandlers);
+    for (auto &thread: threads) {
+        thread.join();
+    }
     _running = false;
     _current = oldCurrent;
 }
@@ -45,6 +57,9 @@ void Reactor::stop() {
     if (!_stopCallbacks.empty()) {
         _stopCallbacks();
         _stopCallbacks.disconnect_all_slots();
+    }
+    for (auto &reactor : _reactorPool) {
+        reactor.stop();
     }
     _ioContext.stop();
 }

@@ -85,7 +85,7 @@ public:
 
 class TCPClientApp: public AppBootstrapper {
 public:
-    void onRun() {
+    void onRun() override {
 //        reactor()->connectTCP("localhost", "28001", std::make_shared<MyFactory>());
         clientFromString(reactor(), "tcp:host=localhost:port=28001")->connect(std::make_shared<MyFactory>())
         ->addCallbacks([](DeferredValue val) {

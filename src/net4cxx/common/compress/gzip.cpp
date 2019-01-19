@@ -82,7 +82,7 @@ size_t GzipFile::write(const Byte *data, size_t len) {
         _size += len;
         _crc = Zlib::crc32(data, len, _crc) & 0xffffffff;
         ByteArray compressData = _compress->compress(data, len);
-        _fileObj->write((char *)compressData.data(), compressData.size());
+        _fileObj->write((char *)compressData.data(), (std::streamsize)compressData.size());
         _offset += len;
     }
     return len;
@@ -158,7 +158,7 @@ std::string GzipFile::readToString(ssize_t size) {
         }
     }
     ssize_t offset = _offset - _extraStart;
-    chunk.assign((const char*)_extraBuf.data() + offset, size);
+    chunk.assign((const char*)_extraBuf.data() + offset, (size_t)size);
     _extraSize -= size;
     _offset += size;
     return chunk;
@@ -170,7 +170,7 @@ void GzipFile::close() {
     }
     if (_mode == GzipFileMode::WRITE) {
         std::string tail = _compress->flushToString();
-        _fileObj->write(tail.data(), tail.size());
+        _fileObj->write(tail.data(), (std::streamsize)tail.size());
         uint32_t crc = (uint32_t)_crc;
         boost::endian::native_to_little_inplace(crc);
         _fileObj->write((const char *)&crc, 4);
@@ -209,7 +209,7 @@ void GzipFile::flush(int mode) {
     checkClosed();
     if (_mode == GzipFileMode::WRITE) {
         std::string tail = _compress->flushToString(mode);
-        _fileObj->write(tail.data(), tail.size());
+        _fileObj->write(tail.data(), (std::streamsize)tail.size());
         _fileObj->flush();
     }
 }
@@ -280,7 +280,7 @@ std::string GzipFile::readLine(ssize_t size) {
         i = c.find('\n');
         if ((i != std::string::npos && size < (ssize_t)i) || (i == std::string::npos && (ssize_t)c.size() > size)) {
             bufs.emplace_back(c.data(), (size_t)size);
-            unread(c.size() - size);
+            unread(c.size() - (size_t)size);
             break;
         }
         if (i != std::string::npos) {
@@ -335,7 +335,7 @@ void GzipFile::writeGzipHeader() {
     _fileObj->put('\002');
     _fileObj->put('\377');
     if (!fname.empty()) {
-        _fileObj->write(fname.c_str(), fname.size());
+        _fileObj->write(fname.c_str(), (std::streamsize)fname.size());
         _fileObj->put('\000');
     }
 }
@@ -423,8 +423,8 @@ void GzipFile::internalRead(size_t len) {
     }
     ByteArray buf;
     buf.resize(len);
-    _fileObj->read((char *)buf.data(), len);
-    buf.resize(_fileObj->gcount());
+    _fileObj->read((char *)buf.data(), (std::streamsize)len);
+    buf.resize((size_t)_fileObj->gcount());
     ByteArray uncompress;
     if (buf.empty()) {
         uncompress = _decompress->flush();

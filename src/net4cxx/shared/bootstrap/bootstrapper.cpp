@@ -33,13 +33,14 @@ Bootstrapper::~Bootstrapper() {
 
 void Bootstrapper::run(const boost::function1<std::string, std::string> &name_mapper) {
     NET4CXX_ASSERT(!_inited);
-    onInit();
-    _inited = true;
+    onPreInit();
     CrashReport::outputCrashReport();
     NET4CXX_Options->parseEnvironment(name_mapper);
+    onInit();
+    _inited = true;
     std::unique_ptr<Reactor> reactor;
-    if (_reactorEnabled) {
-        reactor = std::make_unique<Reactor>();
+    if (_numThreads) {
+        reactor = std::make_unique<Reactor>(*_numThreads);
         _reactor = reactor.get();
         _reactor->makeCurrent();
     }
@@ -49,7 +50,7 @@ void Bootstrapper::run(const boost::function1<std::string, std::string> &name_ma
     }
     onQuit();
     if (reactor) {
-        _reactor->clearCurrent();
+        Reactor::clearCurrent();
         _reactor = nullptr;
         reactor.reset();
     }
@@ -57,13 +58,14 @@ void Bootstrapper::run(const boost::function1<std::string, std::string> &name_ma
 
 void Bootstrapper::run(int argc, const char *const *argv) {
     NET4CXX_ASSERT(!_inited);
-    onInit();
-    _inited = true;
+    onPreInit();
     CrashReport::outputCrashReport();
     NET4CXX_Options->parseCommandLine(argc, argv);
+    onInit();
+    _inited = true;
     std::unique_ptr<Reactor> reactor;
-    if (_reactorEnabled) {
-        reactor = std::make_unique<Reactor>();
+    if (_numThreads) {
+        reactor = std::make_unique<Reactor>(*_numThreads);
         _reactor = reactor.get();
         _reactor->makeCurrent();
     }
@@ -73,7 +75,7 @@ void Bootstrapper::run(int argc, const char *const *argv) {
     }
     onQuit();
     if (reactor) {
-        _reactor->clearCurrent();
+        Reactor::clearCurrent();
         _reactor = nullptr;
         reactor.reset();
     }
@@ -81,13 +83,14 @@ void Bootstrapper::run(int argc, const char *const *argv) {
 
 void Bootstrapper::run(const char *path) {
     NET4CXX_ASSERT(!_inited);
-    onInit();
-    _inited = true;
+    onPreInit();
     CrashReport::outputCrashReport();
     NET4CXX_Options->parseConfigFile(path);
+    onInit();
+    _inited = true;
     std::unique_ptr<Reactor> reactor;
-    if (_reactorEnabled) {
-        reactor = std::make_unique<Reactor>();
+    if (_numThreads) {
+        reactor = std::make_unique<Reactor>(*_numThreads);
         _reactor = reactor.get();
         _reactor->makeCurrent();
     }
@@ -97,7 +100,7 @@ void Bootstrapper::run(const char *path) {
     }
     onQuit();
     if (reactor) {
-        _reactor->clearCurrent();
+        Reactor::clearCurrent();
         _reactor = nullptr;
         reactor.reset();
     }
@@ -105,6 +108,10 @@ void Bootstrapper::run(const char *path) {
 
 void Bootstrapper::setCrashReportPath(const std::string &crashReportPath) {
     CrashReport::setCrashReportPath(crashReportPath);
+}
+
+void Bootstrapper::onPreInit() {
+
 }
 
 void Bootstrapper::onInit() {
@@ -127,7 +134,7 @@ void Bootstrapper::cleanup() {
 }
 
 
-void BasicBootstrapper::onInit() {
+void BasicBootstrapper::onPreInit() {
     LogUtil::initGlobalLoggers();
     setupCommonWatchObjects();
 }
@@ -172,9 +179,14 @@ void BasicBootstrapper::setupCommonWatchObjects() {
 }
 
 
-void AppBootstrapper::onInit() {
-    BasicBootstrapper::onInit();
+void CommonBootstrapper::onPreInit() {
+    BasicBootstrapper::onPreInit();
     LogUtil::defineLoggingOptions(NET4CXX_Options);
+}
+
+
+void AppBootstrapper::onInit() {
+    CommonBootstrapper::onInit();
     enableReactor();
 }
 
