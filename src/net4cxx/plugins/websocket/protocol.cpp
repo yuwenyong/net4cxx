@@ -508,7 +508,8 @@ bool WebSocketProtocol::processData() {
                 }
                 WebSocketMask frameMask;
                 if (frameMasked) {
-                    std::copy(_data.begin() + i, _data.begin() + i + 4, frameMask.begin());
+                    std::copy(_data.begin() + (std::ptrdiff_t)i, _data.begin() + (std::ptrdiff_t)i + 4,
+                              frameMask.begin());
                     i += 4;
                 }
                 if (frameMasked && framePayloadLen > 0 && _applyMask) {
@@ -516,7 +517,7 @@ bool WebSocketProtocol::processData() {
                 } else {
                     _currentFrameMasker = std::make_unique<XorMaskerNull>();
                 }
-                _data.erase(_data.begin(), _data.begin() + i);
+                _data.erase(_data.begin(), _data.begin() + (std::ptrdiff_t)i);
                 _currentFrame = FrameHeader(frameOpcode, frameFin, frameRsv, framePayloadLen, frameMask);
                 onFrameBegin();
                 return framePayloadLen == 0 || !_data.empty();
@@ -530,8 +531,8 @@ bool WebSocketProtocol::processData() {
         uint64_t rest = _currentFrame->_length - _currentFrameMasker->pointer();
         ByteArray payload;
         if (bufferedLen >= rest) {
-            payload.assign(_data.begin(), _data.begin() + rest);
-            _data.erase(_data.begin(), _data.begin() + rest);
+            payload.assign(_data.begin(), _data.begin() + (std::ptrdiff_t)rest);
+            _data.erase(_data.begin(), _data.begin() + (std::ptrdiff_t)rest);
         } else {
             payload = std::move(_data);
         }
@@ -1231,8 +1232,8 @@ void WebSocketServerProtocol::processHandshake() {
 
         if (_httpRequestHost.find(':') != std::string::npos && !boost::ends_with(_httpRequestHost, "]")) {
             auto pos = _httpRequestHost.rfind(':');
-            std::string h(_httpRequestHost.begin(), std::next(_httpRequestHost.begin(), pos));
-            std::string p(next(_httpRequestHost.begin(), pos + 1), _httpRequestHost.end());
+            std::string h(_httpRequestHost.begin(), std::next(_httpRequestHost.begin(), (ssize_t)pos));
+            std::string p(next(_httpRequestHost.begin(), (ssize_t)pos + 1), _httpRequestHost.end());
             unsigned short port;
             try {
                 boost::trim(p);

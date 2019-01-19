@@ -83,19 +83,19 @@ protected:
 
     void resetDelay() {
         NET4CXX_ASSERT(_callId.cancelled());
-        _delay = initialDelay;
+        _delay = InitialDelay;
         _retries = 0;
         _continueTrying = true;
         _connector.reset();
     }
 
-    static const double maxDelay;
-    static const double initialDelay;
-    static const double factor;
-    static const double jitter;
+    static const double MaxDelay;
+    static const double InitialDelay;
+    static const double Factor;
+    static const double Jitter;
 
-    double _delay{initialDelay};
-    double _maxDelay{maxDelay};
+    double _delay{InitialDelay};
+    double _maxDelay{MaxDelay};
     int _retries{0};
     int _maxRetries{0};
     bool _continueTrying{true};

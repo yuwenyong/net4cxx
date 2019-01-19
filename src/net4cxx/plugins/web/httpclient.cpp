@@ -698,7 +698,7 @@ void HTTPClientConnection::onChunkReceived(std::string chunk) {
 
 std::string HTTPClientConnection::formatChunk(const Byte *data, size_t length) {
     if (_expectedContentRemaining) {
-        _expectedContentRemaining = *_expectedContentRemaining - length;
+        _expectedContentRemaining = *_expectedContentRemaining - (ssize_t)length;
         if (*_expectedContentRemaining < 0) {
             try {
                 NET4CXX_THROW_EXCEPTION(HTTPOutputError, "Tried to write more data than Content-Length");

@@ -97,8 +97,8 @@ void ReconnectingClientFactory::retry(ConnectorPtr connector) {
         NET4CXX_LOG_INFO(gGenLog, "Abandoning reconnect after %d retries", _retries);
         return;
     }
-    _delay = std::min(_delay * factor, _maxDelay);
-    _delay = Random::normalvariate(_delay, _delay * jitter);
+    _delay = std::min(_delay * Factor, _maxDelay);
+    _delay = Random::normalvariate(_delay, _delay * Jitter);
     NET4CXX_LOG_INFO(gGenLog, "Reconnect will retry in %f seconds", _delay);
     _connector = connector;
     _callId = connector->reactor()->callLater(_delay, [connector]() {
@@ -106,10 +106,10 @@ void ReconnectingClientFactory::retry(ConnectorPtr connector) {
     });
 }
 
-const double ReconnectingClientFactory::maxDelay = 3600.0;
-const double ReconnectingClientFactory::initialDelay = 1.0;
-const double ReconnectingClientFactory::factor = 2.7182818284590451;
-const double ReconnectingClientFactory::jitter = 0.11962656472;
+const double ReconnectingClientFactory::MaxDelay = 3600.0;
+const double ReconnectingClientFactory::InitialDelay = 1.0;
+const double ReconnectingClientFactory::Factor = 2.7182818284590451;
+const double ReconnectingClientFactory::Jitter = 0.11962656472;
 
 
 void Protocol::connectionMade() {

@@ -133,15 +133,15 @@ WebSocketUtil::ParseHttpHeaderResult WebSocketUtil::parseHttpHeader(const std::s
     std::map<std::string, int> httpHeadersCnt;
     std::string::size_type j;
     std::string key, value;
-    for (auto i = 1; i != raw.size(); ++i) {
+    for (size_t i = 1; i != raw.size(); ++i) {
         auto &h = raw[i];
         j = h.find(':');
         if (j != std::string::npos) {
-            key.assign(h.begin(), std::next(h.begin(), j));
+            key.assign(h.begin(), std::next(h.begin(), (std::ptrdiff_t)j));
             boost::trim(key);
             boost::to_lower(key);
 
-            value.assign(std::next(h.begin(), j + 1), h.end());
+            value.assign(std::next(h.begin(), (std::ptrdiff_t)j + 1), h.end());
             boost::trim(value);
 
             if (httpHeaders.find(key) != httpHeaders.end()) {

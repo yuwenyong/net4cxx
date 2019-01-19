@@ -14,10 +14,10 @@ std::string CookieUtil::quote(const std::string &s, const std::vector<char> &leg
     } else {
         StringVector res;
         res.emplace_back("\"");
-        decltype(translator.begin()) iter;
+        decltype(Translator.begin()) iter;
         for (auto c: s) {
-            iter = translator.find(c);
-            if (iter != translator.end()) {
+            iter = Translator.find(c);
+            if (iter != Translator.end()) {
                 res.emplace_back(iter->second);
             } else {
                 res.emplace_back(1, c);
@@ -37,14 +37,14 @@ std::string CookieUtil::unquote(const std::string &s) {
     }
     std::string str = s.substr(1, s.length() - 2);
     StringVector res;
-    ssize_t i = 0, j, k, n = str.length();
+    ssize_t i = 0, j, k, n = (ssize_t)str.length();
     boost::cmatch omatch, qmatch;
     bool omatched, qmatched;
     while (0 <= i && i < n) {
-        omatched = boost::regex_search(str.c_str() + i, str.c_str() + n, omatch, octalPatt);
-        qmatched = boost::regex_search(str.c_str() + i, str.c_str() + n, qmatch, quotePatt);
+        omatched = boost::regex_search(str.c_str() + i, str.c_str() + n, omatch, OctalPatt);
+        qmatched = boost::regex_search(str.c_str() + i, str.c_str() + n, qmatch, QuotePatt);
         if (!omatched && !qmatched) {
-            res.emplace_back(str.substr(i));
+            res.emplace_back(str.substr((size_t)i));
             break;
         }
         j = k = -1;
@@ -55,19 +55,19 @@ std::string CookieUtil::unquote(const std::string &s) {
             k = i + qmatch.position((boost::cmatch::size_type)0);
         }
         if (qmatched && (!omatched || k < j)) {
-            res.emplace_back(str.substr(i, k - i));
-            res.emplace_back(1, str[k + 1]);
+            res.emplace_back(str.substr((size_t)i, (size_t)(k - i)));
+            res.emplace_back(1, str[(size_t)(k + 1)]);
             i = k + 2;
         } else {
-            res.emplace_back(str.substr(i, j - i));
-            res.emplace_back(1, (char)(std::stoi(str.substr(j + 1, 3), nullptr, 8)));
+            res.emplace_back(str.substr((size_t)i, (size_t)(j - i)));
+            res.emplace_back(1, (char)(std::stoi(str.substr((size_t)(j + 1), 3), nullptr, 8)));
             i = j + 4;
         }
     }
     return boost::join(res, "");
 }
 
-const std::vector<char> CookieUtil::legalChars = {
+const std::vector<char> CookieUtil::LegalChars = {
         'a', 'b', 'c', 'd', 'e', 'f', 'g',
         'h', 'i', 'j', 'k', 'l', 'm', 'n',
         'o', 'p', 'q', 'r', 's', 't',
@@ -80,7 +80,7 @@ const std::vector<char> CookieUtil::legalChars = {
         '!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~',
 };
 
-const std::array<char, 256> CookieUtil::idmap = {{
+const std::array<char, 256> CookieUtil::Idmap = {{
         '\000', '\001', '\002', '\003', '\004', '\005', '\006', '\007',
         '\010', '\011', '\012', '\013', '\014', '\015', '\016', '\017',
         '\020', '\021', '\022', '\023', '\024', '\025', '\026', '\027',
@@ -118,7 +118,7 @@ const std::array<char, 256> CookieUtil::idmap = {{
         '\370', '\371', '\372', '\373', '\374', '\375', '\376', '\377',
 }};
 
-const std::map<char, std::string> CookieUtil::translator = {
+const std::map<char, std::string> CookieUtil::Translator = {
         {'\000', "\\000"}, {'\001', "\\001"}, {'\002', "\\002"},
         {'\003', "\\003"}, {'\004', "\\004"}, {'\005', "\\005"},
         {'\006', "\\006"}, {'\007', "\\007"}, {'\010', "\\010"},
@@ -182,13 +182,13 @@ const std::map<char, std::string> CookieUtil::translator = {
         {'\375', "\\375"}, {'\376', "\\376"}, {'\377', "\\377"},
 };
 
-const boost::regex CookieUtil::octalPatt(R"(\\[0-3][0-7][0-7])");
+const boost::regex CookieUtil::OctalPatt(R"(\\[0-3][0-7][0-7])");
 
-const boost::regex CookieUtil::quotePatt(R"([\\].)");
+const boost::regex CookieUtil::QuotePatt(R"([\\].)");
 
-const char *CookieUtil::legalCharsPatt = R"([\w\d!#%&'~_`><@,:/\$\*\+\-\.\^\|\)\(\?\}\{\=])";
+const char *CookieUtil::LegalCharsPatt = R"([\w\d!#%&'~_`><@,:/\$\*\+\-\.\^\|\)\(\?\}\{\=])";
 
-const boost::regex CookieUtil::cookiePattern(
+const boost::regex CookieUtil::CookiePattern(
         R"((?x))"
         R"((?<key>)"
         R"([\w\d!#%&'~_`><@,:/\$\*\+\-\.\^\|\)\(\?\}\{\=]+?)"
@@ -284,7 +284,7 @@ std::string BaseCookie::output(const StringMap *attrs, const std::string &header
 }
 
 void BaseCookie::parseString(const std::string &str, const boost::regex &patt) {
-    ssize_t i = 0, n = str.length();
+    ssize_t i = 0, n = (ssize_t)str.length();
     Morsel *m = nullptr;
     boost::cmatch match;
     std::string k, v;

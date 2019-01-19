@@ -63,7 +63,7 @@ public:
         }
     }
 
-    int getCount() const {
+    size_t getCount() const {
         std::lock_guard<std::mutex> lock(_lock);
         return _objs.size();
     }

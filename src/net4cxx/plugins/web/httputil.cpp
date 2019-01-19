@@ -314,8 +314,8 @@ StringMap HTTPUtil::parseCookie(const std::string &cookie) {
     for (auto &chunk: chunks) {
         auto pos = chunk.find('=');
         if (pos != std::string::npos) {
-            key.assign(chunk.begin(), chunk.begin() + pos);
-            val.assign(chunk.begin() + pos + 1, chunk.end());
+            key.assign(chunk.begin(), chunk.begin() + (std::ptrdiff_t)pos);
+            val.assign(chunk.begin() + (std::ptrdiff_t)pos + 1, chunk.end());
             boost::trim(key);
             boost::trim(val);
         } else {

@@ -13,13 +13,13 @@ NS_BEGIN
         buffer.resize(length); \
         occupied = 0; \
     } else { \
-        occupied = zst.next_out - (Bytef *)buffer.data(); \
+        occupied = (size_t)(zst.next_out - (Bytef *)buffer.data()); \
         if (occupied == length) { \
             length <<= 1; \
             buffer.resize(length); \
         } \
     } \
-    zst.avail_out = length - occupied; \
+    zst.avail_out = (unsigned int)(length - occupied); \
     zst.next_out = (Bytef *)buffer.data() + occupied; \
 }
 
@@ -30,7 +30,7 @@ NS_BEGIN
         buffer.resize(length); \
         occupied = 0; \
     } else { \
-        occupied = zst.next_out - (Bytef *)buffer.data(); \
+        occupied = (size_t)(zst.next_out - (Bytef *)buffer.data()); \
         if (occupied == length) { \
             if (maxLength != 0) { \
                 size_t newLength; \
@@ -50,7 +50,7 @@ NS_BEGIN
             } \
         } \
     } \
-    zst.avail_out = length - occupied; \
+    zst.avail_out = (unsigned int)(length - occupied); \
     zst.next_out = (Bytef *)buffer.data() + occupied; \
 }
 
@@ -73,7 +73,7 @@ ByteArray Zlib::compress(const Byte *data, size_t len, int level) {
             handleError(zst, err, "while compressing data");
         }
     }
-    zst.avail_in = len;
+    zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBuffer(zst, retVal, oBufLen);
         err = deflate(&zst, Z_FINISH);
@@ -88,7 +88,7 @@ ByteArray Zlib::compress(const Byte *data, size_t len, int level) {
     if (err != Z_OK) {
         handleError(zst, err, "while finishing compression");
     }
-    retVal.resize(zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -110,7 +110,7 @@ std::string Zlib::compressToString(const Byte *data, size_t len, int level) {
             handleError(zst, err, "while compressing data");
         }
     }
-    zst.avail_in = len;
+    zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBuffer(zst, retVal, oBufLen);
         err = deflate(&zst, Z_FINISH);
@@ -125,7 +125,7 @@ std::string Zlib::compressToString(const Byte *data, size_t len, int level) {
     if (err != Z_OK) {
         handleError(zst, err, "while finishing compression");
     }
-    retVal.resize(zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -146,7 +146,7 @@ ByteArray Zlib::decompress(const Byte *data, size_t len, int wbits) {
             handleError(zst, err, "while preparing to decompress data");
         }
     }
-    zst.avail_in = len;
+    zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBuffer(zst, retVal, oBufLen);
         err = inflate(&zst, Z_FINISH);
@@ -167,7 +167,7 @@ ByteArray Zlib::decompress(const Byte *data, size_t len, int wbits) {
     if (err != Z_OK) {
         handleError(zst, err, "while finishing data decompression");
     }
-    retVal.resize(zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -188,7 +188,7 @@ std::string Zlib::decompressToString(const Byte *data, size_t len, int wbits) {
             handleError(zst, err, "while preparing to decompress data");
         }
     }
-    zst.avail_in = len;
+    zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBuffer(zst, retVal, oBufLen);
         err = inflate(&zst, Z_FINISH);
@@ -209,7 +209,7 @@ std::string Zlib::decompressToString(const Byte *data, size_t len, int wbits) {
     if (err != Z_OK) {
         handleError(zst, err, "while finishing data decompression");
     }
-    retVal.resize(zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -371,7 +371,7 @@ ByteArray CompressObj::compress(const Byte *data, size_t len) {
     size_t oBufLen = DEFAULTALLOC;
     int err;
     ByteArray retVal;
-    _zst.avail_in = len;
+    _zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBuffer(_zst, retVal, oBufLen);
         err = deflate(&_zst, Z_NO_FLUSH);
@@ -380,7 +380,7 @@ ByteArray CompressObj::compress(const Byte *data, size_t len) {
         }
     } while (_zst.avail_out == 0);
     NET4CXX_ASSERT(_zst.avail_in == 0);
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -390,7 +390,7 @@ std::string CompressObj::compressToString(const Byte *data, size_t len) {
     size_t oBufLen = DEFAULTALLOC;
     int err;
     std::string retVal;
-    _zst.avail_in = len;
+    _zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBuffer(_zst, retVal, oBufLen);
         err = deflate(&_zst, Z_NO_FLUSH);
@@ -399,7 +399,7 @@ std::string CompressObj::compressToString(const Byte *data, size_t len) {
         }
     } while (_zst.avail_out == 0);
     NET4CXX_ASSERT(_zst.avail_in == 0);
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -429,7 +429,7 @@ ByteArray CompressObj::flush(int flushMode) {
     } else if (err != Z_OK && err != Z_BUF_ERROR) {
         Zlib::handleError(_zst, err, "while flushing");
     }
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -459,7 +459,7 @@ std::string CompressObj::flushToString(int flushMode) {
     } else if (err != Z_OK && err != Z_BUF_ERROR) {
         Zlib::handleError(_zst, err, "while flushing");
     }
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -588,7 +588,7 @@ ByteArray DecompressObj::decompress(const Byte *data, size_t len, size_t maxLeng
     size_t oBufLen = DEFAULTALLOC;
     int err = Z_OK;
     ByteArray retVal;
-    _zst.avail_in = len;
+    _zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBufferLimit(_zst, retVal, oBufLen, maxLength);
         err = inflate(&_zst, Z_SYNC_FLUSH);
@@ -600,7 +600,7 @@ ByteArray DecompressObj::decompress(const Byte *data, size_t len, size_t maxLeng
     if (err != Z_OK && err != Z_BUF_ERROR && err != Z_STREAM_END) {
         Zlib::handleError(_zst, err, "while decompressing");
     }
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -610,7 +610,7 @@ std::string DecompressObj::decompressToString(const Byte *data, size_t len, size
     size_t oBufLen = DEFAULTALLOC;
     int err = Z_OK;
     std::string retVal;
-    _zst.avail_in = len;
+    _zst.avail_in = (unsigned int)len;
     do {
         ArrangeOutputBufferLimit(_zst, retVal, oBufLen, maxLength);
         err = inflate(&_zst, Z_SYNC_FLUSH);
@@ -622,7 +622,7 @@ std::string DecompressObj::decompressToString(const Byte *data, size_t len, size
     if (err != Z_OK && err != Z_BUF_ERROR && err != Z_STREAM_END) {
         Zlib::handleError(_zst, err, "while decompressing");
     }
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -632,7 +632,7 @@ ByteArray DecompressObj::flush() {
     size_t oBufLen = DEFAULTALLOC;
     int err;
     ByteArray retVal;
-    _zst.avail_in = _unconsumedTail.size();
+    _zst.avail_in = (unsigned int)_unconsumedTail.size();
     do {
         ArrangeOutputBuffer(_zst, retVal, oBufLen);
         err = inflate(&_zst, Z_FINISH);
@@ -648,7 +648,7 @@ ByteArray DecompressObj::flush() {
             Zlib::handleError(_zst, err, "from inflateEnd()");
         }
     }
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
@@ -658,7 +658,7 @@ std::string DecompressObj::flushToString() {
     size_t oBufLen = DEFAULTALLOC;
     int err;
     std::string retVal;
-    _zst.avail_in = _unconsumedTail.size();
+    _zst.avail_in = (unsigned int)_unconsumedTail.size();
     do {
         ArrangeOutputBuffer(_zst, retVal, oBufLen);
         err = inflate(&_zst, Z_FINISH);
@@ -674,20 +674,20 @@ std::string DecompressObj::flushToString() {
             Zlib::handleError(_zst, err, "from inflateEnd()");
         }
     }
-    retVal.resize(_zst.next_out - (Bytef *)retVal.data());
+    retVal.resize((size_t)(_zst.next_out - (Bytef *)retVal.data()));
     return retVal;
 }
 
 void DecompressObj::saveUnconsumedInput(const Byte *data, size_t len, int err) {
     if (err == Z_STREAM_END) {
         if (_zst.avail_in > 0) {
-            size_t leftSize = data + len - _zst.next_in;;
+            auto leftSize = (size_t)(data + len - _zst.next_in);
             _unusedData.insert(_unusedData.end(), _zst.next_in, _zst.next_in + leftSize);
             _zst.avail_in = 0;
         }
     }
     if (_zst.avail_in > 0 || !_unconsumedTail.empty()) {
-        size_t leftSize = data + len - _zst.next_in;
+        auto leftSize = size_t(data + len - _zst.next_in);
         _unconsumedTail.assign(_zst.next_in, _zst.next_in + leftSize);
     }
 }

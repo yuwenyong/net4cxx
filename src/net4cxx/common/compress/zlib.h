@@ -28,7 +28,7 @@ NET4CXX_DECLARE_EXCEPTION(ZlibError, Exception);
 class NET4CXX_COMMON_API Zlib {
 public:
     static unsigned long adler32(const Byte *data, size_t len, unsigned long value=1) {
-        return ::adler32(value, (Bytef *)data, len);
+        return ::adler32(value, (Bytef *)data, (unsigned int)len);
     }
 
     static unsigned long adler32(const ByteArray &data, unsigned long value=1) {
@@ -44,7 +44,7 @@ public:
     }
 
     static unsigned long crc32(const Byte *data, size_t len, unsigned long value=0) {
-        return ::crc32(value, (const Bytef *)data, len);
+        return ::crc32(value, (const Bytef *)data, (unsigned int)len);
     }
 
     static unsigned long crc32(const ByteArray &data, unsigned long value=0) {
