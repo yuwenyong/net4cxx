@@ -6,6 +6,9 @@
 #define NET4CXX_COMMON_THREADING_CONCURRENTQUEUE_H
 
 #include "net4cxx/common/common.h"
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 
 NS_BEGIN

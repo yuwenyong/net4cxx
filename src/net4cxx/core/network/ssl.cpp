@@ -157,11 +157,15 @@ void SSLConnection::doRead() {
                             });
 }
 
+#ifdef SSL_R_SHORT_READ
+#define CHECK_NOT_SHORT_READ(ec) (ec.category() != boost::asio::error::get_ssl_category() || ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)
+#else
+#define CHECK_NOT_SHORT_READ(ec) (ec.category() != boost::asio::error::get_ssl_category())
+#endif
+
 void SSLConnection::handleRead(const boost::system::error_code &ec, size_t transferredBytes) {
     if (ec) {
-        if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof &&
-            (ec.category() != boost::asio::error::get_ssl_category() ||
-             ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)) {
+        if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof && CHECK_NOT_SHORT_READ(ec)) {
             NET4CXX_LOG_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
@@ -169,8 +173,7 @@ void SSLConnection::handleRead(const boost::system::error_code &ec, size_t trans
                 NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
                 _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionDone, ""));
-            } else if (ec.category() != boost::asio::error::get_ssl_category() ||
-                       ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ) {
+            } else if (CHECK_NOT_SHORT_READ(ec)) {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             } else {
                 _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionDone, "SSL Short Read"));
@@ -215,9 +218,7 @@ void SSLConnection::doWrite() {
 
 void SSLConnection::handleWrite(const boost::system::error_code &ec, size_t transferredBytes) {
     if (ec) {
-        if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof &&
-            (ec.category() != boost::asio::error::get_ssl_category() ||
-             ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)) {
+        if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof && CHECK_NOT_SHORT_READ(ec)) {
             NET4CXX_LOG_ERROR(gGenLog, "Write error %d :%s", ec.value(), ec.message().c_str());
         }
         if (!_disconnected) {
@@ -225,8 +226,7 @@ void SSLConnection::handleWrite(const boost::system::error_code &ec, size_t tran
                 NET4CXX_ASSERT(_error);
             } else if (ec == boost::asio::error::eof) {
                 _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionDone, ""));
-            } else if (ec.category() != boost::asio::error::get_ssl_category() ||
-                       ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ) {
+            } else if (CHECK_NOT_SHORT_READ(ec)) {
                 _error = std::make_exception_ptr(boost::system::system_error(ec));
             } else {
                 _error = std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectionDone, "SSL Short Read"));
@@ -258,9 +258,7 @@ void SSLConnection::doShutdown() {
 
 void SSLConnection::handleShutdown(const boost::system::error_code &ec) {
     if (ec) {
-        if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof &&
-            (ec.category() != boost::asio::error::get_ssl_category() ||
-             ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)) {
+        if (ec != boost::asio::error::operation_aborted && ec != boost::asio::error::eof && CHECK_NOT_SHORT_READ(ec)) {
             NET4CXX_LOG_ERROR(gGenLog, "Read error %d :%s", ec.value(), ec.message().c_str());
             _error = std::make_exception_ptr(boost::system::system_error(ec));
         }

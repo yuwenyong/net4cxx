@@ -47,7 +47,7 @@ std::ostream &operator<<(std::ostream &os, const HTTPResponse &response) {
         args.emplace_back(StrUtil::format("error=\"Unknown exception\""));
     }
     auto elapse = std::chrono::duration_cast<std::chrono::microseconds>(response.getRequestTime());
-    double requestTime = elapse.count() / 1000000 + elapse.count() % 1000000 / 1000000.0;
+    double requestTime = (double)(elapse.count() / 1000000) + (double)(elapse.count() % 1000000) / 1000000.0;
     args.emplace_back(StrUtil::format("requestTime=\"%0.6fs\"", requestTime));
     os << "HTTPResponse(" << boost::join(args, ",") << ")";
     return os;

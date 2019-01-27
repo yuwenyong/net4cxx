@@ -25,13 +25,13 @@ const std::string Logging::_rootLoggerName = "root";
 Logger* Logging::_rootLogger = nullptr;
 
 const std::map<std::string, Severity> Logging::_severityMapping = {
-        {"trace",   SEVERITY_TRACE},
-        {"debug",   SEVERITY_DEBUG},
-        {"info",    SEVERITY_INFO},
-        {"warning", SEVERITY_WARN},
-        {"warn",    SEVERITY_WARN},
-        {"error",   SEVERITY_ERROR},
-        {"fatal",   SEVERITY_FATAL},
+        {"trace",   NET4CXX_SEVERITY_TRACE},
+        {"debug",   NET4CXX_SEVERITY_DEBUG},
+        {"info",    NET4CXX_SEVERITY_INFO},
+        {"warning", NET4CXX_SEVERITY_WARN},
+        {"warn",    NET4CXX_SEVERITY_WARN},
+        {"error",   NET4CXX_SEVERITY_ERROR},
+        {"fatal",   NET4CXX_SEVERITY_FATAL},
 };
 
 
@@ -81,9 +81,9 @@ void Logging::doInit(bool registerSink) {
             ConsoleSinkBuilder builder;
             builder.setFormatter();
 #ifdef NET4CXX_DEBUG
-            builder.setFilter(SEVERITY_DEBUG);
+            builder.setFilter(NET4CXX_SEVERITY_DEBUG);
 #else
-            builder.setFilter(SEVERITY_INFO);
+            builder.setFilter(NET4CXX_SEVERITY_INFO);
 #endif
             addSink(builder.build());
         }

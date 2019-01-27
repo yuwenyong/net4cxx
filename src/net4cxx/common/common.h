@@ -165,6 +165,10 @@ typedef std::set<std::string> StringSet;
 
 #define DEFAULT_STACKTRACE_MAX_DEPTH 20
 
+#ifdef interface
+#undef interface
+#endif
+
 
 using DateTime = boost::posix_time::ptime;
 using Date = boost::gregorian::date;

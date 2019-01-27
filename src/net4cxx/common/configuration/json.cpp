@@ -40,7 +40,7 @@ static const double maxUInt64AsDouble = 18446744073709551615.0;
 
 template <typename T, typename U>
 static inline bool InRange(double d, T min, U max) {
-    return d >= min && d <= max;
+    return d >= (double)min && d <= (double)max;
 }
 
 static std::string valueToString(double value, bool useSpecialFloats, unsigned int precision) {
@@ -717,7 +717,7 @@ bool JsonValue::isInt64() const {
         }
 
         result_type operator()(double v) const {
-            return v >= std::numeric_limits<int64_t>::min() && v < std::numeric_limits<int64_t>::max()
+            return v >= (double)std::numeric_limits<int64_t>::min() && v < (double)std::numeric_limits<int64_t>::max()
                    && TypeUtil::isIntegral(v);
         }
 
@@ -1869,7 +1869,7 @@ bool BuiltReader::decodeNumber(Token &token, JsonValue &decoded) {
     if (isNegative) {
         ++current;
     }
-    uint64_t maxIntegerValue = isNegative ? static_cast<uint64_t >(-std::numeric_limits<int64_t>::min())
+    uint64_t maxIntegerValue = isNegative ? static_cast<uint64_t >(std::numeric_limits<int64_t>::max()) + 1
                                           : std::numeric_limits<uint64_t>::max();
     uint64_t threshold = maxIntegerValue / 10;
     uint64_t value = 0;

@@ -29,7 +29,7 @@ void XorMaskerSimple::reset() {
 
 void XorMaskerSimple::process(Byte *data, uint64_t len) {
     for (size_t k = 0; k < len; ++k) {
-        data[k] ^= _msk[_ptr & 3u];
+        data[k] = (Byte)(data[k] ^ _msk[_ptr & 3u]);
         ++_ptr;
     }
 }
@@ -46,11 +46,9 @@ void XorMaskerShifted1::reset() {
 void XorMaskerShifted1::process(Byte *data, uint64_t len) {
     auto &msk = _mskarray[_ptr & 3u];
     for (size_t k = 0; k < len; ++k) {
-        data[k] ^= msk[k & 3u];
+        data[k] = (Byte)(data[k] ^ msk[k & 3u]);
     }
     _ptr += len;
 }
-
-
 
 NS_END

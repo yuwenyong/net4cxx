@@ -331,11 +331,11 @@ public:
     typedef sinks::simple_event_log_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
 
-    explicit SimpleEventLogSink(std::string logName="",
-                                std::string logSource="",
-                                RegistrationMode registrationMode=REGISTRATION_MODE_ON_DEMAND)
+    explicit SimpleEventLogSinkBuilder(std::string logName="",
+                                       std::string logSource="",
+                                       RegistrationMode registrationMode=REGISTRATION_MODE_ON_DEMAND)
             : _logName(std::move(logName))
-            , _logSource(std::move(logSource)
+            , _logSource(std::move(logSource))
             , _registrationMode(registrationMode) {
 
     }
@@ -373,7 +373,7 @@ public:
     typedef sinks::debug_output_backend BackendSink;
     typedef boost::shared_ptr<BackendSink> BackendSinkPtr;
 
-    DebuggerSink() = default;
+    DebuggerSinkBuilder() = default;
 protected:
     FrontendSinkPtr createSink() const override;
 

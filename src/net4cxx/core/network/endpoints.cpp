@@ -56,12 +56,12 @@ ProtocolPtr WrappingFactory::buildProtocol(const Address &address) {
 }
 
 void WrappingFactory::startedConnecting(ConnectorPtr connector) {
-    std::weak_ptr<Connector> c(connector);
+    std::weak_ptr<Connector> conn(connector);
     NET4CXX_ASSERT(_onConnection);
-    _onConnection->setCanceller([c](DeferredPtr deferred) {
-        if (auto connector = c.lock()) {
+    _onConnection->setCanceller([conn](DeferredPtr deferred) {
+        if (auto ctor = conn.lock()) {
             deferred->errback(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectingCancelledError, "")));
-            connector->stopConnecting();
+            ctor->stopConnecting();
         }
     });
 }
@@ -75,15 +75,15 @@ void WrappingFactory::clientConnectionFailed(ConnectorPtr connector, std::except
 
 
 DeferredPtr TCPServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
-        return _reactor->listenTCP(_port, std::move(protocolFactory), _interface);
+    return executeDeferred([this](std::shared_ptr<Factory> factory) -> ListenerPtr {
+        return _reactor->listenTCP(_port, std::move(factory), _interface);
     }, std::move(protocolFactory));
 }
 
 
 DeferredPtr SSLServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
-        return _reactor->listenSSL(_port, std::move(protocolFactory), _sslOption, _interface);
+    return executeDeferred([this](std::shared_ptr<Factory> factory) -> ListenerPtr {
+        return _reactor->listenSSL(_port, std::move(factory), _sslOption, _interface);
     }, std::move(protocolFactory));
 }
 

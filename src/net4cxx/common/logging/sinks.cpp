@@ -142,13 +142,13 @@ SimpleEventLogSinkBuilder::BackendSinkPtr SimpleEventLogSinkBuilder::createBacke
             keywords::log_source = logSource,
             keywords::registration = _registrationMode
     );
-    sinks::event_log::custom_event_type_mapping<LogLevel> mapping("Severity");
-    mapping[SEVERITY_TRACE] = sinks::event_log::info;
-    mapping[SEVERITY_DEBUG] = sinks::event_log::info;
-    mapping[SEVERITY_INFO] = sinks::event_log::info;
-    mapping[SEVERITY_WARN] = sinks::event_log::warning;
-    mapping[SEVERITY_ERROR] = sinks::event_log::error;
-    mapping[SEVERITY_FATAL] = sinks::event_log::error;
+    sinks::event_log::custom_event_type_mapping<Severity> mapping("Severity");
+    mapping[NET4CXX_SEVERITY_TRACE] = sinks::event_log::info;
+    mapping[NET4CXX_SEVERITY_DEBUG] = sinks::event_log::info;
+    mapping[NET4CXX_SEVERITY_INFO] = sinks::event_log::info;
+    mapping[NET4CXX_SEVERITY_WARN] = sinks::event_log::warning;
+    mapping[NET4CXX_SEVERITY_ERROR] = sinks::event_log::error;
+    mapping[NET4CXX_SEVERITY_FATAL] = sinks::event_log::error;
     backend->set_event_type_mapper(mapping);
     return backend;
 }

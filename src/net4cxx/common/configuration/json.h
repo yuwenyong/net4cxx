@@ -53,7 +53,7 @@ public:
 
     JsonValue(JsonType type);
 
-    JsonValue(nullptr_t) {
+    JsonValue(std::nullptr_t) {
 
     }
 

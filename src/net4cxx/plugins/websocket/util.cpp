@@ -31,8 +31,8 @@ boost::optional<double> Timings::diff(const std::string &startKey, const std::st
         auto microseconds = std::chrono::duration_cast<std::chrono::microseconds>(*duration);
         *duration -= microseconds;
         auto nanoseconds = std::chrono::duration_cast<std::chrono::nanoseconds>(*duration);
-        d = 1.0 * seconds.count() + 0.001 * milliseconds.count() + 0.000001 * microseconds.count() +
-            0.000000001 * nanoseconds.count();
+        d = 1.0 * (double)seconds.count() + 0.001 * (double)milliseconds.count() +
+            0.000001 * (double)microseconds.count() + 0.000000001 * (double)nanoseconds.count();
     }
     return d;
 }
@@ -221,7 +221,7 @@ std::vector<boost::regex> WebSocketUtil::wildcardsToPatterns(const StringVector 
 
 ByteArray WebSocketUtil::newid(size_t length) {
     ByteArray temp;
-    auto l = (size_t)ceil(length * 6.0 / 8.0);
+    auto l = (size_t)ceil((double)length * 6.0 / 8.0);
     temp.resize(l);
     Random::randBytes(temp.data(), temp.size());
     auto result = Base64::b64encode(temp);
@@ -254,16 +254,15 @@ std::ostream& operator<<(std::ostream &sout, const TrafficStats &trafficStats) {
     result["outgoingOctetsAppLevel"] = (uint64_t)trafficStats.getOutgoingOctetsAppLevel();
 
     if (trafficStats.getOutgoingOctetsAppLevel() > 0) {
-        result["outgoingCompressionRatio"] = 1.0 * trafficStats.getOutgoingOctetsWebSocketLevel() /
-                                             trafficStats.getOutgoingOctetsAppLevel();
+        result["outgoingCompressionRatio"] = 1.0 * (double)trafficStats.getOutgoingOctetsWebSocketLevel() /
+                (double)trafficStats.getOutgoingOctetsAppLevel();
     } else {
         result["outgoingCompressionRatio"] = nullptr;
     }
 
     if (trafficStats.getOutgoingOctetsWebSocketLevel() > 0) {
-        result["outgoingWebSocketOverhead"] = 1.0 * (trafficStats.getOutgoingOctetsWireLevel() -
-                                                     trafficStats.getOutgoingOctetsWebSocketLevel()) /
-                                              trafficStats.getOutgoingOctetsWebSocketLevel();
+        result["outgoingWebSocketOverhead"] = 1.0 * (double)(trafficStats.getOutgoingOctetsWireLevel() -
+                trafficStats.getOutgoingOctetsWebSocketLevel()) / (double)trafficStats.getOutgoingOctetsWebSocketLevel();
     } else {
         result["outgoingWebSocketOverhead"] = nullptr;
     }
@@ -277,16 +276,15 @@ std::ostream& operator<<(std::ostream &sout, const TrafficStats &trafficStats) {
     result["incomingOctetsAppLevel"] = (uint64_t)trafficStats.getIncomingOctetsAppLevel();
 
     if (trafficStats.getIncomingOctetsAppLevel() > 0) {
-        result["incomingCompressionRatio"] = 1.0 * trafficStats.getIncomingOctetsWebSocketLevel() /
-                                             trafficStats.getIncomingOctetsAppLevel();
+        result["incomingCompressionRatio"] = 1.0 * (double)trafficStats.getIncomingOctetsWebSocketLevel() /
+                (double)trafficStats.getIncomingOctetsAppLevel();
     } else {
         result["incomingCompressionRatio"] = nullptr;
     }
 
     if (trafficStats.getIncomingOctetsWebSocketLevel() > 0) {
-        result["incomingWebSocketOverhead"] = 1.0 * (trafficStats.getIncomingOctetsWireLevel() -
-                                                     trafficStats.getIncomingOctetsWebSocketLevel()) /
-                                              trafficStats.getIncomingOctetsWebSocketLevel();
+        result["incomingWebSocketOverhead"] = 1.0 * (double)(trafficStats.getIncomingOctetsWireLevel() -
+                trafficStats.getIncomingOctetsWebSocketLevel()) / (double)trafficStats.getIncomingOctetsWebSocketLevel();
     } else {
         result["incomingWebSocketOverhead"] = nullptr;
     }
