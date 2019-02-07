@@ -8,6 +8,8 @@ using namespace net4cxx;
 
 class SleepAsyncTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         auto d = sleepAsync(reactor(), 2.0f);
         d->addCallback([](DeferredValue result){

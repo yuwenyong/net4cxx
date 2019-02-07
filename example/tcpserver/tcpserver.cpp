@@ -38,6 +38,8 @@ public:
 
 class TCPServerApp: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
 //        TCPServerEndpoint endpoint(reactor(), "28001");
 //        endpoint.listen(std::make_shared<MyFactory>());

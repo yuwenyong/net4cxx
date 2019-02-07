@@ -38,7 +38,7 @@
 
 #if PLATFORM == PLATFORM_WINDOWS
 #  include <ws2tcpip.h>
-
+#  include <windows.h>
 #  if defined(__INTEL_COMPILER)
 #    if !defined(BOOST_ASIO_HAS_MOVE)
 #      define BOOST_ASIO_HAS_MOVE
@@ -55,6 +55,15 @@
 #endif
 
 #define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
+
+#define BOOST_ALL_DYN_LINK
+#define BOOST_STACKTRACE_LINK
+#define DEFAULT_STACKTRACE_MAX_DEPTH 20
+
+#if (PLATFORM == PLATFORM_WINDOWS) && (COMPILER == COMPILER_GNU)
+#   define BOOST_STACKTRACE_USE_WINDBG
+#endif
+
 #include <boost/config.hpp>
 #include <boost/date_time.hpp>
 
@@ -157,13 +166,6 @@ typedef std::set<std::string> StringSet;
 #define SET_MASK(lhs, rhs)  lhs |= (rhs)
 #define CLR_MASK(lhs, rhs)  lhs &= (~(rhs))
 #define TST_MASK(lhs, rhs)  (((lhs) & (rhs)) == (rhs))
-
-
-#define BOOST_LOG_DYN_LINK
-#define BOOST_REGEX_DYN_LINK
-#define BOOST_STACKTRACE_DYN_LINK
-
-#define DEFAULT_STACKTRACE_MAX_DEPTH 20
 
 #ifdef interface
 #undef interface

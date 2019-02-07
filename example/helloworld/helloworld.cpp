@@ -7,15 +7,17 @@
 using namespace net4cxx;
 
 
-class HelloWorldApp: public CommonBootstrapper {
+class HelloWorldApp: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         NET4CXX_LOG_INFO(gAppLog, "Hello world!");
     }
 };
 
 int main (int argc, char **argv) {
-   HelloWorldApp app;
+   HelloWorldApp app(false);
    app.run(argc, argv);
    return 0;
 }

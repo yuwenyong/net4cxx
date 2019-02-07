@@ -58,6 +58,8 @@ public:
 
 class HTTPServerAsyncTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         auto webApp = makeWebApp<WebApp>({
                                                  url<Books>(R"(/books/)"),

@@ -114,7 +114,7 @@ SyslogSinkBuilder::BackendSinkPtr SyslogSinkBuilder::createBackend() const {
 #endif
 
 
-#ifndef BOOST_LOG_WITHOUT_EVENT_LOG
+#if !defined(BOOST_LOG_WITHOUT_EVENT_LOG) && (COMPILER == COMPILER_MICROSOFT)
 
 SimpleEventLogSinkBuilder::FrontendSinkPtr SimpleEventLogSinkBuilder::createSink() const {
     auto backend = createBackend();

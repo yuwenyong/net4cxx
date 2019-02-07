@@ -160,7 +160,7 @@ void SSLConnection::doRead() {
 #ifdef SSL_R_SHORT_READ
 #define CHECK_NOT_SHORT_READ(ec) (ec.category() != boost::asio::error::get_ssl_category() || ERR_GET_REASON(ec.value()) != SSL_R_SHORT_READ)
 #else
-#define CHECK_NOT_SHORT_READ(ec) (ec.category() != boost::asio::error::get_ssl_category())
+#define CHECK_NOT_SHORT_READ(ec) (ec.category() != boost::asio::error::get_ssl_category() || ERR_GET_REASON(ec.value()) != boost::asio::ssl::error::stream_truncated)
 #endif
 
 void SSLConnection::handleRead(const boost::system::error_code &ec, size_t transferredBytes) {

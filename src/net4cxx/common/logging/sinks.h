@@ -317,7 +317,7 @@ protected:
 #endif
 
 
-#ifndef BOOST_LOG_WITHOUT_EVENT_LOG
+#if !defined(BOOST_LOG_WITHOUT_EVENT_LOG) && (COMPILER == COMPILER_MICROSOFT)
 
 using RegistrationMode = sinks::event_log::registration_mode;
 

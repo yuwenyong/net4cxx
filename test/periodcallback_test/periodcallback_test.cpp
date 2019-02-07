@@ -8,6 +8,8 @@ using namespace net4cxx;
 
 class PeriodCallbackTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         PeriodicCallback::create([](){
             NET4CXX_LOG_INFO("Every two seconds");

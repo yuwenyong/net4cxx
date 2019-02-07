@@ -29,8 +29,10 @@ void testMyError() {
 }
 
 
-class ExceptionTest: public CommonBootstrapper {
+class ExceptionTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         try {
             test3(1, 2);
@@ -56,7 +58,7 @@ public:
 
 
 int main(int argc, char **argv) {
-    ExceptionTest app;
+    ExceptionTest app{false};
     app.run(argc, argv);
     return 0;
 }

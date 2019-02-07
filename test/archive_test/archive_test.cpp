@@ -31,8 +31,10 @@ protected:
 };
 
 
-class ArchiveTest: public CommonBootstrapper {
+class ArchiveTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         Person p1{"testName", 21, "M", 167.5};
         Person p2;
@@ -69,7 +71,7 @@ public:
 
 
 int main(int argc, char **argv) {
-    ArchiveTest app;
+    ArchiveTest app{false};
     app.run(argc, argv);
     return 0;
 }

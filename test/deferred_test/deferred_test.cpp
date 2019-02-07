@@ -7,8 +7,10 @@
 using namespace net4cxx;
 
 
-class DeferredTest: public CommonBootstrapper {
+class DeferredTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         auto d1 = makeDeferred();
         d1->addCallback([](DeferredValue value) {
@@ -39,7 +41,7 @@ public:
 
 
 int main(int argc, char **argv) {
-    DeferredTest app;
+    DeferredTest app{false};
     app.run(argc, argv);
     return 0;
 }

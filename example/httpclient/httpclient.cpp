@@ -9,6 +9,8 @@ using namespace net4cxx;
 
 class HTTPClientApp: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+    
     void onRun() {
         auto request = HTTPRequest::create("https://www.baidu.com/")
                 ->setValidateCert(false)

@@ -39,13 +39,15 @@ void Reactor::run(bool installSignalHandlers) {
             reactor.run(false);
         }));
     }
+    std::shared_ptr<void> threadsGuard(nullptr, [&threads](void*){
+        for (auto &thread: threads) {
+            thread.join();
+        }
+    });
     Reactor *oldCurrent = _current;
     _current = this;
     WorkGurad work = boost::asio::make_work_guard(_ioContext);
     startRunning(installSignalHandlers);
-    for (auto &thread: threads) {
-        thread.join();
-    }
     _running = false;
     _current = oldCurrent;
 }
