@@ -7,3 +7,6 @@ set_target_properties(backtrace
         "${Backtrace_LIBRARY}"
         INTERFACE_INCLUDE_DIRECTORI
         "${Backtrace_INCLUDE_DIR}")
+
+message(STATUS "Backtrace_INCLUDE_DIR: ${Backtrace_INCLUDE_DIR}")
+message(STATUS "Backtrace_LIBRARY: ${Backtrace_LIBRARY}")

@@ -34,7 +34,7 @@ public:
 };
 
 int main(int argc, char **argv) {
-    HTTPClientApp app;
+    HTTPClientApp app(0, true);
     app.run(argc, argv);
     return 0;
 }

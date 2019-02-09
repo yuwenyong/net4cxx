@@ -56,12 +56,12 @@ ProtocolPtr WrappingFactory::buildProtocol(const Address &address) {
 }
 
 void WrappingFactory::startedConnecting(ConnectorPtr connector) {
-    std::weak_ptr<Connector> conn(connector);
+    std::weak_ptr<Connector> c(connector);
     NET4CXX_ASSERT(_onConnection);
-    _onConnection->setCanceller([conn](DeferredPtr deferred) {
-        if (auto ctor = conn.lock()) {
+    _onConnection->setCanceller([c](DeferredPtr deferred) {
+        if (auto connector = c.lock()) {
             deferred->errback(std::make_exception_ptr(NET4CXX_MAKE_EXCEPTION(ConnectingCancelledError, "")));
-            ctor->stopConnecting();
+            connector->stopConnecting();
         }
     });
 }
