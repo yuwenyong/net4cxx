@@ -1,6 +1,70 @@
 
 # net4cxx
 
+## Requirements
+
+### Windows（以mingw64(msys2)为例）
+
+* 运行以下命令安装必备的工具链和模块
+
+```bash
+pacman-key --init
+pacman -Syu
+pacman -S mingw-w64-x86_64-cmake mingw-w64-x86_64-extra-cmake-modules
+pacman -S mingw-w64-x86_64-make
+pacman -S mingw-w64-x86_64-gdb
+pacman -S mingw-w64-x86_64-toolchain
+
+pacboy update
+pacboy sync msys/git msys/make boost:x
+pacboy sync dlfcn:x
+```
+
+* 下载libbacktrace源码编译安装
+
+```bash
+./configure
+./make
+./make install
+```
+
+* 接下来即可编译本模块
+
+### linux（以ubuntu为例子）
+
+* 需要1.66以上的boost,如果是18.10以上版本的ubuntu,则可以直接通过命令安装，否则源码编译boost
+
+```bash
+sudo apt-get update
+sudo apt-get install git cmake make gcc g++
+sudo apt-get install zlib1g-dev
+sudo apt-get install libssl-dev
+sudo apt-get install libboost-all-dev
+```
+
+### macOS
+
+* 需要先安装Xcode
+* 源码编译安装zlib
+* 源码编译安装cmake, openssl和boost,或运行以下命令
+
+```bash
+brew update
+brew install openssl cmake boost
+```
+
+## Build
+
+* 运行以下命令
+
+```bash
+cd net4cxx
+mkdir build
+cd build
+cmake ..
+make
+```
+
 ## Tutorial
 
 ### 开发基于字节流协议的服务器(tcp,ssl,unix)

@@ -25,20 +25,20 @@ include(CheckIncludeFiles)
 include(CheckPlatform)
 include(AutoCollect)
 
-set(BUILD_NET4CXX_STATIC_LIBS TRUE)
+set(BUILD_NET4CXX_AS_STATIC_LIB TRUE)
 
 option(NET4CXX_BUILD_ASAN "Build net4cxx with address sanitizer (gcc/clang)" OFF)
 option(NET4CXX_BUILD_UBSAN "Build net4cxx with undefined behavior sanitizer (gcc/clang)" OFF)
 
 message(STATUS ${CMAKE_SYSTEM_NAME})
 
-if (BUILD_NET4CXX_STATIC_LIBS)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
-else()
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall")
+
+if (NOT BUILD_NET4CXX_AS_STATIC_LIB)
     add_definitions(-DNET4CXX_API_USE_DYNAMIC_LINKING)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -fPIC")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -fPIC")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
 endif()
 
 message(STATUS ${CMAKE_CXX_COMPILER_ID})
