@@ -19,12 +19,24 @@ NS_BEGIN
 
 Bootstrapper* Bootstrapper::_instance = nullptr;
 
-
-Bootstrapper::Bootstrapper() {
+Bootstrapper::Bootstrapper(bool commandThreadEnabled)
+        : _commandThreadEnabled(commandThreadEnabled) {
     if (_instance) {
         NET4CXX_THROW_EXCEPTION(AlreadyExist, "Bootstrapper object already exists");
     }
     _instance = this;
+}
+
+Bootstrapper::Bootstrapper(size_t numThreads, bool commandThreadEnabled)
+    : _commandThreadEnabled(commandThreadEnabled) {
+    if (_instance) {
+        NET4CXX_THROW_EXCEPTION(AlreadyExist, "Bootstrapper object already exists");
+    }
+    _instance = this;
+    _reactor = std::make_unique<Reactor>(numThreads);
+#if (PLATFORM == PLATFORM_WINDOWS) && (COMPILER == COMPILER_GNU)
+    _commandThreadEnabled = true;
+#endif
 }
 
 Bootstrapper::~Bootstrapper() {
@@ -32,78 +44,24 @@ Bootstrapper::~Bootstrapper() {
 }
 
 void Bootstrapper::run(const boost::function1<std::string, std::string> &name_mapper) {
-    NET4CXX_ASSERT(!_inited);
-    onPreInit();
-    CrashReport::outputCrashReport();
+    doPreInit();
     NET4CXX_Options->parseEnvironment(name_mapper);
-    onInit();
-    _inited = true;
-    std::unique_ptr<Reactor> reactor;
-    if (_numThreads) {
-        reactor = std::make_unique<Reactor>(*_numThreads);
-        _reactor = reactor.get();
-        _reactor->makeCurrent();
-    }
-    onRun();
-    if (reactor) {
-        reactor->run();
-    }
-    onQuit();
-    if (reactor) {
-        Reactor::clearCurrent();
-        _reactor = nullptr;
-        reactor.reset();
-    }
+    doInit();
+    doRun();
 }
 
 void Bootstrapper::run(int argc, const char *const *argv) {
-    NET4CXX_ASSERT(!_inited);
-    onPreInit();
-    CrashReport::outputCrashReport();
+    doPreInit();
     NET4CXX_Options->parseCommandLine(argc, argv);
-    onInit();
-    _inited = true;
-    std::unique_ptr<Reactor> reactor;
-    if (_numThreads) {
-        reactor = std::make_unique<Reactor>(*_numThreads);
-        _reactor = reactor.get();
-        _reactor->makeCurrent();
-    }
-    onRun();
-    if (reactor) {
-        reactor->run();
-    }
-    onQuit();
-    if (reactor) {
-        Reactor::clearCurrent();
-        _reactor = nullptr;
-        reactor.reset();
-    }
+    doInit();
+    doRun();
 }
 
 void Bootstrapper::run(const char *path) {
-    NET4CXX_ASSERT(!_inited);
-    onPreInit();
-    CrashReport::outputCrashReport();
+    doPreInit();
     NET4CXX_Options->parseConfigFile(path);
-    onInit();
-    _inited = true;
-    std::unique_ptr<Reactor> reactor;
-    if (_numThreads) {
-        reactor = std::make_unique<Reactor>(*_numThreads);
-        _reactor = reactor.get();
-        _reactor->makeCurrent();
-    }
-    onRun();
-    if (reactor) {
-        reactor->run();
-    }
-    onQuit();
-    if (reactor) {
-        Reactor::clearCurrent();
-        _reactor = nullptr;
-        reactor.reset();
-    }
+    doInit();
+    doRun();
 }
 
 void Bootstrapper::setCrashReportPath(const std::string &crashReportPath) {
@@ -124,6 +82,173 @@ void Bootstrapper::onRun() {
 
 void Bootstrapper::onQuit() {
 
+}
+
+bool Bootstrapper::onSysCommand(const std::string &command) {
+    if (boost::iequals(command, "quit")) {
+        if (_reactor) {
+            NET4CXX_LOG_INFO(gGenLog, "Command quit, shutting down.");
+            _reactor->stop();
+        }
+        return true;
+    }
+    return false;
+}
+
+bool Bootstrapper::onUserCommand(const std::string &command) {
+    return false;
+}
+
+void Bootstrapper::doPreInit() {
+    NET4CXX_ASSERT(!_inited);
+    onPreInit();
+    CrashReport::outputCrashReport();
+}
+
+void Bootstrapper::doInit() {
+    onInit();
+    if (_reactor) {
+        _reactor->makeCurrent();
+    }
+    _inited = true;
+}
+
+void Bootstrapper::doRun() {
+    std::shared_ptr<std::thread> commandThread;
+    if (_commandThreadEnabled) {
+        commandThread.reset(new std::thread([this](){
+            this->commandThread();
+        }), &shutdownCommandThread);
+    }
+    onRun();
+    if (_reactor) {
+        _reactor->run();
+    }
+    _commandThreadStopped = true;
+    onQuit();
+    commandThread = nullptr;
+    if (_reactor) {
+        Reactor::clearCurrent();
+        _reactor.reset();
+    }
+}
+
+void Bootstrapper::commandThread() {
+    char *commandStr;
+    char commandBuf[256];
+    std::string command;
+
+    printf("Command>");
+    while (!_commandThreadStopped) {
+        fflush(stdout);
+#if PLATFORM != PLATFORM_WINDOWS
+        while (!kbHitReturn() && !_commandThreadStopped) {
+            usleep(100);
+        }
+        if (_commandThreadStopped) {
+           break;
+        }
+#endif
+        commandStr = fgets(commandBuf, sizeof(commandBuf), stdin);
+        if (commandStr != NULL) {
+            for (int x = 0; commandStr[x]; ++x) {
+                if (commandStr[x] == '\r' || commandStr[x] == '\n') {
+                    commandStr[x] = 0;
+                    break;
+                }
+            }
+            command = commandStr;
+            boost::trim(command);
+            if (!command.empty()) {
+                if (_reactor) {
+                    _reactor->addCallback([this, command=std::move(command)](){
+                        onCommand(command);
+                    });
+                } else {
+                    onCommand(command);
+                }
+            }
+            printf("Command>");
+        } else if (feof(stdin)){
+            if (_reactor) {
+                _reactor->addCallback([this](){
+                    _reactor->stop();
+                });
+            }
+            break;
+        }
+    }
+}
+
+#if PLATFORM != PLATFORM_WINDOWS
+int Bootstrapper::kbHitReturn() {
+    struct timeval tv;
+    fd_set fds;
+    tv.tv_sec = 0;
+    tv.tv_usec = 0;
+    FD_ZERO(&fds);
+    FD_SET(STDIN_FILENO, &fds);
+    select(STDIN_FILENO+1, &fds, NULL, NULL, &tv);
+    return FD_ISSET(STDIN_FILENO, &fds);
+}
+#endif
+
+void Bootstrapper::shutdownCommandThread(std::thread *commandThread) {
+    if (commandThread != nullptr) {
+#if PLATFORM == PLATFORM_WINDOWS
+        if (!CancelSynchronousIo((HANDLE)commandThread->native_handle())) {
+            DWORD errorCode = GetLastError();
+            if (errorCode != ERROR_NOT_FOUND) {
+                LPSTR errorBuffer;
+                DWORD numCharsWritten = FormatMessage(
+                        FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_IGNORE_INSERTS,
+                        nullptr, errorCode, 0, (LPTSTR)&errorBuffer, 0, nullptr);
+                if (!numCharsWritten) {
+                    NET4CXX_LOG_ERROR(gGenLog, "Error cancelling I/O of CommandThread, error code %u, detail: Unknown error",
+                                      errorCode);
+                } else {
+                    NET4CXX_LOG_ERROR(gGenLog, "Error cancelling I/O of CommandThread, error code %u, detail: %s",
+                                      errorCode, errorBuffer);
+                    LocalFree(errorBuffer);
+                }
+
+                INPUT_RECORD b[4];
+                HANDLE hStdIn = GetStdHandle(STD_INPUT_HANDLE);
+                b[0].EventType = KEY_EVENT;
+                b[0].Event.KeyEvent.bKeyDown = TRUE;
+                b[0].Event.KeyEvent.uChar.AsciiChar = 'X';
+                b[0].Event.KeyEvent.wVirtualKeyCode = 'X';
+                b[0].Event.KeyEvent.wRepeatCount = 1;
+
+                b[1].EventType = KEY_EVENT;
+                b[1].Event.KeyEvent.bKeyDown = FALSE;
+                b[1].Event.KeyEvent.uChar.AsciiChar = 'X';
+                b[1].Event.KeyEvent.wVirtualKeyCode = 'X';
+                b[1].Event.KeyEvent.wRepeatCount = 1;
+
+                b[2].EventType = KEY_EVENT;
+                b[2].Event.KeyEvent.bKeyDown = TRUE;
+                b[2].Event.KeyEvent.dwControlKeyState = 0;
+                b[2].Event.KeyEvent.uChar.AsciiChar = '\r';
+                b[2].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+                b[2].Event.KeyEvent.wRepeatCount = 1;
+                b[2].Event.KeyEvent.wVirtualScanCode = 0x1c;
+
+                b[3].EventType = KEY_EVENT;
+                b[3].Event.KeyEvent.bKeyDown = FALSE;
+                b[3].Event.KeyEvent.dwControlKeyState = 0;
+                b[3].Event.KeyEvent.uChar.AsciiChar = '\r';
+                b[3].Event.KeyEvent.wVirtualKeyCode = VK_RETURN;
+                b[3].Event.KeyEvent.wVirtualScanCode = 0x1c;
+                b[3].Event.KeyEvent.wRepeatCount = 1;
+                DWORD numb;
+                WriteConsoleInput(hStdIn, b, 4, &numb);
+            }
+        }
+#endif
+        commandThread->join();
+        delete commandThread;
+    }
 }
 
 void Bootstrapper::cleanup() {
@@ -179,16 +304,9 @@ void BasicBootstrapper::setupCommonWatchObjects() {
 }
 
 
-void CommonBootstrapper::onPreInit() {
+void AppBootstrapper::onPreInit() {
     BasicBootstrapper::onPreInit();
     LogUtil::defineLoggingOptions(NET4CXX_Options);
 }
-
-
-void AppBootstrapper::onInit() {
-    CommonBootstrapper::onInit();
-    enableReactor();
-}
-
 
 NS_END

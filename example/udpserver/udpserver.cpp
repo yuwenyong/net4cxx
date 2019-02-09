@@ -21,6 +21,8 @@ public:
 
 class UDPServerApp: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         auto conn = reactor()->listenUDP(28002, std::make_shared<MyProtocol>());
         conn->stopListening()->addCallback([](DeferredValue val) {

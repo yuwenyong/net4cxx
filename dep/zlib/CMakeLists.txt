@@ -1,9 +1,16 @@
-
 find_package(ZLIB REQUIRED)
-add_library(zlib SHARED IMPORTED GLOBAL)
-set_target_properties(zlib
-        PROPERTIES
-        IMPORTED_LOCATION
-        "${ZLIB_LIBRARIES}"
-        INTERFACE_INCLUDE_DIRECTORIES
-        "${ZLIB_INCLUDE_DIRS}")
+
+message(STATUS "ZLIB_LIBRARIES: ${ZLIB_LIBRARIES}")
+message(STATUS "ZLIB_INCLUDE_DIRS: ${ZLIB_INCLUDE_DIRS}")
+
+add_library(zlib INTERFACE)
+
+target_link_libraries(zlib
+        INTERFACE
+        ${ZLIB_LIBRARIES})
+
+target_include_directories(zlib
+        INTERFACE
+        ${ZLIB_INCLUDE_DIRS})
+
+

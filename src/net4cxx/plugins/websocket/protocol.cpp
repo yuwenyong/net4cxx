@@ -629,7 +629,7 @@ void WebSocketProtocol::sendFrame(Byte opcode, const Byte *payload, size_t lengt
     if (fin) {
         b0 |= (1u << 7u);
     }
-    b0 |= (rsv % 8u) << 4u;
+    b0 |= (Byte)((rsv % 8u) << 4u);
     b0 |= opcode % 128u;
 
     Byte b1 = 0u;

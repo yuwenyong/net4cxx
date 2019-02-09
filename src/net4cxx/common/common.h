@@ -38,7 +38,7 @@
 
 #if PLATFORM == PLATFORM_WINDOWS
 #  include <ws2tcpip.h>
-
+#  include <windows.h>
 #  if defined(__INTEL_COMPILER)
 #    if !defined(BOOST_ASIO_HAS_MOVE)
 #      define BOOST_ASIO_HAS_MOVE
@@ -55,6 +55,20 @@
 #endif
 
 #define BOOST_ENABLE_ASSERT_DEBUG_HANDLER
+#define BOOST_ALL_DYN_LINK
+
+#ifdef NET4CXX_DEBUG
+#   if PLATFORM != PLATFORM_APPLE
+#       define BOOST_STACKTRACE_USE_BACKTRACE
+#   endif
+#else
+#   define BOOST_STACKTRACE_USE_NOOP
+#endif
+
+#if PLATFORM == PLATFORM_APPLE
+#   define BOOST_STACKTRACE_LINK
+#endif
+
 #include <boost/config.hpp>
 #include <boost/date_time.hpp>
 
@@ -65,6 +79,7 @@
 #    define NET4CXX_ENDIAN NET4CXX_LITTLEENDIAN
 #  endif
 #endif
+
 
 
 #include <boost/algorithm/string.hpp>
@@ -158,12 +173,9 @@ typedef std::set<std::string> StringSet;
 #define CLR_MASK(lhs, rhs)  lhs &= (~(rhs))
 #define TST_MASK(lhs, rhs)  (((lhs) & (rhs)) == (rhs))
 
-
-#define BOOST_LOG_DYN_LINK
-#define BOOST_REGEX_DYN_LINK
-#define BOOST_STACKTRACE_DYN_LINK
-
-#define DEFAULT_STACKTRACE_MAX_DEPTH 20
+#ifdef interface
+#undef interface
+#endif
 
 
 using DateTime = boost::posix_time::ptime;

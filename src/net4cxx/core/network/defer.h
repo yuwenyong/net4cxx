@@ -70,7 +70,7 @@ public:
     template <typename ValueT>
     DeferredValue(ValueT &&value): _value(tagDeferredValue{std::forward<ValueT>(value)}) {}
 
-    DeferredValue(nullptr_t): _value(tagDeferredValue{}) {}
+    DeferredValue(std::nullptr_t): _value(tagDeferredValue{}) {}
 
     DeferredValue(std::exception_ptr error): _value(tagDeferredError(error)) {}
 

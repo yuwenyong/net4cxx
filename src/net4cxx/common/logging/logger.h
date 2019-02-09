@@ -136,117 +136,117 @@ public:
 
     template <typename... Args>
     void trace(const char *format, Args&&... args) {
-        write(SEVERITY_TRACE, format, std::forward<Args>(args)...);
+        write(NET4CXX_SEVERITY_TRACE, format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void trace(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format, Args&&... args) {
-        write(file, line, func, SEVERITY_TRACE, format, std::forward<Args>(args)...);
+        write(file, line, func, NET4CXX_SEVERITY_TRACE, format, std::forward<Args>(args)...);
     }
 
     void trace(const Byte *data, size_t length, size_t limit=0) {
-        write(SEVERITY_TRACE, data, length, limit);
+        write(NET4CXX_SEVERITY_TRACE, data, length, limit);
     }
 
     void trace(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data, size_t length,
                size_t limit=0) {
-        write(file, line, func, SEVERITY_TRACE, data, length, limit);
+        write(file, line, func, NET4CXX_SEVERITY_TRACE, data, length, limit);
     }
 
     template <typename... Args>
     void debug(const char *format, Args&&... args) {
-        write(SEVERITY_DEBUG, format, std::forward<Args>(args)...);
+        write(NET4CXX_SEVERITY_DEBUG, format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void debug(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format, Args&&... args) {
-        write(file, line, func, SEVERITY_DEBUG, format, std::forward<Args>(args)...);
+        write(file, line, func, NET4CXX_SEVERITY_DEBUG, format, std::forward<Args>(args)...);
     }
 
     void debug(const Byte *data, size_t length, size_t limit=0) {
-        write(SEVERITY_DEBUG, data, length, limit);
+        write(NET4CXX_SEVERITY_DEBUG, data, length, limit);
     }
 
     void debug(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data, size_t length,
                size_t limit=0) {
-        write(file, line, func, SEVERITY_DEBUG, data, length, limit);
+        write(file, line, func, NET4CXX_SEVERITY_DEBUG, data, length, limit);
     }
 
     template <typename... Args>
     void info(const char *format, Args&&... args) {
-        write(SEVERITY_INFO, format, std::forward<Args>(args)...);
+        write(NET4CXX_SEVERITY_INFO, format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void info(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format, Args&&... args) {
-        write(file, line, func, SEVERITY_INFO, format, std::forward<Args>(args)...);
+        write(file, line, func, NET4CXX_SEVERITY_INFO, format, std::forward<Args>(args)...);
     }
 
     void info(const Byte *data, size_t length, size_t limit=0) {
-        write(SEVERITY_INFO, data, length, limit);
+        write(NET4CXX_SEVERITY_INFO, data, length, limit);
     }
 
     void info(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data, size_t length,
               size_t limit=0) {
-        write(file, line, func, SEVERITY_INFO, data, length, limit);
+        write(file, line, func, NET4CXX_SEVERITY_INFO, data, length, limit);
     }
 
     template <typename... Args>
     void warn(const char *format, Args&&... args) {
-        write(SEVERITY_WARN, format, std::forward<Args>(args)...);
+        write(NET4CXX_SEVERITY_WARN, format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void warn(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format,
                  Args&&... args) {
-        write(file, line, func, SEVERITY_WARN, format, std::forward<Args>(args)...);
+        write(file, line, func, NET4CXX_SEVERITY_WARN, format, std::forward<Args>(args)...);
     }
 
     void warn(const Byte *data, size_t length, size_t limit=0) {
-        write(SEVERITY_WARN, data, length, limit);
+        write(NET4CXX_SEVERITY_WARN, data, length, limit);
     }
 
     void warn(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data, size_t length,
                  size_t limit=0) {
-        write(file, line, func, SEVERITY_WARN, data, length, limit);
+        write(file, line, func, NET4CXX_SEVERITY_WARN, data, length, limit);
     }
 
     template <typename... Args>
     void error(const char *format, Args&&... args) {
-        write(SEVERITY_ERROR, format, std::forward<Args>(args)...);
+        write(NET4CXX_SEVERITY_ERROR, format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void error(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format, Args&&... args) {
-        write(file, line, func, SEVERITY_ERROR, format, std::forward<Args>(args)...);
+        write(file, line, func, NET4CXX_SEVERITY_ERROR, format, std::forward<Args>(args)...);
     }
 
     void error(const Byte *data, size_t length, size_t limit=0) {
-        write(SEVERITY_ERROR, data, length, limit);
+        write(NET4CXX_SEVERITY_ERROR, data, length, limit);
     }
 
     void error(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data, size_t length,
                size_t limit=0) {
-        write(file, line, func, SEVERITY_ERROR, data, length, limit);
+        write(file, line, func, NET4CXX_SEVERITY_ERROR, data, length, limit);
     }
 
     template <typename... Args>
     void fatal(const char *format, Args&&... args) {
-        write(SEVERITY_FATAL, format, std::forward<Args>(args)...);
+        write(NET4CXX_SEVERITY_FATAL, format, std::forward<Args>(args)...);
     }
 
     template <typename... Args>
     void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, const char *format, Args&&... args) {
-        write(file, line, func, SEVERITY_FATAL, format, std::forward<Args>(args)...);
+        write(file, line, func, NET4CXX_SEVERITY_FATAL, format, std::forward<Args>(args)...);
     }
 
     void fatal(const Byte *data, size_t length, size_t limit=0) {
-        write(SEVERITY_FATAL, data, length, limit);
+        write(NET4CXX_SEVERITY_FATAL, data, length, limit);
     }
 
     void fatal(const StringLiteral &file, size_t line, const StringLiteral &func, const Byte *data, size_t length,
                size_t limit=0) {
-        write(file, line, func, SEVERITY_FATAL, data, length, limit);
+        write(file, line, func,NET4CXX_SEVERITY_FATAL, data, length, limit);
     }
 protected:
     explicit Logger(std::string name)
@@ -287,7 +287,7 @@ protected:
                const Byte *data, size_t length, size_t limit=0);
 
     std::string _name;
-    Severity _severity{SEVERITY_TRACE};
+    Severity _severity{NET4CXX_SEVERITY_TRACE};
     PositionLoggerMT<Severity> _logger;
 };
 

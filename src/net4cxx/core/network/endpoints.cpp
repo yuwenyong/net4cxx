@@ -75,15 +75,15 @@ void WrappingFactory::clientConnectionFailed(ConnectorPtr connector, std::except
 
 
 DeferredPtr TCPServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
-        return _reactor->listenTCP(_port, std::move(protocolFactory), _interface);
+    return executeDeferred([this](std::shared_ptr<Factory> factory) -> ListenerPtr {
+        return _reactor->listenTCP(_port, std::move(factory), _interface);
     }, std::move(protocolFactory));
 }
 
 
 DeferredPtr SSLServerEndpoint::listen(std::shared_ptr<Factory> protocolFactory) const {
-    return executeDeferred([this](std::shared_ptr<Factory> protocolFactory) -> ListenerPtr {
-        return _reactor->listenSSL(_port, std::move(protocolFactory), _sslOption, _interface);
+    return executeDeferred([this](std::shared_ptr<Factory> factory) -> ListenerPtr {
+        return _reactor->listenSSL(_port, std::move(factory), _sslOption, _interface);
     }, std::move(protocolFactory));
 }
 

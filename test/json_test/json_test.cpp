@@ -5,8 +5,10 @@
 
 using namespace net4cxx;
 
-class JsonTest: public CommonBootstrapper {
+class JsonTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         JsonValue root{JsonType::objectValue};
         root["str"] = "Hello world";
@@ -51,7 +53,7 @@ public:
 
 
 int main(int argc, char **argv) {
-    JsonTest app;
+    JsonTest app{false};
     app.run(argc, argv);
     return 0;
 }

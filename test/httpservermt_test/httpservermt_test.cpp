@@ -23,10 +23,7 @@ public:
 
 class HTTPServerMTTest: public AppBootstrapper {
 public:
-    void onInit() override {
-        AppBootstrapper::onInit();
-        enableReactor(4);
-    }
+    using AppBootstrapper::AppBootstrapper;
 
     void onRun() override {
         auto webApp = makeWebApp<WebApp>({
@@ -38,7 +35,7 @@ public:
 
 
 int main(int argc, char **argv) {
-    HTTPServerMTTest app;
+    HTTPServerMTTest app(4, false);
     app.run(argc, argv);
     return 0;
 }

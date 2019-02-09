@@ -578,7 +578,7 @@ double HTTPServerRequest::requestTime() const {
     } else {
         elapse = std::chrono::duration_cast<std::chrono::microseconds>(_finishTime - _startTime);
     }
-    return elapse.count() / 1000000 + elapse.count() % 1000000 / 1000000.0;
+    return (double)(elapse.count() / 1000000) + (double)(elapse.count() % 1000000) / 1000000.0;
 }
 
 void HTTPServerRequest::parseBody() {

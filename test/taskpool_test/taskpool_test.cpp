@@ -7,8 +7,10 @@
 using namespace net4cxx;
 
 
-class TaskPoolTest: public CommonBootstrapper {
+class TaskPoolTest: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         TaskPool taskPool;
         taskPool.start(4);
@@ -72,7 +74,7 @@ public:
 
 
 int main(int argc, char **argv) {
-    TaskPoolTest app;
+    TaskPoolTest app{false};
     app.run(argc, argv);
     return 0;
 }

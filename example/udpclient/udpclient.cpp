@@ -24,6 +24,8 @@ public:
 
 class UDPClientApp: public AppBootstrapper {
 public:
+    using AppBootstrapper::AppBootstrapper;
+
     void onRun() override {
         reactor()->connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
 //        reactor()->connectUNIXDatagram("/data/bar.sock", std::make_shared<MyProtocol>(), 8192, "/data/bar2.sock");

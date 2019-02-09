@@ -26,12 +26,12 @@ namespace attrs = boost::log::attributes;
 using Severity = logging::trivial::severity_level;
 using StringLiteral = logging::string_literal;
 
-#define SEVERITY_TRACE      logging::trivial::trace
-#define SEVERITY_DEBUG      logging::trivial::debug
-#define SEVERITY_INFO       logging::trivial::info
-#define SEVERITY_WARN       logging::trivial::warning
-#define SEVERITY_ERROR      logging::trivial::error
-#define SEVERITY_FATAL      logging::trivial::fatal
+#define NET4CXX_SEVERITY_TRACE      logging::trivial::trace
+#define NET4CXX_SEVERITY_DEBUG      logging::trivial::debug
+#define NET4CXX_SEVERITY_INFO       logging::trivial::info
+#define NET4CXX_SEVERITY_WARN       logging::trivial::warning
+#define NET4CXX_SEVERITY_ERROR      logging::trivial::error
+#define NET4CXX_SEVERITY_FATAL      logging::trivial::fatal
 
 
 BOOST_LOG_ATTRIBUTE_KEYWORD(attr_severity, "Severity", Severity)

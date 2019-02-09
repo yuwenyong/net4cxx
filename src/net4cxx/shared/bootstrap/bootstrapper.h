@@ -6,6 +6,7 @@
 #define NET4CXX_SHARED_BOOTSTRAP_BOOTSTRAPPER_H
 
 #include "net4cxx/common/common.h"
+#include <thread>
 #include <boost/function.hpp>
 
 
@@ -15,7 +16,9 @@ class Reactor;
 
 class NET4CXX_COMMON_API Bootstrapper: public boost::noncopyable {
 public:
-    Bootstrapper();
+    explicit Bootstrapper(bool commandThreadEnabled);
+
+    explicit Bootstrapper(size_t numThreads=0, bool commandThreadEnabled=false);
 
     virtual ~Bootstrapper();
 
@@ -27,16 +30,8 @@ public:
 
     void setCrashReportPath(const std::string &crashReportPath);
 
-    void enableReactor(size_t numThreads=0) {
-        _numThreads = numThreads;
-    }
-
-    void disableReactor() {
-        _numThreads = boost::none;
-    }
-
     Reactor* reactor() {
-        return _reactor;
+        return _reactor.get();
     }
 
     virtual void onPreInit();
@@ -47,22 +42,50 @@ public:
 
     virtual void onQuit();
 
+    virtual bool onSysCommand(const std::string &command);
+
+    virtual bool onUserCommand(const std::string &command);
+
     static Bootstrapper* instance() {
         return _instance;
     }
 protected:
+    void doPreInit();
+
+    void doInit();
+
+    void doRun();
+
+    void commandThread();
+
+    bool onCommand(const std::string &command) {
+        if (onSysCommand(command)) {
+            return true;
+        }
+        return onUserCommand(command);
+    }
+
     void cleanup();
 
-    static Bootstrapper *_instance;
+#if PLATFORM != PLATFORM_WINDOWS
+    static int kbHitReturn();
+#endif
+
+    static void shutdownCommandThread(std::thread* commandThread);
 
     bool _inited{false};
-    boost::optional<size_t> _numThreads;
-    Reactor *_reactor{nullptr};
+    bool _commandThreadEnabled{false};
+    volatile bool _commandThreadStopped{false};
+    std::unique_ptr<Reactor> _reactor;
+
+    static Bootstrapper *_instance;
 };
 
 
 class NET4CXX_COMMON_API BasicBootstrapper: public Bootstrapper {
 public:
+    using Bootstrapper::Bootstrapper;
+
     void onPreInit() override;
 
 protected:
@@ -70,15 +93,11 @@ protected:
 };
 
 
-class NET4CXX_COMMON_API CommonBootstrapper: public BasicBootstrapper {
+class NET4CXX_COMMON_API AppBootstrapper: public BasicBootstrapper {
 public:
+    using BasicBootstrapper::BasicBootstrapper;
+
     void onPreInit() override;
-};
-
-
-class NET4CXX_COMMON_API AppBootstrapper: public CommonBootstrapper {
-public:
-    void onInit() override;
 };
 
 NS_END
