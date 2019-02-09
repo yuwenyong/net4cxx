@@ -58,11 +58,15 @@
 #define BOOST_ALL_DYN_LINK
 
 #ifdef NET4CXX_DEBUG
-#   if COMPILER == COMPILER_GNU
+#   if PLATFORM != PLATFORM_APPLE
 #       define BOOST_STACKTRACE_USE_BACKTRACE
 #   endif
 #else
 #   define BOOST_STACKTRACE_USE_NOOP
+#endif
+
+#if PLATFORM == PLATFORM_APPLE
+#   define BOOST_STACKTRACE_LINK
 #endif
 
 #include <boost/config.hpp>
@@ -75,6 +79,7 @@
 #    define NET4CXX_ENDIAN NET4CXX_LITTLEENDIAN
 #  endif
 #endif
+
 
 
 #include <boost/algorithm/string.hpp>
