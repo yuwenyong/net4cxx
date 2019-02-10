@@ -6,9 +6,9 @@
 
 using namespace net4cxx;
 
-class SleepAsyncTest: public AppBootstrapper {
+class SleepAsyncTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         auto d = sleepAsync(reactor(), 2.0f);

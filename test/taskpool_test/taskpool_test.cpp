@@ -7,9 +7,9 @@
 using namespace net4cxx;
 
 
-class TaskPoolTest: public AppBootstrapper {
+class TaskPoolTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         TaskPool taskPool;

@@ -83,9 +83,9 @@ public:
 //};
 
 
-class TCPClientApp: public AppBootstrapper {
+class TCPClientApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
 //        reactor()->connectTCP("localhost", "28001", std::make_shared<MyFactory>());

@@ -6,9 +6,9 @@
 
 using namespace net4cxx;
 
-class PeriodCallbackTest: public AppBootstrapper {
+class PeriodCallbackTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         PeriodicCallback::create([](){

@@ -7,9 +7,9 @@
 using namespace net4cxx;
 
 
-class HTTPClientApp: public AppBootstrapper {
+class HTTPClientApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
     
     void onRun() {
         auto request = HTTPRequest::create("https://www.baidu.com/")

@@ -5,9 +5,9 @@
 
 using namespace net4cxx;
 
-class JsonTest: public AppBootstrapper {
+class JsonTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         JsonValue root{JsonType::objectValue};

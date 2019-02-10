@@ -7,9 +7,9 @@
 using namespace net4cxx;
 
 
-class HelloWorldApp: public AppBootstrapper {
+class HelloWorldApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         NET4CXX_LOG_INFO(gAppLog, "Hello world!");

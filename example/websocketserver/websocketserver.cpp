@@ -73,9 +73,9 @@ ProtocolPtr BroadcastServerFactory::buildProtocol(const Address &address) {
 }
 
 
-class WebSocketServerApp: public AppBootstrapper {
+class WebSocketServerApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         auto factory = std::make_shared<BroadcastServerFactory>("ws://127.0.0.1:9000");

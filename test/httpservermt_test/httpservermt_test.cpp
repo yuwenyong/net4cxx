@@ -21,9 +21,9 @@ public:
 };
 
 
-class HTTPServerMTTest: public AppBootstrapper {
+class HTTPServerMTTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         auto webApp = makeWebApp<WebApp>({

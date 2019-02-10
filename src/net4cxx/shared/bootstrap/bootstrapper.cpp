@@ -69,7 +69,9 @@ void Bootstrapper::setCrashReportPath(const std::string &crashReportPath) {
 }
 
 void Bootstrapper::onPreInit() {
-
+    LogUtil::initGlobalLoggers();
+    LogUtil::defineLoggingOptions(NET4CXX_Options);
+    setupCommonWatchObjects();
 }
 
 void Bootstrapper::onInit() {
@@ -251,20 +253,7 @@ void Bootstrapper::shutdownCommandThread(std::thread *commandThread) {
     }
 }
 
-void Bootstrapper::cleanup() {
-    _reactor = nullptr;
-    NET4CXX_ObjectManager->cleanup();
-    NET4CXX_Watcher->dumpAll();
-    Logging::close();
-}
-
-
-void BasicBootstrapper::onPreInit() {
-    LogUtil::initGlobalLoggers();
-    setupCommonWatchObjects();
-}
-
-void BasicBootstrapper::setupCommonWatchObjects() {
+void Bootstrapper::setupCommonWatchObjects() {
     NET4CXX_WATCH_OBJECT(WatchKeys::TCPServerConnectionCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::TCPListenerCount);
     NET4CXX_WATCH_OBJECT(WatchKeys::TCPClientConnectionCount);
@@ -303,10 +292,12 @@ void BasicBootstrapper::setupCommonWatchObjects() {
     NET4CXX_WATCH_OBJECT(WatchKeys::RequestHandlerCount);
 }
 
-
-void AppBootstrapper::onPreInit() {
-    BasicBootstrapper::onPreInit();
-    LogUtil::defineLoggingOptions(NET4CXX_Options);
+void Bootstrapper::cleanup() {
+    _reactor = nullptr;
+    NET4CXX_ObjectManager->cleanup();
+    NET4CXX_Watcher->dumpAll();
+    Logging::close();
 }
+
 
 NS_END

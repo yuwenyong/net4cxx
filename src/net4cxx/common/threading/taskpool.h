@@ -124,6 +124,13 @@ protected:
     std::vector<std::thread> _threads;
 };
 
+
+template <typename ValueT>
+bool isReady(const std::future<ValueT> &fut) {
+    return fut.wait_for(std::chrono::milliseconds::zero()) == std::future_status::ready;
+}
+
+
 NS_END
 
 #endif //NET4CXX_COMMON_THREADING_TASKPOOL_H

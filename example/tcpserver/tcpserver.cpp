@@ -36,9 +36,9 @@ public:
 };
 
 
-class TCPServerApp: public AppBootstrapper {
+class TCPServerApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
 //        TCPServerEndpoint endpoint(reactor(), "28001");

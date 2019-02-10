@@ -31,9 +31,9 @@ protected:
 };
 
 
-class ArchiveTest: public AppBootstrapper {
+class ArchiveTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         Person p1{"testName", 21, "M", 167.5};

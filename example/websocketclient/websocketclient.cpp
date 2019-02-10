@@ -39,9 +39,9 @@ public:
 };
 
 
-class WebSocketClientApp: public AppBootstrapper {
+class WebSocketClientApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         auto factory = std::make_shared<BroadcastClientFactory>("ws://127.0.0.1:9000");

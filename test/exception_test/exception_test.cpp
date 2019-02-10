@@ -29,9 +29,9 @@ void testMyError() {
 }
 
 
-class ExceptionTest: public AppBootstrapper {
+class ExceptionTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         try {

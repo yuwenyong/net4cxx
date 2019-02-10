@@ -28,7 +28,7 @@ pacboy sync dlfcn:x
 ./make install
 ```
 
-### linux（以ubuntu为例子）
+### linux（以ubuntu为例）
 
 * 需要1.66以上的boost,如果是18.10以上版本的ubuntu,则可以直接通过命令安装，否则源码编译boost
 
@@ -63,6 +63,10 @@ cmake ..
 make
 ```
 
+## Remark
+
+* 我很懒，文档聊胜于无
+
 ## Tutorial
 
 ### 开发基于字节流协议的服务器(tcp,ssl,unix)
@@ -87,15 +91,21 @@ public:
     }
 };
 
+class TCPServerApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        TCPServerEndpoint endpoint(reactor(), "28001");
+        endpoint.listen(std::make_shared<EchoFactory>());
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    TCPServerEndpoint endpoint(&reactor, "28001");
-    endpoint.listen(std::make_shared<EchoFactory>());
-    reactor.run();
+    TCPServerApp app;
+    app.run(argc, argv);
     return 0;
 }
-
 ```
 
 * 以上实现了一个最简单的例子,将客户端发送过来的信息回写;
@@ -104,7 +114,6 @@ int main(int argc, char **argv) {
 * 后面会展示一种更好的服务器启动方式,切换协议无需修改任何代码.
 
 ```c++
-
 class Echo: public Protocol, public std::enable_shared_from_this<Echo> {
 public:
     void connectionMade() override {
@@ -129,14 +138,20 @@ public:
 
 
 ```c++
+class TCPServerApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        serverFromString(reactor(), "tcp:28001")->listen(std::make_shared<EchoFactory>());
+        serverFromString(reactor(), "ssl:28002:privateKey=test.key:certKey=test.crt")->listen(std::make_shared<EchoFactory>());
+        serverFromString(reactor(), "unix:/var/foo/bar")->listen(std::make_shared<EchoFactory>());
+    }
+};
 
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    serverFromString(&reactor, "tcp:28001")->listen(std::make_shared<EchoFactory>());
-    serverFromString(&reactor, "ssl:28002:privateKey=test.key:certKey=test.crt")->listen(std::make_shared<EchoFactory>());
-    serverFromString(&reactor, "unix:/var/foo/bar")->listen(std::make_shared<EchoFactory>());
-    reactor.run();
+    TCPServerApp app;
+    app.run(argc, argv);
     return 0;
 }
 
@@ -167,11 +182,18 @@ public:
     }
 };
 
+class TCPClientApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        reactor()->connectTCP("localhost", "28001", std::make_shared<WelcomeFactory>());
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    reactor.connectTCP("localhost", "28001", std::make_shared<WelcomeFactory>());
-    reactor.run();
+    TCPClientApp app;
+    app.run(argc, argv);
     return 0;
 }
 
@@ -183,13 +205,14 @@ int main(int argc, char **argv) {
 
 
 ```c++
-int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    reactor.connectTCP("localhost", "28001", std::make_shared<OneShotFactory>(std::make_shared<WelcomeMessage>()));
-    reactor.run();
-    return 0;
-}
+class TCPClientApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        reactor()->connectTCP("localhost", "28001", std::make_shared<OneShotFactory>(std::make_shared<WelcomeMessage>()));
+    }
+};
 ```
 
 * 使用内置的OneShotFactory可以指定总是返回某个固定的protocol,用户也无需创建自己的factory,这在服务器之间互联很有用;
@@ -225,11 +248,19 @@ public:
     }
 };
 
+class UDPServerApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        reactor()->listenUDP(28002, std::make_shared<Echo>());
+    }
+};
+
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    reactor.listenUDP(28002, std::make_shared<Echo>());
-    reactor.run();
+    UDPServerApp app;
+    app.run(argc, argv);
     return 0;
 }
 ```
@@ -257,12 +288,19 @@ public:
     }
 };
 
+class UDPClientApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        reactor()->connectUDP("127.0.0.1", 28002, std::make_shared<EchoClient>());
+    }
+};
+
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    reactor.connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());
-    reactor.connectUNIXDatagram("/data/foo/bar", std::make_shared<MyProtocol>(), 8192, "/data/foo/bar2");
-    reactor.run();
+    UDPClientApp app;
+    app.run(argc, argv);
     return 0;
 }
 ```
@@ -284,6 +322,14 @@ public:
     using WebSocketServerFactory::WebSocketServerFactory;
 
     ProtocolPtr buildProtocol(const Address &address) override;
+
+    void tick(Reactor *reactor) {
+        _tickCount += 1;
+        broadcast(StrUtil::format("tick %d from server", _tickCount));
+        reactor->callLater(1.0, [reactor, this, self=shared_from_this()]() {
+           tick(reactor);
+        });
+    }
 
     void registerClient(WebSocketServerProtocolPtr client) {
         if (_clients.find(client) == _clients.end()) {
@@ -307,6 +353,7 @@ public:
         }
     }
 protected:
+    int _tickCount{0};
     std::set<WebSocketServerProtocolPtr> _clients;
 };
 
@@ -319,7 +366,7 @@ public:
 
     void onMessage(ByteArray payload, bool isBinary) override {
         if (!isBinary) {
-            auto msg = StrUtil::format("%s from %s", BytesToString(payload), getPeerName());
+            auto msg = StrUtil::format("%s from %s", TypeCast<std::string>(payload), getPeerName());
             getFactory<BroadcastServerFactory>()->broadcast(msg);
         }
     }
@@ -334,12 +381,21 @@ ProtocolPtr BroadcastServerFactory::buildProtocol(const Address &address) {
     return std::make_shared<BroadcastServerProtocol>();
 }
 
+
+class WebSocketServerApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        auto factory = std::make_shared<BroadcastServerFactory>("ws://127.0.0.1:9000");
+        listenWS(reactor(), factory);
+        factory->tick(reactor());
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    auto factory = std::make_shared<BroadcastServerFactory>("ws://127.0.0.1:9000");
-    listenWS(&reactor, factory);
-    reactor.run();
+    WebSocketServerApp app;
+    app.run(argc, argv);
     return 0;
 }
 ```
@@ -363,7 +419,7 @@ public:
 
     void onMessage(ByteArray payload, bool isBinary) override {
         if (!isBinary) {
-            NET4CXX_LOG_INFO(gAppLog, "Text message received: %s", BytesToString(payload));
+            NET4CXX_LOG_INFO(gAppLog, "Text message received: %s", TypeCast<std::string>(payload));
         }
     }
 
@@ -386,16 +442,296 @@ public:
 };
 
 
+class WebSocketClientApp: public Bootstrapper {
+public:
+    using Bootstrapper::Bootstrapper;
+
+    void onRun() override {
+        auto factory = std::make_shared<BroadcastClientFactory>("ws://127.0.0.1:9000");
+        connectWS(reactor(), factory);
+    }
+};
+
 int main(int argc, char **argv) {
-    NET4CXX_PARSE_COMMAND_LINE(argc, argv);
-    Reactor reactor;
-    auto factory = std::make_shared<BroadcastClientFactory>("ws://127.0.0.1:9000");
-    connectWS(&reactor, factory);
-    reactor.run();
+    WebSocketClientApp app;
+    app.run(argc, argv);
     return 0;
 }
 ```
 
 * 以上实现了一个会自动定时发消息的websocket客户端
+
+### 开发基于http协议的服务器
+
+ ```c++
+ #include "net4cxx/net4cxx.h"
+ 
+ using namespace net4cxx;
+ 
+ std::map<int, std::string> gBookNames;
+ 
+ class Books: public RequestHandler {
+ public:
+     using RequestHandler::RequestHandler;
+ 
+     DeferredPtr onGet(const StringVector &args) override {
+         JsonValue response;
+         response["books"] = JsonType::arrayValue;
+         for (auto book: gBookNames) {
+             JsonValue b;
+             b["id"] = book.first;
+             b["name"] = book.second;
+             response["books"].append(b);
+         }
+         write(response);
+         return nullptr;
+     }
+ 
+     DeferredPtr onPost(const StringVector &args) override {
+         auto body = boost::lexical_cast<JsonValue>(getRequest()->getBody());
+         gBookNames[body["id"].asInt()] = body["name"].asString();
+         write(body);
+         return nullptr;
+     }
+ };
+ 
+ 
+ class Book: public RequestHandler {
+ public:
+     using RequestHandler::RequestHandler;
+ 
+ 
+     DeferredPtr onGet(const StringVector &args) override {
+         auto bookId = std::stoi(args[0]);
+         auto iter = gBookNames.find(bookId);
+         if (iter != gBookNames.end()) {
+             JsonValue response;
+             response["book"]["id"] = iter->first;
+             response["book"]["name"] = iter->second;
+             write(response);
+         } else {
+             sendError(404);
+         }
+         return nullptr;
+     }
+ 
+     DeferredPtr onDelete(const StringVector &args) override {
+         auto bookId = std::stoi(args[0]);
+         auto iter = gBookNames.find(bookId);
+         if (iter != gBookNames.end()) {
+             JsonValue response;
+             response["book"]["id"] = iter->first;
+             response["book"]["name"] = iter->second;
+             gBookNames.erase(iter);
+             write(response);
+         } else {
+             sendError(404);
+         }
+         return nullptr;
+     }
+ 
+     DeferredPtr onPut(const StringVector &args) override {
+         auto bookId = std::stoi(args[0]);
+         auto iter = gBookNames.find(bookId);
+         if (iter != gBookNames.end()) {
+             JsonValue response;
+             iter->second = getArgument("name");
+             response["book"]["id"] = iter->first;
+             response["book"]["name"] = iter->second;
+             write(response);
+         } else {
+             sendError(404);
+         }
+         return nullptr;
+     }
+ };
+ 
+ class HTTPServerApp: public Bootstrapper {
+ public:
+     using Bootstrapper::Bootstrapper;
+     
+     void onRun() override {
+         auto webApp = makeWebApp<WebApp>({
+                                                  url<Books>(R"(/books/)"),
+                                                  url<Book>(R"(/books/(\d+)/)")
+                                          });
+         reactor()->listenTCP("8080", std::move(webApp));
+     }
+ };
+ 
+ 
+ int main(int argc, char **argv) {
+     HTTPServerApp app;
+     app.run(argc, argv);
+     return 0;
+ }
+ ```
+ 
+ * 以上实现了一组增删改查的书籍信息的restful接口,使用正则表达式捕获路径参数
+ 
+ ### 开发基于http协议的客户端
+ 
+ ```c++
+ #include "net4cxx/net4cxx.h"
+ 
+ using namespace net4cxx;
+ 
+ 
+ class HTTPClientApp: public Bootstrapper {
+ public:
+     using Bootstrapper::Bootstrapper;
+     
+     void onRun() {
+         auto request = HTTPRequest::create("https://www.baidu.com/")
+                 ->setValidateCert(false)
+                 ->setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) Gecko/20100101 Firefox/61.0");
+         HTTPClient::create()->fetch(request, [](const HTTPResponse &response){
+             std::cout << response.getCode() << std::endl;
+             if (response.getError()) {
+                 try {
+                     response.rethrow();
+                 } catch (std::exception &e) {
+                     std::cerr << e.what() << std::endl;
+                 }
+             } else {
+                 std::cout << response.getBody() << std::endl;
+             }
+         })->addCallback([](DeferredValue value) {
+             std::cout << "Success" << std::endl;
+             return value;
+         });
+     }
+ };
+ 
+ int main(int argc, char **argv) {
+     HTTPClientApp app;
+     app.run(argc, argv);
+     return 0;
+ }
+ ```
+ 
+ * 以上实现了模拟浏览器抓取百度主页
+ 
+ ### 该网络框架支持多线程，而且是per thread per loop的高效方式
+ 
+ ```c++
+ #include "net4cxx/net4cxx.h"
+ 
+ using namespace net4cxx;
+ 
+ 
+ class Books: public RequestHandler {
+ public:
+     using RequestHandler::RequestHandler;
+ 
+     DeferredPtr onGet(const StringVector &args) override {
+         std::cerr << "ThreadId:" << std::this_thread::get_id() << std::endl;
+         JsonValue response;
+         response["books"] = JsonType::arrayValue;
+         write(response);
+         return nullptr;
+     }
+ };
+ 
+ 
+ class HTTPServerMTTest: public Bootstrapper {
+ public:
+     using Bootstrapper::Bootstrapper;
+ 
+     void onRun() override {
+         auto webApp = makeWebApp<WebApp>({
+                                                  url<Books>(R"(/books/)")
+                                          });
+         reactor()->listenTCP("8080", std::move(webApp));
+     }
+ };
+ 
+ 
+ int main(int argc, char **argv) {
+     HTTPServerMTTest app(4, false);
+     app.run(argc, argv);
+     return 0;
+ }
+ ```
+ 
+  * 以上实现了4个线程的http服务器，每次处理请求打印出目前连接处于哪个线程
+  
+  ### http服务的请求处理支持异步操作
+  
+  ```c++
+  #include "net4cxx/net4cxx.h"
+  
+  using namespace net4cxx;
+  
+  
+  class Books: public RequestHandler {
+  public:
+      using RequestHandler::RequestHandler;
+  
+      DeferredPtr prepare() override {
+          return testAsyncFunc();
+      }
+  
+      DeferredPtr onGet(const StringVector &args) override {
+          return testAsyncFunc2();
+      }
+  
+      DeferredPtr testAsyncFunc() {
+          auto request = HTTPRequest::create("https://www.baidu.com/")
+                  ->setValidateCert(false)
+                  ->setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) Gecko/20100101 Firefox/61.0");
+          return HTTPClient::create()->fetch(request, [this, self=shared_from_this()](const HTTPResponse &response){
+              std::cout << response.getCode() << std::endl;
+              getArgument("name");
+          })->addCallbacks([](DeferredValue value) {
+              std::cout << "Success" << std::endl;
+              return value;
+          }, [](DeferredValue value) {
+              std::cout << "Fail" << std::endl;
+              return value;
+          });
+      }
+  
+      DeferredPtr testAsyncFunc2() {
+          auto request = HTTPRequest::create("https://www.baidu.com/")
+                  ->setValidateCert(false)
+                  ->setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) Gecko/20100101 Firefox/61.0");
+          return HTTPClient::create()->fetch(request, [self=shared_from_this()](const HTTPResponse &resp){
+              std::cout << resp.getCode() << std::endl;
+              JsonValue response;
+              response["books"] = JsonType::arrayValue;
+              write(response);
+          })->addCallbacks([](DeferredValue value) {
+              std::cout << "Success" << std::endl;
+              return value;
+          }, [](DeferredValue value) {
+              std::cout << "Fail" << std::endl;
+              return value;
+          });
+      }
+  };
+  
+  
+  class HTTPServerAsyncTest: public Bootstrapper {
+  public:
+      using Bootstrapper::Bootstrapper;
+  
+      void onRun() override {
+          auto webApp = makeWebApp<WebApp>({
+                                                   url<Books>(R"(/books/)"),
+                                           });
+          reactor()->listenTCP("8080", std::move(webApp));
+      }
+  };
+  
+  
+  int main(int argc, char **argv) {
+      HTTPServerAsyncTest app;
+      app.run(argc, argv);
+      return 0;
+  }
+  ```
+  
+  * 这里请求开始处理开始前异步访问了baidu,实际处理前再次访问了baidu,前面的异步操作完成才会开始后面的异步操作，理论上所有的异步操作都能用Deferred对象封装
 
 
