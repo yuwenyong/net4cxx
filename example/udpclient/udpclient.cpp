@@ -22,9 +22,9 @@ public:
 };
 
 
-class UDPClientApp: public AppBootstrapper {
+class UDPClientApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         reactor()->connectUDP("127.0.0.1", 28002, std::make_shared<MyProtocol>());

@@ -19,9 +19,9 @@ public:
 };
 
 
-class UDPServerApp: public AppBootstrapper {
+class UDPServerApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         auto conn = reactor()->listenUDP(28002, std::make_shared<MyProtocol>());

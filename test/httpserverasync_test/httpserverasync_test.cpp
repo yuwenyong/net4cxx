@@ -56,9 +56,9 @@ public:
 };
 
 
-class HTTPServerAsyncTest: public AppBootstrapper {
+class HTTPServerAsyncTest: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
 
     void onRun() override {
         auto webApp = makeWebApp<WebApp>({

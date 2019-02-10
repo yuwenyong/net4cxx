@@ -3,7 +3,6 @@
 //
 
 #include "net4cxx/plugins/web/httputil.h"
-#include "net4cxx/common/email/utils.h"
 #include "net4cxx/common/httputils/cookie.h"
 #include "net4cxx/shared/global/loggers.h"
 
@@ -352,7 +351,7 @@ std::tuple<std::string, StringMap> HTTPUtil::parseHeader(const std::string &line
     StringVector parts = parseParam(";" + line);
     std::string key = std::move(parts[0]);
     parts.erase(parts.begin());
-    QueryArgList params{{"Dummy", "value"}};
+    StringMap pdict;
     size_t i;
     std::string name, value;
     for (auto &p: parts) {
@@ -360,18 +359,15 @@ std::tuple<std::string, StringMap> HTTPUtil::parseHeader(const std::string &line
         if (i != std::string::npos) {
             name = boost::to_lower_copy(boost::trim_copy(p.substr(0, i)));
             value = boost::trim_copy(p.substr(i + 1));
-            params.emplace_back(std::move(name), std::move(value));
+            if (value.size() >= 2 && value.front() == '\"' && value.back() == '\"') {
+                value = value.substr(1, value.size() - 2);
+                boost::replace_all(value, "\\\\", "\\");
+                boost::replace_all(value, "\\\"", "\"");
+            }
+            pdict[std::move(name)] = std::move(value);
+        } else {
+            pdict[p] = "";
         }
-    }
-    params = EMailUtils::decodeParams(std::move(params));
-    params.erase(params.begin());
-    StringMap pdict;
-    for (auto &kv: params) {
-        value = EMailUtils::collapseRFC2231Value(kv.second);
-        if (value.size() >= 2 && value.front() == '\"' && value.back() == '\"') {
-            value = value.substr(1, value.size() - 2);
-        }
-        pdict[std::move(kv.first)] = std::move(value);
     }
     return std::make_tuple(std::move(key), std::move(pdict));
 }

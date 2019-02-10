@@ -132,6 +132,14 @@ public:
         }
     }
 
+    size_t getSubReactorCount() const {
+        return _reactorPool.size();
+    }
+
+    Reactor* getSubReactor(size_t index) {
+        return index < _reactorPool.size() ? &_reactorPool[index] : nullptr;
+    }
+
     static Reactor *current() {
         return _current;
     }

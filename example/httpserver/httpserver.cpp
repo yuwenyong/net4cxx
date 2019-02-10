@@ -84,9 +84,9 @@ public:
     }
 };
 
-class HTTPServerApp: public AppBootstrapper {
+class HTTPServerApp: public Bootstrapper {
 public:
-    using AppBootstrapper::AppBootstrapper;
+    using Bootstrapper::Bootstrapper;
     
     void onRun() override {
         auto webApp = makeWebApp<WebApp>({

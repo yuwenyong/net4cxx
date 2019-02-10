@@ -67,6 +67,8 @@ protected:
 
     void cleanup();
 
+    void setupCommonWatchObjects();
+
 #if PLATFORM != PLATFORM_WINDOWS
     static int kbHitReturn();
 #endif
@@ -81,24 +83,6 @@ protected:
     static Bootstrapper *_instance;
 };
 
-
-class NET4CXX_COMMON_API BasicBootstrapper: public Bootstrapper {
-public:
-    using Bootstrapper::Bootstrapper;
-
-    void onPreInit() override;
-
-protected:
-    void setupCommonWatchObjects();
-};
-
-
-class NET4CXX_COMMON_API AppBootstrapper: public BasicBootstrapper {
-public:
-    using BasicBootstrapper::BasicBootstrapper;
-
-    void onPreInit() override;
-};
 
 NS_END
 

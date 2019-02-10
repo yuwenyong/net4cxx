@@ -43,5 +43,6 @@
 #include "net4cxx/plugins/websocket/websocket.h"
 
 #include "net4cxx/shared/bootstrap/bootstrapper.h"
+#include "net4cxx/shared/bootstrap/reactorthread.h"
 
 #endif //NET4CXX_NET4CXX_H
